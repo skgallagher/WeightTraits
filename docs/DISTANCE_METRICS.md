@@ -63,3 +63,4 @@ Never instantiate model classes.
 Only stream tensor groups or chunks across models.
 ```
 
+For LoRA-specific distance semantics, especially cumulative `B @ A` path sums versus full merged weights, see [LoRA Distance Model](LORA_DISTANCE_MODEL.md).

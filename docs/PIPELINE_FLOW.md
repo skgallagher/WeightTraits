@@ -52,6 +52,8 @@ Whitebox analysis consumes checkpoints and the lineage manifest:
 
 Output: weight distances, reconstructed trees, recovery summaries, figures/tables.
 
+For LoRA, the default analysis object is cumulative adapter displacement along the root-to-node path, not the last edge's raw adapter increment. See [LoRA Distance Model](LORA_DISTANCE_MODEL.md).
+
 ## 5. Analyze Behaviors
 
 Behavior analysis branches after training:
