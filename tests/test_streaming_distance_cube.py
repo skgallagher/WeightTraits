@@ -10,6 +10,8 @@ from weighttraits.distances.readers import (
     DictTensorReader,
     LoraFactorReader,
     SafetensorsTensorReader,
+    ShardedSafetensorsTensorReader,
+    reader_from_path,
 )
 from weighttraits.distances.streaming import build_distance_cube, write_distance_cube
 
@@ -107,6 +109,11 @@ def test_distance_cube_writer_schema(tmp_path):
     audit = json.loads((out / "audit.json").read_text())
     assert audit["metric_execution"]["cosine"] == "chunk_streamed"
     assert audit["metric_execution"]["cka"] == "tensor_at_a_time"
+    assert audit["reader_type_by_model"] == {
+        "m0": "DictTensorReader",
+        "m1": "DictTensorReader",
+        "m2": "DictTensorReader",
+    }
 
 
 def test_cumulative_lora_reader_matches_explicit_path_sum():
@@ -186,3 +193,51 @@ def test_safetensors_reader_roundtrip_if_available(tmp_path):
         chunk_size=4,
     )
     assert cube.distances["l2"][0, 0, 1] == 0.0
+
+
+def test_sharded_safetensors_reader_roundtrip_if_available(tmp_path):
+    safetensors_np = pytest.importorskip("safetensors.numpy")
+    shard0 = tmp_path / "model-00001-of-00002.safetensors"
+    shard1 = tmp_path / "model-00002-of-00002.safetensors"
+    index = tmp_path / "model.safetensors.index.json"
+    tensors = {
+        "a": np.arange(6, dtype=np.float32).reshape(2, 3),
+        "b": np.arange(12, dtype=np.float32).reshape(3, 4),
+        "c": np.arange(6, dtype=np.float32),
+    }
+    safetensors_np.save_file({"a": tensors["a"], "c": tensors["c"]}, str(shard0))
+    safetensors_np.save_file({"b": tensors["b"]}, str(shard1))
+    index.write_text(
+        json.dumps(
+            {
+                "metadata": {"total_size": 24 * 4},
+                "weight_map": {
+                    "a": shard0.name,
+                    "b": shard1.name,
+                    "c": shard0.name,
+                },
+            }
+        )
+        + "\n"
+    )
+
+    reader = ShardedSafetensorsTensorReader(tmp_path, model_id="sharded")
+    assert reader.keys() == ["a", "b", "c"]
+    assert reader.tensor_info("b").shape == (3, 4)
+    chunks = list(reader.iter_flat_chunks("b", chunk_size=5))
+    assert [chunk.size for chunk in chunks] == [5, 5, 2]
+    np.testing.assert_allclose(np.concatenate(chunks), np.arange(12, dtype=float))
+    np.testing.assert_allclose(reader.read_tensor("a"), tensors["a"])
+    assert isinstance(reader_from_path(tmp_path), ShardedSafetensorsTensorReader)
+    assert isinstance(reader_from_path(index), ShardedSafetensorsTensorReader)
+
+    cube = build_distance_cube(
+        [
+            DictTensorReader(tensors, model_id="dict"),
+            ShardedSafetensorsTensorReader(index, model_id="sharded"),
+        ],
+        metrics=["cosine", "l2"],
+        chunk_size=5,
+    )
+    assert cube.distances["l2"].shape == (3, 2, 2)
+    np.testing.assert_allclose(cube.distances["l2"][:, 0, 1], 0.0)

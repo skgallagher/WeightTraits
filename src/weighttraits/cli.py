@@ -9,6 +9,7 @@ from pathlib import Path
 import yaml
 
 from weighttraits.audit.ellmtrees import inventory_ellmtrees
+from weighttraits.distances.manifest import readers_from_distance_manifest
 from weighttraits.distances.readers import CumulativeLoraReader, LoraFactorReader, reader_from_path
 from weighttraits.distances.streaming import build_distance_cube, write_distance_cube
 from weighttraits.manifests.reference import manifest_leaf_ids
@@ -113,6 +114,8 @@ def _aggregate_recovery(args: argparse.Namespace) -> int:
 
 def _build_distance_cube(args: argparse.Namespace) -> int:
     readers = []
+    for manifest in args.checkpoint_manifest or []:
+        readers.extend(readers_from_distance_manifest(manifest))
     for item in args.checkpoint or []:
         label, path = _parse_labeled_path(item)
         readers.append(reader_from_path(path, model_id=label))
@@ -126,7 +129,7 @@ def _build_distance_cube(args: argparse.Namespace) -> int:
             edge_readers.append(reader)
         readers.append(CumulativeLoraReader(edge_readers, model_id=label or paths[-1].stem))
     if not readers:
-        raise ValueError("at least one --checkpoint or --adapter-chain is required")
+        raise ValueError("at least one --checkpoint-manifest, --checkpoint, or --adapter-chain is required")
     cube = build_distance_cube(
         readers,
         metrics=args.metric,
@@ -224,6 +227,12 @@ def build_parser() -> argparse.ArgumentParser:
     aggregate.set_defaults(func=_aggregate_recovery)
 
     cube = sub.add_parser("build-distance-cube", help="Build a streaming distance cube")
+    cube.add_argument(
+        "--checkpoint-manifest",
+        action="append",
+        type=Path,
+        help="JSONL/YAML/JSON rows with model_id plus checkpoint or adapter_chain. Repeatable.",
+    )
     cube.add_argument(
         "--checkpoint",
         action="append",

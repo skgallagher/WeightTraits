@@ -1,0 +1,8 @@
+models:
+  - model_id: parent
+    adapter_chain:
+      - /path/to/adapters/root_to_parent
+  - model_id: child
+    adapter_chain:
+      - /path/to/adapters/root_to_parent
+      - /path/to/adapters/parent_to_child

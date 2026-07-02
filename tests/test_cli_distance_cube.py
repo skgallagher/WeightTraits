@@ -27,3 +27,19 @@ def test_distance_cube_parser_accepts_adapter_chain_without_checkpoint():
 
     assert args.checkpoint is None
     assert args.adapter_chain == ["child:/tmp/edge0,/tmp/edge1"]
+
+
+def test_distance_cube_parser_accepts_checkpoint_manifest():
+    args = build_parser().parse_args(
+        [
+            "build-distance-cube",
+            "--checkpoint-manifest",
+            "/tmp/inputs.yaml",
+            "--metric",
+            "l2",
+            "--out",
+            "/tmp/cube",
+        ]
+    )
+
+    assert args.checkpoint_manifest == [Path("/tmp/inputs.yaml")]

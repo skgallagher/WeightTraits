@@ -96,6 +96,7 @@ def build_distance_cube(
         "n_models": len(readers),
         "n_layers": len(keys),
         "model_ids": model_ids,
+        "reader_type_by_model": {reader.model_id: type(reader).__name__ for reader in readers},
         "layers": layer_audit,
         "metric_execution": {
             metric: "chunk_streamed" if metric in VECTOR_METRICS else "tensor_at_a_time"
@@ -220,4 +221,3 @@ def _one_minus_similarity(numerator: np.ndarray, denominator: np.ndarray) -> np.
     out = 1.0 - similarity
     out[~mask] = 0.0
     return np.nan_to_num(out, nan=0.0, posinf=0.0, neginf=0.0)
-

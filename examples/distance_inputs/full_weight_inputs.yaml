@@ -1,0 +1,5 @@
+models:
+  - model_id: leaf_0
+    checkpoint: /path/to/run/leaf_0/model.safetensors
+  - model_id: leaf_1
+    checkpoint: /path/to/run/leaf_1/model.safetensors.index.json

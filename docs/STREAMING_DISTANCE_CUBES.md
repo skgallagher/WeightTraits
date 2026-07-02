@@ -26,7 +26,7 @@ audit.json
 metric[layer, model_i, model_j]
 ```
 
-The JSON files make the cube self-describing. `audit.json` records the representation, metrics, chunk size, epsilon, model IDs, layer shapes, dtypes, and whether each metric was chunk-streamed or tensor-at-a-time.
+The JSON files make the cube self-describing. `audit.json` records the representation, metrics, chunk size, epsilon, model IDs, reader type for each model, layer shapes, dtypes, and whether each metric was chunk-streamed or tensor-at-a-time.
 
 ## CLI
 
@@ -37,6 +37,26 @@ PYTHONPATH=src python -m weighttraits.cli build-distance-cube \
   --metric cosine \
   --metric l2 \
   --metric correlation \
+  --out results/example_distance_cube
+```
+
+For many nodes, prefer a distance input manifest:
+
+```yaml
+models:
+  - model_id: n0
+    checkpoint: /path/to/node0/model.safetensors
+  - model_id: n1
+    checkpoint: /path/to/node1/model.safetensors.index.json
+```
+
+Then run:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli build-distance-cube \
+  --checkpoint-manifest configs/generated/distance_inputs.yaml \
+  --metric cosine \
+  --metric l2 \
   --out results/example_distance_cube
 ```
 
@@ -65,19 +85,37 @@ PYTHONPATH=src python -m weighttraits.cli build-distance-cube \
 
 Passing a single adapter directory with `--checkpoint` compares that edge adapter's increment. Use `--adapter-chain` when the node representation should be the cumulative root-to-node delta.
 
+## Distance Input Manifests
+
+`--checkpoint-manifest` accepts JSONL, JSON, or YAML. Each row needs a model identifier and exactly one input source:
+
+```yaml
+models:
+  - model_id: leaf_0
+    checkpoint: checkpoints/leaf_0/model.safetensors
+  - model_id: leaf_1
+    checkpoint: checkpoints/leaf_1/model.safetensors.index.json
+  - model_id: lora_leaf
+    adapter_chain:
+      - adapters/root_to_parent
+      - adapters/parent_to_leaf
+```
+
+Accepted model ID fields are `model_id`, `node_id`, or `id`. Accepted checkpoint fields are `checkpoint`, `checkpoint_path`, or `path`. Relative paths resolve from the manifest file's directory.
+
 ## Readers
 
 Current readers:
 
 - `DictTensorReader`: synthetic tests and smoke data.
 - `SafetensorsTensorReader`: uses safetensors metadata and row-slab slices for vector metrics.
+- `ShardedSafetensorsTensorReader`: reads Hugging Face `model.safetensors.index.json` weight maps and opens only the shard containing the current tensor.
 - `TorchTensorReader`: reads PyTorch `.bin` / `.pt` checkpoints with `torch.load(..., mmap=True)` when supported and slices tensors before NumPy conversion.
 - `LoraFactorReader`: streams row blocks of `scale * B @ A` for vector metrics.
 - `CumulativeLoraReader`: path-sums LoRA chunks for cumulative node displacement.
 
 Planned readers:
 
-- sharded safetensors index reader;
 - metadata-only torch checkpoint index using fake tensors/checkpoint offsets where available;
 - low-rank LoRA factor accumulator that computes dot products without dense `B @ A`.
 
@@ -106,6 +144,8 @@ O(N_models * chunk_size + N_models^2)
 ```
 
 For safetensors, chunks are produced from storage slices rather than full `get_tensor()` calls. For PyTorch checkpoints, the reader slices the file-backed tensor first when mmap is available. If a single tensor row is wider than `chunk_size`, peak memory can include that row width.
+
+For sharded safetensors, the reader consults `model.safetensors.index.json` and opens the one shard containing the current tensor key.
 
 ### Tensor-At-A-Time
 
@@ -139,11 +179,12 @@ The fast tests verify:
 - CKA matches dense matrix-aware reference;
 - cumulative LoRA readers equal explicit path sums;
 - safetensors reader roundtrips when `safetensors` is installed;
+- sharded safetensors reader roundtrips through a real two-shard index;
+- distance input manifests resolve relative checkpoint and adapter-chain paths;
 - cube writer emits the expected files and audit metadata.
 
 ## Deliberate Limitations
 
-- Sharded safetensors are not implemented yet.
 - CKA is exact but tensor-at-a-time.
 - LoRA vector metrics stream dense row blocks of `B @ A`; low-rank dot-product acceleration is planned.
-- The CLI currently accepts explicit checkpoint paths and explicit LoRA adapter chains. Manifest-driven checkpoint discovery will come after the reader layer is stable.
+- The CLI currently accepts explicit checkpoint paths, explicit LoRA adapter chains, and simple distance input manifests. Full training-ledger discovery will come after the reader layer is stable.

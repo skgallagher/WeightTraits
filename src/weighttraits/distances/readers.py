@@ -85,42 +85,13 @@ class SafetensorsTensorReader:
         from safetensors import safe_open
 
         with safe_open(str(self.path), framework="numpy", device="cpu") as handle:
-            return list(handle.keys())
+            return sorted(handle.keys())
 
     def tensor_info(self, key: str) -> TensorInfo:
-        from safetensors import safe_open
-
-        with safe_open(str(self.path), framework="numpy", device="cpu") as handle:
-            tensor_slice = handle.get_slice(key)
-            return TensorInfo(
-                name=key,
-                shape=tuple(tensor_slice.get_shape()),
-                dtype=str(tensor_slice.get_dtype()),
-            )
+        return _safetensor_tensor_info(self.path, key)
 
     def iter_flat_chunks(self, key: str, chunk_size: int):
-        from safetensors import safe_open
-
-        with safe_open(str(self.path), framework="numpy", device="cpu") as handle:
-            tensor_slice = handle.get_slice(key)
-            shape = tuple(tensor_slice.get_shape())
-            if not shape:
-                yield np.asarray([handle.get_tensor(key)], dtype=np.float64).reshape(-1)
-                return
-            if len(shape) == 1:
-                for start in range(0, shape[0], chunk_size):
-                    yield tensor_slice[start : min(start + chunk_size, shape[0])].astype(
-                        np.float64, copy=False
-                    )
-                return
-
-            row_width = int(np.prod(shape[1:], dtype=np.int64))
-            rows_per_slab = max(1, (chunk_size + max(row_width, 1) - 1) // max(row_width, 1))
-            blocks = (
-                tensor_slice[start : min(start + rows_per_slab, shape[0])]
-                for start in range(0, shape[0], rows_per_slab)
-            )
-            yield from _yield_flat_chunks_from_blocks(blocks, chunk_size)
+        yield from _iter_safetensor_flat_chunks(self.path, key, chunk_size)
 
     def read_tensor(self, key: str) -> np.ndarray:
         from safetensors import safe_open
@@ -130,6 +101,55 @@ class SafetensorsTensorReader:
 
     def close(self) -> None:
         return None
+
+
+class ShardedSafetensorsTensorReader:
+    """Per-tensor reader for Hugging Face safetensors shard indexes."""
+
+    def __init__(self, path: str | Path, model_id: str | None = None) -> None:
+        path = Path(path)
+        if path.is_dir():
+            self.root = path
+            self.index_path = path / "model.safetensors.index.json"
+        else:
+            self.root = path.parent
+            self.index_path = path
+        self.model_id = model_id or self.root.name
+        self._weight_map: dict[str, str] | None = None
+
+    def _index(self) -> dict[str, str]:
+        if self._weight_map is None:
+            raw = json.loads(self.index_path.read_text())
+            weight_map = raw.get("weight_map")
+            if not isinstance(weight_map, dict):
+                raise ValueError(f"safetensors index missing weight_map: {self.index_path}")
+            self._weight_map = {str(key): str(value) for key, value in weight_map.items()}
+        return self._weight_map
+
+    def _shard_path(self, key: str) -> Path:
+        try:
+            shard = self._index()[key]
+        except KeyError as exc:
+            raise KeyError(f"tensor {key!r} not found in {self.index_path}") from exc
+        return self.root / shard
+
+    def keys(self) -> list[str]:
+        return sorted(self._index())
+
+    def tensor_info(self, key: str) -> TensorInfo:
+        return _safetensor_tensor_info(self._shard_path(key), key)
+
+    def iter_flat_chunks(self, key: str, chunk_size: int):
+        yield from _iter_safetensor_flat_chunks(self._shard_path(key), key, chunk_size)
+
+    def read_tensor(self, key: str) -> np.ndarray:
+        from safetensors import safe_open
+
+        with safe_open(str(self._shard_path(key)), framework="numpy", device="cpu") as handle:
+            return handle.get_tensor(key).astype(np.float64, copy=False)
+
+    def close(self) -> None:
+        self._weight_map = None
 
 
 class TorchTensorReader:
@@ -299,6 +319,9 @@ def reader_from_path(path: str | Path, model_id: str | None = None) -> TensorRea
     if path.is_dir():
         if (path / "adapter_model.safetensors").exists() or (path / "adapter_model.bin").exists():
             return LoraFactorReader.from_peft_dir(path, model_id=model_id)
+        index_path = path / "model.safetensors.index.json"
+        if index_path.exists():
+            return ShardedSafetensorsTensorReader(path, model_id=model_id)
         for name in ("model.safetensors", "pytorch_model.bin"):
             candidate = path / name
             if candidate.exists():
@@ -310,9 +333,48 @@ def reader_from_path(path: str | Path, model_id: str | None = None) -> TensorRea
 
     if path.name.endswith(".safetensors"):
         return SafetensorsTensorReader(path, model_id=model_id)
+    if path.name.endswith(".safetensors.index.json"):
+        return ShardedSafetensorsTensorReader(path, model_id=model_id)
     if path.suffix in {".bin", ".pt", ".pth"}:
         return TorchTensorReader(path, model_id=model_id)
     raise ValueError(f"unsupported checkpoint path: {path}")
+
+
+def _safetensor_tensor_info(path: Path, key: str) -> TensorInfo:
+    from safetensors import safe_open
+
+    with safe_open(str(path), framework="numpy", device="cpu") as handle:
+        tensor_slice = handle.get_slice(key)
+        return TensorInfo(
+            name=key,
+            shape=tuple(tensor_slice.get_shape()),
+            dtype=str(tensor_slice.get_dtype()),
+        )
+
+
+def _iter_safetensor_flat_chunks(path: Path, key: str, chunk_size: int):
+    from safetensors import safe_open
+
+    with safe_open(str(path), framework="numpy", device="cpu") as handle:
+        tensor_slice = handle.get_slice(key)
+        shape = tuple(tensor_slice.get_shape())
+        if not shape:
+            yield np.asarray([handle.get_tensor(key)], dtype=np.float64).reshape(-1)
+            return
+        if len(shape) == 1:
+            for start in range(0, shape[0], chunk_size):
+                yield tensor_slice[start : min(start + chunk_size, shape[0])].astype(
+                    np.float64, copy=False
+                )
+            return
+
+        row_width = int(np.prod(shape[1:], dtype=np.int64))
+        rows_per_slab = max(1, (chunk_size + max(row_width, 1) - 1) // max(row_width, 1))
+        blocks = (
+            tensor_slice[start : min(start + rows_per_slab, shape[0])]
+            for start in range(0, shape[0], rows_per_slab)
+        )
+        yield from _yield_flat_chunks_from_blocks(blocks, chunk_size)
 
 
 def _load_safetensor_dict(path: Path) -> dict[str, np.ndarray]:
