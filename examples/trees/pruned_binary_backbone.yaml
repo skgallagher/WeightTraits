@@ -1,0 +1,20 @@
+example: pruned_binary_backbone
+description: Binary backbone with subtree pruning and edge contraction to create depth and polytomies.
+tree:
+  generator: pruned_binary_backbone
+  backbone_leaves: 32
+  target_leaves: 12
+  prune_lambda: 3.0
+  contract_probability: 0.55
+  min_depth: 3
+  min_leaves: 8
+  seed: 5
+  max_attempts: 200
+expect:
+  min_nodes: 8
+  min_leaves: 8
+  max_leaves: 12
+  min_depth: 3
+  min_polytomies: 1
+  min_max_out_degree: 3
+

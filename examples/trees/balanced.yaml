@@ -1,0 +1,14 @@
+example: balanced
+description: Regular breadth-first k-ary control tree.
+tree:
+  generator: balanced
+  n_nodes: 12
+  branch_factor: 3
+  min_depth: 2
+  min_leaves: 9
+expect:
+  n_nodes: 12
+  n_leaves: 9
+  max_depth: 2
+  min_polytomies: 1
+  min_max_out_degree: 3

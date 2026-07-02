@@ -1,0 +1,24 @@
+example: fixed
+description: Hand-authored topology with a root polytomy and an internal polytomy.
+tree:
+  generator: fixed
+  root:
+    id: root
+    children:
+      - id: n0
+        children:
+          - id: n3
+          - id: n4
+          - id: n5
+      - id: n1
+      - id: n2
+        children:
+          - id: n6
+          - id: n7
+expect:
+  n_nodes: 8
+  n_leaves: 6
+  max_depth: 2
+  min_polytomies: 1
+  min_max_out_degree: 3
+

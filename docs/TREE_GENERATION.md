@@ -2,6 +2,8 @@
 
 Tree generation is a first-class experimental variable in WeightTraits.
 
+For formal definitions, see [Tree Generator Math](TREE_GENERATOR_MATH.md). For copy-paste runnable commands, see [Run Tree Examples](RUN_TREE_EXAMPLES.md).
+
 ## Current Generators
 
 `ellmtrees_balanced`
@@ -45,4 +47,3 @@ If a sampled tree fails `min_depth` or `min_leaves`, the generator tries the nex
 - Minimum depth and minimum leaf count are explicit.
 - Shallow ELLMTrees-style trees are kept as a baseline, not treated as sufficient evidence.
 - Deep/pruned/chained shapes should be part of smoke tests before they become expensive cluster experiments.
-

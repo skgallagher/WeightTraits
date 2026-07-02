@@ -1,0 +1,14 @@
+example: chain
+description: Deep sequential lineage control.
+tree:
+  generator: chain
+  n_nodes: 6
+  min_depth: 6
+  min_leaves: 1
+expect:
+  n_nodes: 6
+  n_leaves: 1
+  max_depth: 6
+  max_out_degree: 1
+  n_polytomies: 0
+

@@ -1,0 +1,14 @@
+example: ellmtrees_balanced
+description: ELLMTrees-compatible fairly balanced depth-2 baseline.
+tree:
+  generator: ellmtrees_balanced
+  n_leaves: 10
+  min_depth: 2
+  min_leaves: 10
+expect:
+  n_nodes: 14
+  n_leaves: 10
+  max_depth: 2
+  min_polytomies: 1
+  min_max_out_degree: 4
+
