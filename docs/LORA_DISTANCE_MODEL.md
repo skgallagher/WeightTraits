@@ -63,6 +63,14 @@ This keeps the analysis cheap:
 
 This is the efficient representation we want.
 
+In the CLI, raw PEFT edge adapters should be passed with:
+
+```text
+--adapter-chain node:edge0,edge1,...
+```
+
+when the desired representation is `lora_cumulative_delta`. A single adapter directory passed as `--checkpoint` is treated as that edge's increment, not as a cumulative node state.
+
 ## What It Is Not
 
 This is not claiming that training reused one adapter through the whole tree. It did not.
@@ -164,4 +172,3 @@ scale_applied = true
 and the methods text should say:
 
 > Each child is trained with a fresh LoRA adapter on the merged weights of its parent. For analysis, we represent each node by the cumulative sum of the merged low-rank updates along its root-to-node path, avoiding full checkpoint materialization while preserving the additive displacement induced by the actual training process.
-

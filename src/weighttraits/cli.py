@@ -9,6 +9,8 @@ from pathlib import Path
 import yaml
 
 from weighttraits.audit.ellmtrees import inventory_ellmtrees
+from weighttraits.distances.readers import CumulativeLoraReader, LoraFactorReader, reader_from_path
+from weighttraits.distances.streaming import build_distance_cube, write_distance_cube
 from weighttraits.manifests.reference import manifest_leaf_ids
 from weighttraits.phylo.audit import audit_manifest_topology
 from weighttraits.phylo.recovery import aggregate_recovery, score_split_recovery
@@ -109,6 +111,60 @@ def _aggregate_recovery(args: argparse.Namespace) -> int:
     return 0
 
 
+def _build_distance_cube(args: argparse.Namespace) -> int:
+    readers = []
+    for item in args.checkpoint or []:
+        label, path = _parse_labeled_path(item)
+        readers.append(reader_from_path(path, model_id=label))
+    for item in args.adapter_chain or []:
+        label, paths = _parse_labeled_paths(item)
+        edge_readers = []
+        for path in paths:
+            reader = reader_from_path(path)
+            if not isinstance(reader, LoraFactorReader):
+                raise ValueError(f"adapter chain entries must be PEFT adapter directories: {path}")
+            edge_readers.append(reader)
+        readers.append(CumulativeLoraReader(edge_readers, model_id=label or paths[-1].stem))
+    if not readers:
+        raise ValueError("at least one --checkpoint or --adapter-chain is required")
+    cube = build_distance_cube(
+        readers,
+        metrics=args.metric,
+        chunk_size=args.chunk_size,
+        eps=args.eps,
+        representation=args.representation,
+    )
+    write_distance_cube(cube, args.out)
+    summary = {
+        "out": str(args.out),
+        "n_models": len(cube.model_ids),
+        "n_layers": len(cube.layer_names),
+        "metrics": sorted(cube.distances),
+        "representation": args.representation,
+    }
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
+def _parse_labeled_path(value: str) -> tuple[str | None, Path]:
+    if ":" in value:
+        label, raw_path = value.split(":", 1)
+        return label, Path(raw_path)
+    path = Path(value)
+    return path.stem, path
+
+
+def _parse_labeled_paths(value: str) -> tuple[str | None, list[Path]]:
+    label = None
+    raw_paths = value
+    if ":" in value:
+        label, raw_paths = value.split(":", 1)
+    paths = [Path(item) for item in raw_paths.split(",") if item]
+    if not paths:
+        raise ValueError(f"no paths found in adapter chain: {value}")
+    return label, paths
+
+
 def _emit_json(report: dict, out: Path | None) -> None:
     text = json.dumps(report, indent=2, sort_keys=True) + "\n"
     if out:
@@ -166,6 +222,33 @@ def build_parser() -> argparse.ArgumentParser:
     aggregate.add_argument("--scores", type=Path, nargs="+", required=True)
     aggregate.add_argument("--out", type=Path)
     aggregate.set_defaults(func=_aggregate_recovery)
+
+    cube = sub.add_parser("build-distance-cube", help="Build a streaming distance cube")
+    cube.add_argument(
+        "--checkpoint",
+        action="append",
+        help="Checkpoint path, optionally LABEL:PATH. Repeat once per model/node.",
+    )
+    cube.add_argument(
+        "--adapter-chain",
+        action="append",
+        help="Cumulative LoRA node as LABEL:EDGE_ADAPTER_DIR,EDGE_ADAPTER_DIR. Repeat per node.",
+    )
+    cube.add_argument(
+        "--metric",
+        action="append",
+        required=True,
+        help="Metric to compute. Repeat for multiple metrics, e.g. cosine, l2, cka.",
+    )
+    cube.add_argument("--out", type=Path, required=True, help="Output directory")
+    cube.add_argument("--chunk-size", type=int, default=1_000_000)
+    cube.add_argument("--eps", type=float, default=1e-3, help="Threshold metric epsilon")
+    cube.add_argument(
+        "--representation",
+        default="full_weight",
+        choices=["full_weight", "lora_cumulative_delta", "lora_increment_delta"],
+    )
+    cube.set_defaults(func=_build_distance_cube)
 
     return parser
 

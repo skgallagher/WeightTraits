@@ -23,6 +23,7 @@ analysis = [
   "matplotlib>=3.8",
   "networkx>=3.0",
   "pandas>=2.0",
+  "safetensors>=0.4",
   "scikit-learn>=1.4",
   "scipy>=1.12",
   "seaborn>=0.13"
@@ -61,4 +62,3 @@ addopts = "-q"
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-

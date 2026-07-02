@@ -54,6 +54,8 @@ Output: weight distances, reconstructed trees, recovery summaries, figures/table
 
 For LoRA, the default analysis object is cumulative adapter displacement along the root-to-node path, not the last edge's raw adapter increment. See [LoRA Distance Model](LORA_DISTANCE_MODEL.md).
 
+The first distance-cube implementation is documented in [Streaming Distance Cubes](STREAMING_DISTANCE_CUBES.md).
+
 ## 5. Analyze Behaviors
 
 Behavior analysis branches after training:
