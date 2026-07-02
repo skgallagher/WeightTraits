@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "weighttraits"
+version = "0.1.0"
+description = "Independent rebuild and verification of weight/behavior phylogenetic analyses for LLM fine-tuning lineages."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+  {name = "Shannon K. Gallagher"}
+]
+dependencies = [
+  "numpy>=1.24",
+  "pyyaml>=6.0"
+]
+
+[project.optional-dependencies]
+analysis = [
+  "biopython>=1.83",
+  "dendropy>=5.0",
+  "matplotlib>=3.8",
+  "networkx>=3.0",
+  "pandas>=2.0",
+  "scikit-learn>=1.4",
+  "scipy>=1.12",
+  "seaborn>=0.13"
+]
+training = [
+  "accelerate>=0.29",
+  "datasets>=2.19",
+  "evaluate>=0.4",
+  "peft>=0.10",
+  "transformers>=4.40"
+]
+blackbox = [
+  "anthropic>=0.25",
+  "google-genai>=1.0",
+  "openai>=1.30",
+  "python-dotenv>=1.0",
+  "sentence-transformers>=2.7",
+  "tqdm>=4.66"
+]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.5"
+]
+
+[project.scripts]
+wt = "weighttraits.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+

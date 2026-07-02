@@ -1,0 +1,12 @@
+experiment: cpu_smoke
+purpose: Fast local end-to-end invariant check without model downloads.
+reference_source: ../ELLMTrees/configs/tree_specs/cpu_smoke.yaml
+steps:
+  - validate_manifest_parser
+  - compute_small_distance_matrix
+  - reconstruct_reference_leaf_set
+  - write_audit_report
+limits:
+  max_runtime_seconds: 60
+  max_memory_gb: 2
+

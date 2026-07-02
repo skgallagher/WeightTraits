@@ -1,0 +1,16 @@
+profile: local
+paths:
+  ellmtrees_reference: ../ELLMTrees
+  reports: reports
+  outputs: outputs
+  results: results
+execution:
+  default_workers: 4
+  allow_network: false
+  allow_model_downloads: false
+  require_dry_run_before_submit: true
+testing:
+  fast_suite: true
+  smoke_suite: true
+  paper_suite: false
+

@@ -1,0 +1,151 @@
+version: 1
+status: draft_candidates_require_loader_audit
+
+task_families:
+  summarization:
+    status: inherited_from_ellmtrees
+    datasets:
+      - id: cnn_dailymail
+        hf_args: ["abisee/cnn_dailymail", "3.0.0"]
+      - id: xsum
+        hf_args: ["EdinburghNLP/xsum"]
+      - id: samsum
+        hf_args: ["knkarthick/samsum"]
+      - id: billsum
+        hf_args: ["FiscalNote/billsum"]
+      - id: pubmed
+        hf_args: ["ccdv/pubmed-summarization"]
+      - id: govreport
+        hf_args: ["ccdv/govreport-summarization"]
+      - id: arxiv_summ
+        hf_args: ["ccdv/arxiv-summarization"]
+      - id: bigpatent
+        hf_args: ["NortheasternUniversity/big_patent", "all"]
+      - id: dialogsum
+        hf_args: ["knkarthick/dialogsum"]
+
+  classification:
+    status: inherited_from_ellmtrees
+    datasets:
+      - id: sst2
+        hf_args: ["glue", "sst2"]
+      - id: ag_news
+        hf_args: ["fancyzhx/ag_news"]
+      - id: mnli
+        hf_args: ["glue", "mnli"]
+      - id: imdb
+        hf_args: ["stanfordnlp/imdb"]
+      - id: rte
+        hf_args: ["glue", "rte"]
+      - id: cola
+        hf_args: ["glue", "cola"]
+      - id: qnli
+        hf_args: ["glue", "qnli"]
+      - id: yelp_polarity
+        hf_args: ["fancyzhx/yelp_polarity"]
+      - id: dbpedia_14
+        hf_args: ["fancyzhx/dbpedia_14"]
+
+  qa_reasoning:
+    status: inherited_plus_harder_candidates
+    datasets:
+      - id: squad
+        hf_args: ["rajpurkar/squad"]
+      - id: squad_v2
+        hf_args: ["rajpurkar/squad_v2"]
+      - id: boolq
+        hf_args: ["google/boolq"]
+      - id: ai2_arc_easy
+        hf_args: ["allenai/ai2_arc", "ARC-Easy"]
+      - id: ai2_arc_challenge
+        hf_args: ["allenai/ai2_arc", "ARC-Challenge"]
+      - id: openbookqa
+        hf_args: ["allenai/openbookqa", "main"]
+      - id: commonsense_qa
+        hf_args: ["tau/commonsense_qa"]
+      - id: hellaswag
+        hf_args: ["Rowan/hellaswag"]
+      - id: mmlu_auxiliary_train
+        hf_args: ["cais/mmlu", "auxiliary_train"]
+        note: "Large auxiliary training split; use subject subsets for evaluation controls."
+
+  translation:
+    status: inherited_from_ellmtrees
+    datasets:
+      - id: wmt14_en_fr
+        hf_args: ["wmt/wmt14", "fr-en"]
+      - id: wmt14_en_de
+        hf_args: ["wmt/wmt14", "de-en"]
+      - id: opus_en_de
+        hf_args: ["Helsinki-NLP/opus-100", "de-en"]
+      - id: opus_en_fr
+        hf_args: ["Helsinki-NLP/opus-100", "en-fr"]
+      - id: opus_en_es
+        hf_args: ["Helsinki-NLP/opus-100", "en-es"]
+      - id: opus_en_it
+        hf_args: ["Helsinki-NLP/opus-100", "en-it"]
+      - id: opus_en_ru
+        hf_args: ["Helsinki-NLP/opus-100", "en-ru"]
+      - id: opus_en_zh
+        hf_args: ["Helsinki-NLP/opus-100", "en-zh"]
+      - id: opus_en_ja
+        hf_args: ["Helsinki-NLP/opus-100", "en-ja"]
+
+  math_reasoning:
+    status: harder_candidate
+    datasets:
+      - id: gsm8k
+        hf_args: ["openai/gsm8k", "main"]
+      - id: gsm8k_socratic
+        hf_args: ["openai/gsm8k", "socratic"]
+      - id: hendrycks_math_algebra
+        hf_args: ["EleutherAI/hendrycks_math", "algebra"]
+      - id: hendrycks_math_geometry
+        hf_args: ["EleutherAI/hendrycks_math", "geometry"]
+      - id: hendrycks_math_number_theory
+        hf_args: ["EleutherAI/hendrycks_math", "number_theory"]
+      - id: deepmind_math_dataset
+        hf_args: ["deepmind/math_dataset"]
+        note: "Large synthetic math source; loader design needed."
+
+  code_generation:
+    status: harder_candidate
+    datasets:
+      - id: apps
+        hf_args: ["codeparrot/apps"]
+      - id: apps_competition
+        hf_args: ["codeparrot/apps"]
+        filter:
+          difficulty: competition
+      - id: mbpp_full
+        hf_args: ["google-research-datasets/mbpp", "full"]
+      - id: mbpp_sanitized
+        hf_args: ["google-research-datasets/mbpp", "sanitized"]
+      - id: the_stack_smol_python
+        hf_args: ["bigcode/the-stack-smol"]
+        filter:
+          lang: python
+      - id: the_stack_smol_javascript
+        hf_args: ["bigcode/the-stack-smol"]
+        filter:
+          lang: javascript
+      - id: humaneval_eval_only
+        hf_args: ["openai/openai_humaneval"]
+        role: evaluation_only
+
+  instruction_following:
+    status: harder_candidate_eval_first
+    datasets:
+      - id: ifeval
+        hf_args: ["google/IFEval"]
+        role: eval_or_behavior_probe
+      - id: mmlu_subject_prompts
+        hf_args: ["cais/mmlu"]
+        role: eval_or_behavior_probe
+      - id: truthfulqa_generation
+        hf_args: ["truthfulqa/truthful_qa", "generation"]
+        role: eval_or_behavior_probe
+      - id: truthfulqa_multiple_choice
+        hf_args: ["truthfulqa/truthful_qa", "multiple_choice"]
+        role: eval_or_behavior_probe
+

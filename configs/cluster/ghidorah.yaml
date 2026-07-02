@@ -1,0 +1,15 @@
+cluster: ghidorah
+scheduler: slurm
+default_max_concurrent: 4
+require_run_list: true
+require_dry_run_first: true
+allow_broad_arrays: false
+paths:
+  repo: /home/sgallagh/WeightTraits
+  scratch: /scratch/sgallagh/WeightTraits
+  logs: slurm_logs
+notes:
+  - Confirm checkpoint visibility on the target node before model-loading jobs.
+  - Prefer pinned-node jobs only when source artifacts are node-local.
+  - Pull blackbox data explicitly; do not assume whitebox rsync rules cover it.
+

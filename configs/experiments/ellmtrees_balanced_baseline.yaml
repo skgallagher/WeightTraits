@@ -1,0 +1,20 @@
+experiment: ellmtrees_balanced_baseline
+description: >
+  Baseline topology matching the old ELLMTrees fairly balanced depth-2 default.
+  Kept for comparability before moving to deeper/pruned/polytomous trees.
+
+tree:
+  generator: ellmtrees_balanced
+  n_leaves: 10
+  min_depth: 2
+  min_leaves: 10
+  seed: 1
+
+task_data:
+  assignment_policy: per_node
+  dataset_policy: sample_from_task_pool
+
+analysis_targets:
+  - smoke_toy
+  - rf_tables
+

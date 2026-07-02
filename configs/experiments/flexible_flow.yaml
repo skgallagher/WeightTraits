@@ -1,0 +1,60 @@
+experiment: flexible_flow_smoke
+description: >
+  Smoke config demonstrating the intended separation:
+  make trees, choose task/data policy, train, then analyze weights or behaviors.
+
+tree:
+  generator: pruned_binary_backbone
+  backbone_leaves: 32
+  target_leaves: 12
+  min_depth: 4
+  min_leaves: 8
+  prune_lambda: 3.0
+  contract_probability: 0.4
+  seed: 87
+
+task_data:
+  assignment_policy: per_edge
+  dataset_policy: sample_from_pool
+  clone_topology_for_controls: true
+  pools:
+    classification:
+      - ag_news
+      - yelp_polarity
+      - sst2
+    qa:
+      - squad
+      - squad_v2
+    summarization:
+      - xsum
+    translation:
+      - wmt14_en_fr
+      - wmt14_en_de
+
+training:
+  model_family: smoke
+  base_model: google/flan-t5-small
+  adapter: none
+  max_steps: 10
+  output_root: outputs/flexible_flow_smoke
+
+analysis:
+  whitebox:
+    enabled: true
+    distances:
+      - cosine
+      - correlation
+    granularities:
+      - weight
+      - block
+  behavior:
+    enabled: true
+    stages:
+      - prompts
+      - inference
+      - embed
+      - distances
+
+blackbox:
+  enabled: false
+  note: Blackbox starts from model selection plus prompts/inference; it is not part of synthetic training.

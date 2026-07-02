@@ -1,0 +1,17 @@
+cluster: wright
+scheduler: slurm
+account: statds
+partition: all
+default_max_concurrent: 6
+require_run_list: true
+require_dry_run_first: true
+allow_broad_arrays: false
+paths:
+  repo: /home/sgallagh/WeightTraits
+  scratch: /scratch/sgallagh/WeightTraits
+  logs: slurm_logs
+notes:
+  - Use explicit RUNS_FILE or equivalent manifest selection for every array.
+  - Keep comparisons on cloned topologies with constant run sets.
+  - Do not submit catch-up arrays from stale audit tables.
+
