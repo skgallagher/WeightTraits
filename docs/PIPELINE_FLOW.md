@@ -41,6 +41,8 @@ Training consumes an enriched manifest and produces checkpoints. It should not c
 
 Output: checkpoints and a training ledger.
 
+The first trainer control-plane implementation is documented in [Trainer Design](TRAINER_DESIGN.md). It validates prompt resolution, LoRA/full-finetune artifact expectations, and stopping/warning rules before long jobs start.
+
 ## 4. Analyze Weights
 
 Whitebox analysis consumes checkpoints and the lineage manifest:

@@ -1,0 +1,34 @@
+training:
+  model_family: flan_t5
+  base_model: google/flan-t5-small
+  method: full
+  output_root: outputs/full_smoke
+  trainer:
+    max_steps: 20
+    per_device_train_batch_size: 2
+    gradient_accumulation_steps: 1
+    learning_rate: 0.00005
+    eval_steps: 5
+    save_steps: 5
+  prompt:
+    default_template: "Instruction: {instruction}\nInput: {input}\nAnswer: {target}"
+    task_templates:
+      qa_reasoning: "Question: {question}\nContext: {context}\nAnswer: {answer}"
+      math_reasoning: "Problem: {problem}\nSolution: {solution}"
+    dataset_templates:
+      boolq: "Passage: {passage}\nQuestion: {question}\nAnswer yes or no: {answer}"
+    model_overrides:
+      google/flan-t5-small:
+        task_templates:
+          qa_reasoning: "{question}\n{context}\n{answer}"
+  stopping:
+    metric: eval_loss
+    early_stopping:
+      patience: 4
+      min_delta: 0.001
+    plateau:
+      window: 5
+      min_delta: 0.0002
+    warnings:
+      loss_increase_relative: 0.05
+      loss_increase_patience: 2

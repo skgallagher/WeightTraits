@@ -1,0 +1,36 @@
+training:
+  model_family: flan_t5_lora
+  base_model: google/flan-t5-small
+  method: lora
+  output_root: outputs/lora_smoke
+  trainer:
+    max_steps: 20
+    per_device_train_batch_size: 2
+    gradient_accumulation_steps: 1
+    learning_rate: 0.0001
+    eval_steps: 5
+    save_steps: 5
+  lora:
+    r: 8
+    lora_alpha: 16
+    lora_dropout: 0.05
+    target_modules:
+      - q
+      - v
+    merge_after_train: true
+  prompt:
+    default_template: "Instruction: {instruction}\nInput: {input}\nAnswer: {target}"
+    task_templates:
+      qa_reasoning: "Question: {question}\nContext: {context}\nAnswer: {answer}"
+      math_reasoning: "Problem: {problem}\nSolution: {solution}"
+  stopping:
+    metric: eval_loss
+    early_stopping:
+      patience: 4
+      min_delta: 0.001
+    plateau:
+      window: 5
+      min_delta: 0.0002
+    warnings:
+      loss_increase_relative: 0.05
+      loss_increase_patience: 2

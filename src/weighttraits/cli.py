@@ -18,6 +18,7 @@ from weighttraits.phylo.recovery import aggregate_recovery, score_split_recovery
 from weighttraits.phylo.splits import splits_from_manifest_path, splits_from_newick_text
 from weighttraits.taskdata.assignment import assign_task_data, load_manifest_rows, write_manifest_rows
 from weighttraits.trees.generate import generate_tree_from_config, tree_stats, write_manifest_jsonl
+from weighttraits.training.planner import build_training_jobs_from_files, write_training_plan
 
 
 def _audit_ellmtrees(args: argparse.Namespace) -> int:
@@ -149,6 +150,22 @@ def _build_distance_cube(args: argparse.Namespace) -> int:
     return 0
 
 
+def _plan_training(args: argparse.Namespace) -> int:
+    jobs = build_training_jobs_from_files(args.manifest, args.config)
+    if args.out:
+        write_training_plan(jobs, args.out)
+    summary = {
+        "manifest": str(args.manifest),
+        "config": str(args.config),
+        "out": str(args.out) if args.out else None,
+        "n_jobs": len(jobs),
+        "methods": sorted({job.method for job in jobs}),
+        "prompt_sources": sorted({job.prompt_source for job in jobs}),
+    }
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
 def _parse_labeled_path(value: str) -> tuple[str | None, Path]:
     if ":" in value:
         label, raw_path = value.split(":", 1)
@@ -258,6 +275,12 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["full_weight", "lora_cumulative_delta", "lora_increment_delta"],
     )
     cube.set_defaults(func=_build_distance_cube)
+
+    train = sub.add_parser("plan-training", help="Validate training config and write job plan JSONL")
+    train.add_argument("--manifest", type=Path, required=True, help="Enriched training manifest JSONL")
+    train.add_argument("--config", type=Path, required=True, help="Training YAML config")
+    train.add_argument("--out", type=Path, help="Optional training job plan JSONL")
+    train.set_defaults(func=_plan_training)
 
     return parser
 
