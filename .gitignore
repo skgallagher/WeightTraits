@@ -1,4 +1,4 @@
-# Python
+# Python caches and build products
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -6,27 +6,96 @@ __pycache__/
 .ruff_cache/
 .coverage
 htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Local environments
 .venv/
 venv/
+.envrc
+.python-version
 
 # Secrets and local state
 .env
 .env.*
 !.env.example
+.netrc
+*.key
+*.pem
+*.token
 
-# Heavy/generated artifacts
+# Research outputs: never commit generated runs/results by default
 checkpoints/
 outputs/
 results/
+artifacts/
+data/
+scratch/
+tmp/
+logs/
 reports/*
 !reports/.gitkeep
 slurm_logs/
+slurm-*.out
+*.out
+*.err
 wandb/
+runs/
+
+# Hugging Face / model caches
+.cache/
+hf_cache/
+huggingface/
+.huggingface/
+models/
+model_cache/
+
+# Model weights, adapters, and serialized arrays
 *.safetensors
 *.bin
 *.pt
 *.pth
 *.ckpt
+*.gguf
+*.onnx
+*.tflite
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+*.joblib
+*.npy
+*.npz
+*.zarr/
+
+# Dataset/cache formats that can balloon quickly
+*.parquet
+*.arrow
+*.feather
+*.avro
+*.sqlite
+*.sqlite3
+*.db
+
+# Generated figures and media
+figures/
+figures_tmp/
+paper/figures/
+paper/blackbox/
+paper/whitebox/
+*.png
+*.jpg
+*.jpeg
+*.tif
+*.tiff
+*.gif
+*.mp4
+*.mov
+*.webm
+*.svg
+!docs/**/*.svg
+!examples/**/*.svg
 
 # Paper build products
 paper/*.aux
@@ -38,9 +107,11 @@ paper/*.log
 paper/*.out
 paper/*.pdf
 paper/*.synctex.gz
+paper/*.toc
 
 # OS/editor
 .DS_Store
 .idea/
 .vscode/
-
+*.swp
+*.swo
