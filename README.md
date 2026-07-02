@@ -39,3 +39,4 @@ PYTHONPATH=src python -m weighttraits.cli audit-ellmtrees --source ../ELLMTrees 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for the full step-by-step rebuild plan.
 See [docs/PIPELINE_FLOW.md](docs/PIPELINE_FLOW.md) for the topology → task/data → training → analysis separation.
 See [docs/TREE_GENERATOR_MATH.md](docs/TREE_GENERATOR_MATH.md) and [docs/RUN_TREE_EXAMPLES.md](docs/RUN_TREE_EXAMPLES.md) for topology math and runnable examples.
+See [docs/RECOVERY_SCORING.md](docs/RECOVERY_SCORING.md) for TP/FP/FN, RF, clade recovery, exact recovery, and SE definitions.

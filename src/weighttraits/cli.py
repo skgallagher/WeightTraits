@@ -10,6 +10,9 @@ import yaml
 
 from weighttraits.audit.ellmtrees import inventory_ellmtrees
 from weighttraits.manifests.reference import manifest_leaf_ids
+from weighttraits.phylo.audit import audit_manifest_topology
+from weighttraits.phylo.recovery import aggregate_recovery, score_split_recovery
+from weighttraits.phylo.splits import splits_from_manifest_path, splits_from_newick_text
 from weighttraits.taskdata.assignment import assign_task_data, load_manifest_rows, write_manifest_rows
 from weighttraits.trees.generate import generate_tree_from_config, tree_stats, write_manifest_jsonl
 
@@ -66,6 +69,55 @@ def _assign_task_data(args: argparse.Namespace) -> int:
     return 0
 
 
+def _topology_audit(args: argparse.Namespace) -> int:
+    report = audit_manifest_topology(args.manifest)
+    _emit_json(report, args.out)
+    return 0
+
+
+def _score_tree(args: argparse.Namespace) -> int:
+    truth_splits, truth_leaves = splits_from_manifest_path(str(args.truth_manifest))
+    if args.estimate_manifest:
+        estimate_splits, estimate_leaves = splits_from_manifest_path(str(args.estimate_manifest))
+        estimate_source = str(args.estimate_manifest)
+    else:
+        estimate_splits, estimate_leaves = splits_from_newick_text(args.estimate_newick.read_text())
+        estimate_source = str(args.estimate_newick)
+
+    report = score_split_recovery(
+        truth_splits=truth_splits,
+        estimate_splits=estimate_splits,
+        truth_leaves=truth_leaves,
+        estimate_leaves=estimate_leaves,
+    )
+    report["truth_manifest"] = str(args.truth_manifest)
+    report["estimate"] = estimate_source
+    _emit_json(report, args.out)
+    return 0
+
+
+def _aggregate_recovery(args: argparse.Namespace) -> int:
+    rows = []
+    for path in args.scores:
+        with path.open() as handle:
+            if path.suffix == ".jsonl":
+                rows.extend(json.loads(line) for line in handle if line.strip())
+            else:
+                rows.append(json.load(handle))
+    report = aggregate_recovery(rows)
+    _emit_json(report, args.out)
+    return 0
+
+
+def _emit_json(report: dict, out: Path | None) -> None:
+    text = json.dumps(report, indent=2, sort_keys=True) + "\n"
+    if out:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(text)
+    else:
+        print(text, end="")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="wt", description="WeightTraits utilities")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -96,6 +148,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="Restrict to one or more task families; repeat flag for multiple families",
     )
     assign.set_defaults(func=_assign_task_data)
+
+    audit_topology = sub.add_parser("topology-audit", help="Audit topology size, depth, leaves, and polytomies")
+    audit_topology.add_argument("--manifest", type=Path, required=True)
+    audit_topology.add_argument("--out", type=Path)
+    audit_topology.set_defaults(func=_topology_audit)
+
+    score = sub.add_parser("score-tree", help="Score reconstructed tree against a truth manifest")
+    score.add_argument("--truth-manifest", type=Path, required=True)
+    estimate = score.add_mutually_exclusive_group(required=True)
+    estimate.add_argument("--estimate-manifest", type=Path)
+    estimate.add_argument("--estimate-newick", type=Path)
+    score.add_argument("--out", type=Path)
+    score.set_defaults(func=_score_tree)
+
+    aggregate = sub.add_parser("aggregate-recovery", help="Aggregate recovery JSON/JSONL records with SEs")
+    aggregate.add_argument("--scores", type=Path, nargs="+", required=True)
+    aggregate.add_argument("--out", type=Path)
+    aggregate.set_defaults(func=_aggregate_recovery)
 
     return parser
 
