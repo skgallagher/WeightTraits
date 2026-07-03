@@ -70,6 +70,7 @@ def test_build_training_jobs_resolves_prompt_overrides_and_parent_sources(tmp_pa
     assert [job.node_id for job in jobs] == ["n0", "n1"]
     assert jobs[0].prompt_source == "prompt.model[google/flan-t5-small].dataset"
     assert jobs[0].prompt_template.startswith("flan qa")
+    assert jobs[0].prompt_fields == ("answers", "context", "question")
     assert jobs[1].prompt_source == "prompt.task"
     assert jobs[0].init_from == "google/flan-t5-small"
     assert jobs[1].init_from == str(tmp_path / "outputs/n0/model")
@@ -135,6 +136,7 @@ training:
 
     assert len(rows) == 2
     assert rows[0]["trainer"]["max_steps"] == 5
+    assert rows[0]["prompt_fields"] == ["instruction", "target"]
 
 
 def test_plan_training_parser_accepts_manifest_config_and_out():

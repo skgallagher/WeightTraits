@@ -10,6 +10,7 @@ from typing import Any
 import yaml
 
 from weighttraits.taskdata.assignment import load_manifest_rows
+from weighttraits.training.prompts import template_fields
 
 
 @dataclass(frozen=True)
@@ -31,6 +32,7 @@ class TrainingJob:
     dataset_id: str | None
     prompt_template: str
     prompt_source: str
+    prompt_fields: tuple[str, ...]
     output_dir: str
     init_from: str
     expected_artifacts: dict[str, str]
@@ -94,6 +96,7 @@ def build_training_jobs(
                 dataset_id=_optional_str(row.get("dataset_id")),
                 prompt_template=prompt.template,
                 prompt_source=prompt.source,
+                prompt_fields=tuple(template_fields(prompt.template)),
                 output_dir=str(output_dir),
                 init_from=_init_source(parent_id, output_root, method, base_model),
                 expected_artifacts=_expected_artifacts(output_dir, method),

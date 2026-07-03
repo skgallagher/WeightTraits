@@ -24,6 +24,7 @@ Each JSONL row is one trainable node. It records:
 - base model and model family;
 - task family and dataset ID;
 - resolved prompt template and prompt source;
+- required prompt fields;
 - initialization source;
 - expected output artifacts;
 - trainer hyperparameters;
@@ -47,6 +48,24 @@ Resolution order:
 7. global default template.
 
 If no template resolves, planning fails before training starts.
+
+## Prompt Rendering Validation
+
+Prompt templates use Python `str.format` fields. WeightTraits extracts the root fields from every planned template:
+
+```text
+Question: {question}
+Context: {context}
+Answer: {answer}
+```
+
+requires:
+
+```text
+answer, context, question
+```
+
+The prompt renderer fails loudly when an example is missing a required field. This is intentionally strict because prompt/data mismatches are much cheaper to fix before a cluster run than after a half-finished lineage.
 
 ## Full Fine-Tuning
 
@@ -117,13 +136,28 @@ stopping:
 
 The plateau rule is the simple “stop when loss diff gets small” guardrail. It should be conservative for real runs because noisy eval loss can look flat briefly.
 
+## Training Ledgers
+
+Long jobs need resumable state outside stdout. WeightTraits uses a JSONL ledger with one event per status or loss update:
+
+```text
+started -> running -> completed
+started -> running -> stopped_early
+started -> failed
+```
+
+The helper API can load a ledger, summarize latest node statuses, identify failed nodes, and decide whether a node should be skipped on resume. The CLI summary is:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli training-ledger-summary \
+  --ledger outputs/lora_smoke/training_ledger.jsonl
+```
+
 ## Next Execution Layer
 
 The next trainer increment should add:
 
 - dataset loader registry;
-- prompt rendering with required-field validation;
 - Hugging Face `Trainer` / `Seq2SeqTrainer` execution;
 - PEFT LoRA adapter creation and merge;
-- resumable per-node training ledgers;
 - cluster array generation from the planned JSONL.

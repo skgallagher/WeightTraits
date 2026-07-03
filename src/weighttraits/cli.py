@@ -18,6 +18,7 @@ from weighttraits.phylo.recovery import aggregate_recovery, score_split_recovery
 from weighttraits.phylo.splits import splits_from_manifest_path, splits_from_newick_text
 from weighttraits.taskdata.assignment import assign_task_data, load_manifest_rows, write_manifest_rows
 from weighttraits.trees.generate import generate_tree_from_config, tree_stats, write_manifest_jsonl
+from weighttraits.training.ledger import ledger_summary, load_ledger_events
 from weighttraits.training.planner import build_training_jobs_from_files, write_training_plan
 
 
@@ -166,6 +167,13 @@ def _plan_training(args: argparse.Namespace) -> int:
     return 0
 
 
+def _training_ledger_summary(args: argparse.Namespace) -> int:
+    summary = ledger_summary(load_ledger_events(args.ledger))
+    summary["ledger"] = str(args.ledger)
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
 def _parse_labeled_path(value: str) -> tuple[str | None, Path]:
     if ":" in value:
         label, raw_path = value.split(":", 1)
@@ -281,6 +289,10 @@ def build_parser() -> argparse.ArgumentParser:
     train.add_argument("--config", type=Path, required=True, help="Training YAML config")
     train.add_argument("--out", type=Path, help="Optional training job plan JSONL")
     train.set_defaults(func=_plan_training)
+
+    ledger = sub.add_parser("training-ledger-summary", help="Summarize a training ledger JSONL")
+    ledger.add_argument("--ledger", type=Path, required=True)
+    ledger.set_defaults(func=_training_ledger_summary)
 
     return parser
 
