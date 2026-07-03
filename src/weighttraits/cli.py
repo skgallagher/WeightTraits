@@ -18,6 +18,11 @@ from weighttraits.phylo.recovery import aggregate_recovery, score_split_recovery
 from weighttraits.phylo.splits import splits_from_manifest_path, splits_from_newick_text
 from weighttraits.taskdata.assignment import assign_task_data, load_manifest_rows, write_manifest_rows
 from weighttraits.trees.generate import generate_tree_from_config, tree_stats, write_manifest_jsonl
+from weighttraits.training.data_formats import (
+    load_dataset_format_specs,
+    validate_training_jobs_against_formats,
+    write_data_format_report,
+)
 from weighttraits.training.ledger import ledger_summary, load_ledger_events
 from weighttraits.training.planner import build_training_jobs_from_files, write_training_plan
 
@@ -174,6 +179,21 @@ def _training_ledger_summary(args: argparse.Namespace) -> int:
     return 0
 
 
+def _validate_training_data(args: argparse.Namespace) -> int:
+    jobs = build_training_jobs_from_files(args.manifest, args.config)
+    specs = load_dataset_format_specs(args.formats)
+    report = validate_training_jobs_against_formats(jobs, specs)
+    if args.out:
+        write_data_format_report(report, args.out)
+    summary = report.to_dict()
+    summary["manifest"] = str(args.manifest)
+    summary["config"] = str(args.config)
+    summary["formats"] = str(args.formats)
+    summary["out"] = str(args.out) if args.out else None
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0 if report.valid or args.allow_issues else 1
+
+
 def _parse_labeled_path(value: str) -> tuple[str | None, Path]:
     if ":" in value:
         label, raw_path = value.split(":", 1)
@@ -293,6 +313,17 @@ def build_parser() -> argparse.ArgumentParser:
     ledger = sub.add_parser("training-ledger-summary", help="Summarize a training ledger JSONL")
     ledger.add_argument("--ledger", type=Path, required=True)
     ledger.set_defaults(func=_training_ledger_summary)
+
+    validate_data = sub.add_parser(
+        "validate-training-data",
+        help="Validate planned training prompts against offline dataset format specs",
+    )
+    validate_data.add_argument("--manifest", type=Path, required=True)
+    validate_data.add_argument("--config", type=Path, required=True)
+    validate_data.add_argument("--formats", type=Path, required=True)
+    validate_data.add_argument("--out", type=Path)
+    validate_data.add_argument("--allow-issues", action="store_true")
+    validate_data.set_defaults(func=_validate_training_data)
 
     return parser
 

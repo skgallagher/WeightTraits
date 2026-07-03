@@ -39,3 +39,4 @@ For every candidate:
 - confirm prompt format does not accidentally trigger label-vocabulary collapse;
 - mark whether it is training, validation, evaluation-only, or behavior-probe only.
 
+The first offline prompt-field check is `wt validate-training-data`, documented in [Trainer Design](TRAINER_DESIGN.md). It validates planned prompt templates against dataset-format contracts before any dataset download or training launch.

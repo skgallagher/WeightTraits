@@ -1,0 +1,96 @@
+datasets:
+  - dataset_id: deepmind_math_dataset
+    task_family: math_reasoning
+    train_split: train
+    prompt_fields:
+      - problem
+      - solution
+    raw_fields:
+      - question
+      - answer
+    field_map:
+      problem: question
+      solution: answer
+
+  - dataset_id: hendrycks_math_algebra
+    task_family: math_reasoning
+    train_split: train
+    prompt_fields:
+      - problem
+      - solution
+    raw_fields:
+      - problem
+      - solution
+
+  - dataset_id: hendrycks_math_geometry
+    task_family: math_reasoning
+    train_split: train
+    prompt_fields:
+      - problem
+      - solution
+    raw_fields:
+      - problem
+      - solution
+
+  - dataset_id: hendrycks_math_number_theory
+    task_family: math_reasoning
+    train_split: train
+    prompt_fields:
+      - problem
+      - solution
+    raw_fields:
+      - problem
+      - solution
+
+  - dataset_id: ai2_arc_easy
+    task_family: qa_reasoning
+    train_split: train
+    eval_split: validation
+    prompt_fields:
+      - question
+      - context
+      - answer
+    raw_fields:
+      - question
+      - choices
+      - answerKey
+    field_map:
+      question: question
+      context: choices
+      answer: answerKey
+
+  - dataset_id: boolq
+    task_family: qa_reasoning
+    train_split: train
+    eval_split: validation
+    prompt_fields:
+      - question
+      - context
+      - answer
+      - passage
+    raw_fields:
+      - question
+      - passage
+      - answer
+    field_map:
+      question: question
+      context: passage
+      passage: passage
+      answer: answer
+
+  - dataset_id: hellaswag
+    task_family: qa_reasoning
+    train_split: train
+    eval_split: validation
+    prompt_fields:
+      - question
+      - context
+      - answer
+    raw_fields:
+      - ctx
+      - endings
+      - label
+    field_map:
+      question: ctx
+      context: endings
+      answer: label

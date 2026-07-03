@@ -1,5 +1,13 @@
 """Training planning and monitoring utilities."""
 
+from weighttraits.training.data_formats import (
+    DataFormatValidationReport,
+    DatasetFormatSpec,
+    JobFormatIssue,
+    load_dataset_format_specs,
+    validate_training_jobs_against_formats,
+    write_data_format_report,
+)
 from weighttraits.training.ledger import (
     TrainingLedgerEvent,
     append_ledger_event,
@@ -29,6 +37,9 @@ __all__ = [
     "LossMonitorConfig",
     "PromptResolution",
     "PromptValidationReport",
+    "DataFormatValidationReport",
+    "DatasetFormatSpec",
+    "JobFormatIssue",
     "TrainingLedgerEvent",
     "TrainingEvent",
     "TrainingJob",
@@ -37,11 +48,14 @@ __all__ = [
     "completed_nodes",
     "failed_nodes",
     "ledger_summary",
+    "load_dataset_format_specs",
     "load_training_config",
     "load_ledger_events",
     "render_prompt",
     "should_skip_node",
     "template_fields",
+    "validate_training_jobs_against_formats",
     "validate_prompt_examples",
+    "write_data_format_report",
     "write_training_plan",
 ]

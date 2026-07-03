@@ -67,6 +67,40 @@ answer, context, question
 
 The prompt renderer fails loudly when an example is missing a required field. This is intentionally strict because prompt/data mismatches are much cheaper to fix before a cluster run than after a half-finished lineage.
 
+## Dataset Format Contracts
+
+Before downloading datasets or launching training, WeightTraits can validate planned jobs against an offline dataset-format contract:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli validate-training-data \
+  --manifest reports/flexible_tree_assigned_manifest.jsonl \
+  --config examples/training/full_smoke.yaml \
+  --formats examples/training/dataset_formats_smoke.yaml \
+  --out reports/training_data_validation.full.json
+```
+
+The format file declares which canonical prompt fields a dataset can provide:
+
+```yaml
+datasets:
+  - dataset_id: boolq
+    task_family: qa_reasoning
+    prompt_fields:
+      - question
+      - context
+      - answer
+    raw_fields:
+      - question
+      - passage
+      - answer
+    field_map:
+      question: question
+      context: passage
+      answer: answer
+```
+
+This catches cases where a model/task prompt asks for `{context}` but the dataset contract cannot provide `context`. It does not replace the later loader audit that checks downloadability, licenses, splits, and row counts.
+
 ## Full Fine-Tuning
 
 For full fine-tuning, a child node initializes from:
@@ -158,6 +192,7 @@ PYTHONPATH=src python -m weighttraits.cli training-ledger-summary \
 The next trainer increment should add:
 
 - dataset loader registry;
+- Hugging Face dataset download/split audit;
 - Hugging Face `Trainer` / `Seq2SeqTrainer` execution;
 - PEFT LoRA adapter creation and merge;
 - cluster array generation from the planned JSONL.
