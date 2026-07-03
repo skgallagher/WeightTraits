@@ -124,6 +124,29 @@ Omit `--no-load` only in an environment where dataset downloads are intended. Th
 `missing_splits`, `load_failed`, and `unknown_dataset_id` separately so cluster dry runs can fail for
 the right reason.
 
+## Training Sample Rendering Audit
+
+After the offline contract and split checks pass, use a tiny sample-rendering audit before launching
+training. This loads a few rows, applies each dataset's `field_map`, renders the resolved prompt for
+each planned job, and reports only counts, field names, row indices, and errors. It does not write
+raw examples or rendered prompts to disk.
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli audit-training-samples \
+  --manifest reports/flexible_tree_assigned_manifest.jsonl \
+  --config examples/training/full_smoke.yaml \
+  --registry configs/task_data_candidates.yaml \
+  --formats examples/training/dataset_formats_smoke.yaml \
+  --dataset-id boolq \
+  --max-samples 4 \
+  --out reports/training_sample_render_audit.boolq.json
+```
+
+The audit reports `missing_dataset_format_spec`, `unknown_dataset_id`, `missing_split`,
+`empty_split`, `missing_prompt_fields`, `empty_rendered_prompt`, and `render_failed` separately. A
+non-empty rendered prompt is counted as renderable even when field values are booleans, integers,
+lists, or other normal dataset objects because Python prompt formatting stringifies those values.
+
 ## Full Fine-Tuning
 
 For full fine-tuning, a child node initializes from:

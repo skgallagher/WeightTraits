@@ -25,8 +25,10 @@ from weighttraits.training.data_formats import (
 )
 from weighttraits.training.datasets import (
     audit_dataset_registry,
+    audit_training_sample_rendering,
     load_dataset_registry,
     write_dataset_audit_report,
+    write_training_sample_render_audit_report,
 )
 from weighttraits.training.ledger import ledger_summary, load_ledger_events
 from weighttraits.training.planner import build_training_jobs_from_files, write_training_plan
@@ -218,6 +220,32 @@ def _audit_datasets(args: argparse.Namespace) -> int:
     return 0 if report.valid or args.allow_issues else 1
 
 
+def _audit_training_samples(args: argparse.Namespace) -> int:
+    jobs = build_training_jobs_from_files(args.manifest, args.config)
+    registry = load_dataset_registry(args.registry)
+    specs = load_dataset_format_specs(args.formats)
+    report = audit_training_sample_rendering(
+        jobs,
+        registry,
+        specs,
+        dataset_ids=args.dataset_id,
+        max_samples=args.max_samples,
+        split=args.split,
+    )
+    if args.out:
+        write_training_sample_render_audit_report(report, args.out)
+    summary = report.to_dict()
+    summary["manifest"] = str(args.manifest)
+    summary["config"] = str(args.config)
+    summary["registry"] = str(args.registry)
+    summary["formats"] = str(args.formats)
+    summary["max_samples"] = args.max_samples
+    summary["split"] = args.split
+    summary["out"] = str(args.out) if args.out else None
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0 if report.valid or args.allow_issues else 1
+
+
 def _parse_labeled_path(value: str) -> tuple[str | None, Path]:
     if ":" in value:
         label, raw_path = value.split(":", 1)
@@ -372,6 +400,43 @@ def build_parser() -> argparse.ArgumentParser:
     )
     audit_data.add_argument("--allow-issues", action="store_true")
     audit_data.set_defaults(func=_audit_datasets)
+
+    audit_samples = sub.add_parser(
+        "audit-training-samples",
+        help="Load small dataset samples and render planned training prompts",
+    )
+    audit_samples.add_argument("--manifest", type=Path, required=True)
+    audit_samples.add_argument("--config", type=Path, required=True)
+    audit_samples.add_argument(
+        "--registry",
+        type=Path,
+        required=True,
+        help="Task/data registry YAML",
+    )
+    audit_samples.add_argument(
+        "--formats",
+        type=Path,
+        required=True,
+        help="Dataset format contract YAML",
+    )
+    audit_samples.add_argument(
+        "--dataset-id",
+        action="append",
+        help="Restrict audit to one dataset id; repeat for multiple ids",
+    )
+    audit_samples.add_argument(
+        "--max-samples",
+        type=int,
+        default=8,
+        help="Maximum rows to render per planned job",
+    )
+    audit_samples.add_argument(
+        "--split",
+        help="Override the train split declared by registry/formats",
+    )
+    audit_samples.add_argument("--out", type=Path)
+    audit_samples.add_argument("--allow-issues", action="store_true")
+    audit_samples.set_defaults(func=_audit_training_samples)
 
     return parser
 

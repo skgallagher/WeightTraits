@@ -8,15 +8,16 @@ WeightTraits is a private, cleaner rebuild of ELLMTrees under `/Users/shannon/De
 
 ## Current Git State
 
-Latest pushed commit at the start of this handoff:
+Latest stable pushed base before the sample-rendering audit increment:
 
 ```text
-6fb2f1b Validate training data formats
+1f2efd7 Add dataset audit handoff
 ```
 
 Recent pushed commits:
 
 ```text
+6fb2f1b Validate training data formats
 c83f4b6 Add training prompt validation and ledgers
 6d32e09 Add trainer planning controls
 015973a Support sharded distance inputs
@@ -59,6 +60,12 @@ ee16c92 Add topology audit and recovery scoring
   - `wt audit-datasets`;
   - no-download registry/split dry runs with `--no-load`;
   - optional Hugging Face `load_dataset` split and row-count audit in prepared environments.
+- Training sample rendering audit:
+  - `wt audit-training-samples`;
+  - loads a tiny sample for planned jobs;
+  - applies dataset `field_map`;
+  - renders resolved prompt templates;
+  - reports counts, field names, row indices, and errors without storing raw samples or prompts.
 
 ## Verification So Far
 
@@ -77,6 +84,14 @@ conda run -n ellmtrees env PYTHONPATH=src python -m pytest --override-ini=addopt
 ```
 
 passed with 77 tests.
+
+After adding the sample-rendering audit:
+
+```text
+conda run -n ellmtrees env PYTHONPATH=src python -m pytest tests/test_training_dataset_registry.py tests/test_training_data_formats.py --override-ini=addopts=
+```
+
+passed with 19 focused trainer preflight tests.
 
 Useful smoke commands that have passed:
 
@@ -118,19 +133,28 @@ PYTHONPATH=src python -m weighttraits.cli audit-datasets \
   --out /tmp/weighttraits_dataset_audit_noload.json
 ```
 
+Sample-rendering audit smoke, for environments where Hugging Face dataset loading is available:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli audit-training-samples \
+  --manifest reports/flexible_tree_assigned_manifest.jsonl \
+  --config examples/training/full_smoke.yaml \
+  --registry configs/task_data_candidates.yaml \
+  --formats examples/training/dataset_formats_smoke.yaml \
+  --dataset-id boolq \
+  --max-samples 4 \
+  --out /tmp/weighttraits_training_sample_render_audit.json
+```
+
 ## Next Best Steps
 
-1. Add a real dataset-loader sample-rendering audit:
-   - tiny sample;
-   - apply `field_map`;
-   - render prompt;
-   - report missing fields and dropped rows.
-2. Build the Hugging Face / PEFT execution layer:
+1. Build the Hugging Face / PEFT execution layer:
    - `Trainer` / `Seq2SeqTrainer`;
    - LoRA adapter creation;
    - merge-and-save child weights for LoRA;
    - write ledger events from monitor decisions.
-3. Add cluster run-list generation from planned training JSONL.
+2. Add cluster run-list generation from planned training JSONL.
+3. Add preflight warnings for loss monitor settings and expected artifact collisions.
 4. Then return to whitebox end-to-end smoke:
    - generated tree;
    - distance input manifest;
@@ -145,3 +169,4 @@ PYTHONPATH=src python -m weighttraits.cli audit-datasets \
 - LoRA vector metrics stream dense `B @ A` row blocks; low-rank dot-product acceleration remains planned.
 - The trainer execution loop is not implemented yet; current trainer work is a strong dry-run/control plane.
 - `wt audit-datasets` in load mode may require network access and the optional `datasets` dependency.
+- `wt audit-training-samples` requires dataset loading and should run only in environments where downloads/cache access are intended.

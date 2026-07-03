@@ -29,3 +29,28 @@ PYTHONPATH=src python -m weighttraits.cli validate-training-data \
   --formats examples/training/dataset_formats_smoke.yaml \
   --out /tmp/weighttraits_training_data_validation.json
 ```
+
+Audit registry/split names without downloading datasets:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli audit-datasets \
+  --registry configs/task_data_candidates.yaml \
+  --formats examples/training/dataset_formats_smoke.yaml \
+  --dataset-id boolq \
+  --dataset-id hellaswag \
+  --no-load \
+  --out /tmp/weighttraits_dataset_audit_noload.json
+```
+
+Render a tiny sample through the planned prompts when dataset downloads are available:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli audit-training-samples \
+  --manifest reports/flexible_tree_assigned_manifest.jsonl \
+  --config examples/training/full_smoke.yaml \
+  --registry configs/task_data_candidates.yaml \
+  --formats examples/training/dataset_formats_smoke.yaml \
+  --dataset-id boolq \
+  --max-samples 4 \
+  --out /tmp/weighttraits_training_sample_render_audit.json
+```

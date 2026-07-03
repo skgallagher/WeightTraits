@@ -44,3 +44,7 @@ The first offline prompt-field check is `wt validate-training-data`, documented 
 The first registry/split check is `wt audit-datasets`. Use `--no-load` for local dry runs that should
 not download anything; omit it on a prepared cluster or local environment to call Hugging Face
 `load_dataset` and record available splits plus row counts.
+
+The first real row-level prompt check is `wt audit-training-samples`. It loads a tiny sample for
+planned jobs, applies the dataset `field_map`, renders prompts, and reports missing fields or empty
+renders without writing raw samples to the report.
