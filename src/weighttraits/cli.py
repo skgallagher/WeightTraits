@@ -23,6 +23,11 @@ from weighttraits.training.data_formats import (
     validate_training_jobs_against_formats,
     write_data_format_report,
 )
+from weighttraits.training.datasets import (
+    audit_dataset_registry,
+    load_dataset_registry,
+    write_dataset_audit_report,
+)
 from weighttraits.training.ledger import ledger_summary, load_ledger_events
 from weighttraits.training.planner import build_training_jobs_from_files, write_training_plan
 
@@ -194,6 +199,25 @@ def _validate_training_data(args: argparse.Namespace) -> int:
     return 0 if report.valid or args.allow_issues else 1
 
 
+def _audit_datasets(args: argparse.Namespace) -> int:
+    registry = load_dataset_registry(args.registry)
+    specs = load_dataset_format_specs(args.formats) if args.formats else None
+    report = audit_dataset_registry(
+        registry,
+        dataset_ids=args.dataset_id,
+        format_specs=specs,
+        load=not args.no_load,
+    )
+    if args.out:
+        write_dataset_audit_report(report, args.out)
+    summary = report.to_dict()
+    summary["registry"] = str(args.registry)
+    summary["formats"] = str(args.formats) if args.formats else None
+    summary["out"] = str(args.out) if args.out else None
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0 if report.valid or args.allow_issues else 1
+
+
 def _parse_labeled_path(value: str) -> tuple[str | None, Path]:
     if ":" in value:
         label, raw_path = value.split(":", 1)
@@ -324,6 +348,30 @@ def build_parser() -> argparse.ArgumentParser:
     validate_data.add_argument("--out", type=Path)
     validate_data.add_argument("--allow-issues", action="store_true")
     validate_data.set_defaults(func=_validate_training_data)
+
+    audit_data = sub.add_parser(
+        "audit-datasets",
+        help="Audit dataset registry entries and Hugging Face split availability",
+    )
+    audit_data.add_argument("--registry", type=Path, required=True, help="Task/data registry YAML")
+    audit_data.add_argument(
+        "--formats",
+        type=Path,
+        help="Optional dataset format contract YAML used to declare required splits",
+    )
+    audit_data.add_argument(
+        "--dataset-id",
+        action="append",
+        help="Restrict audit to one dataset id; repeat for multiple ids",
+    )
+    audit_data.add_argument("--out", type=Path)
+    audit_data.add_argument(
+        "--no-load",
+        action="store_true",
+        help="Validate registry/requested splits without importing or downloading datasets",
+    )
+    audit_data.add_argument("--allow-issues", action="store_true")
+    audit_data.set_defaults(func=_audit_datasets)
 
     return parser
 

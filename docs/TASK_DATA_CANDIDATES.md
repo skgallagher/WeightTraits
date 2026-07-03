@@ -40,3 +40,7 @@ For every candidate:
 - mark whether it is training, validation, evaluation-only, or behavior-probe only.
 
 The first offline prompt-field check is `wt validate-training-data`, documented in [Trainer Design](TRAINER_DESIGN.md). It validates planned prompt templates against dataset-format contracts before any dataset download or training launch.
+
+The first registry/split check is `wt audit-datasets`. Use `--no-load` for local dry runs that should
+not download anything; omit it on a prepared cluster or local environment to call Hugging Face
+`load_dataset` and record available splits plus row counts.

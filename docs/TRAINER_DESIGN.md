@@ -101,6 +101,29 @@ datasets:
 
 This catches cases where a model/task prompt asks for `{context}` but the dataset contract cannot provide `context`. It does not replace the later loader audit that checks downloadability, licenses, splits, and row counts.
 
+## Dataset Registry And Split Audit
+
+The execution layer now has a dataset registry audit before any training launcher needs to touch a
+cluster. It reads the candidate pool, optionally combines it with the offline format contracts, and
+can either stop before downloads or call Hugging Face `load_dataset` to record available splits and
+row counts.
+
+No-download registry/split dry run:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli audit-datasets \
+  --registry configs/task_data_candidates.yaml \
+  --formats examples/training/dataset_formats_smoke.yaml \
+  --dataset-id boolq \
+  --dataset-id hellaswag \
+  --no-load \
+  --out reports/dataset_audit_noload_smoke.json
+```
+
+Omit `--no-load` only in an environment where dataset downloads are intended. The audit reports
+`missing_splits`, `load_failed`, and `unknown_dataset_id` separately so cluster dry runs can fail for
+the right reason.
+
 ## Full Fine-Tuning
 
 For full fine-tuning, a child node initializes from:
@@ -191,8 +214,6 @@ PYTHONPATH=src python -m weighttraits.cli training-ledger-summary \
 
 The next trainer increment should add:
 
-- dataset loader registry;
-- Hugging Face dataset download/split audit;
 - Hugging Face `Trainer` / `Seq2SeqTrainer` execution;
 - PEFT LoRA adapter creation and merge;
 - cluster array generation from the planned JSONL.
