@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 import json
 from pathlib import Path
+import shlex
 from typing import Any, Callable, Mapping, Sequence
 
 import yaml
@@ -119,6 +120,7 @@ def build_training_run_list(
     run_list_path: str | Path | None = None,
     ledger_path: str | Path | None = None,
     runner_entrypoint: str = "pending_hf_peft_executor",
+    runner_options: Mapping[str, Any] | None = None,
     allow_existing_artifacts: bool = False,
     check_filesystem: bool = True,
     path_exists: PathExists | None = None,
@@ -139,6 +141,7 @@ def build_training_run_list(
             ledger_path=ledger,
             run_list_path=run_list,
             runner_entrypoint=runner_entrypoint,
+            runner_options=runner_options,
         )
         runs.append(run)
         issues.extend(
@@ -237,12 +240,7 @@ def render_slurm_array_script(
             f"RUN_LIST=\"${{RUN_LIST:-{run_list_path}}}\"",
             f"cd \"{repo}\"",
             f"mkdir -p \"{logs}\"",
-            (
-                f"PYTHONPATH=\"${{PYTHONPATH:-src}}\" {python} -m weighttraits.cli "
-                "describe-training-run "
-                "--run-list \"${RUN_LIST}\" "
-                "--index \"${SLURM_ARRAY_TASK_ID}\""
-            ),
+            _slurm_runner_command(run_list, python=python),
             "",
         ]
     )
@@ -280,6 +278,7 @@ def _run_spec_from_job(
     ledger_path: str,
     run_list_path: str | None,
     runner_entrypoint: str,
+    runner_options: Mapping[str, Any] | None,
 ) -> TrainingRunSpec:
     job_dict = job.to_dict() if hasattr(job, "to_dict") else dict(job)
     node_id = str(job_dict["node_id"])
@@ -301,9 +300,42 @@ def _run_spec_from_job(
         runner={
             "entrypoint": runner_entrypoint,
             "run_list_path": run_list_path,
+            "options": dict(runner_options or {}),
             "status": "planned",
         },
         job=job_dict,
+    )
+
+
+def _slurm_runner_command(run_list: TrainingRunList, *, python: str) -> str:
+    runner = dict(run_list.runs[0].runner) if run_list.runs else {}
+    entrypoint = str(runner.get("entrypoint", ""))
+    prefix = f"PYTHONPATH=\"${{PYTHONPATH:-src}}\" {python} -m weighttraits.cli"
+    if entrypoint in {"weighttraits.cli run-training-row", "run-training-row"}:
+        options = dict(runner.get("options", {}))
+        pieces = [
+            prefix,
+            "run-training-row",
+            "--run-list \"${RUN_LIST}\"",
+            "--index \"${SLURM_ARRAY_TASK_ID}\"",
+        ]
+        if options.get("registry_path"):
+            pieces.extend(["--registry", shlex.quote(str(options["registry_path"]))])
+        if options.get("formats_path"):
+            pieces.extend(["--formats", shlex.quote(str(options["formats_path"]))])
+        if options.get("max_train_samples") is not None:
+            pieces.extend(["--max-train-samples", str(options["max_train_samples"])])
+        if options.get("max_eval_samples") is not None:
+            pieces.extend(["--max-eval-samples", str(options["max_eval_samples"])])
+        if options.get("allow_missing_eval"):
+            pieces.append("--allow-missing-eval")
+        if options.get("dry_run"):
+            pieces.append("--dry-run")
+        return " ".join(pieces)
+    return (
+        f"{prefix} describe-training-run "
+        "--run-list \"${RUN_LIST}\" "
+        "--index \"${SLURM_ARRAY_TASK_ID}\""
     )
 
 

@@ -69,6 +69,7 @@ def test_build_training_run_list_records_stable_runner_contract(tmp_path):
     assert run.ledger_path == str(tmp_path / "ledger.jsonl")
     assert run.runner == {
         "entrypoint": "pending_hf_peft_executor",
+        "options": {},
         "run_list_path": str(tmp_path / "runs.jsonl"),
         "status": "planned",
     }
@@ -166,6 +167,34 @@ def test_load_execution_profile_and_render_slurm_dry_run_script(tmp_path):
     assert "RUN_LIST=\"${RUN_LIST:-/scratch/runs.jsonl}\"" in script
 
 
+def test_render_slurm_script_calls_training_runner_when_configured(tmp_path):
+    profile = load_execution_profile("configs/cluster/wright.yaml")
+    jobs = build_training_jobs(_rows(), _config(tmp_path))
+    report = build_training_run_list(
+        jobs,
+        profile=profile,
+        runner_entrypoint="weighttraits.cli run-training-row",
+        runner_options={
+            "registry_path": "configs/task_data_candidates.yaml",
+            "formats_path": "examples/training/dataset_formats_smoke.yaml",
+            "max_train_samples": 2,
+            "allow_missing_eval": True,
+        },
+    )
+
+    script = render_slurm_array_script(
+        report,
+        run_list_path="/scratch/runs.jsonl",
+        profile=profile,
+    )
+
+    assert "run-training-row" in script
+    assert "--registry configs/task_data_candidates.yaml" in script
+    assert "--formats examples/training/dataset_formats_smoke.yaml" in script
+    assert "--max-train-samples 2" in script
+    assert "--allow-missing-eval" in script
+
+
 def test_describe_training_run_parser_accepts_index_or_node_id():
     by_index = build_parser().parse_args(
         ["describe-training-run", "--run-list", "/tmp/runs.jsonl", "--index", "2"]
@@ -197,8 +226,13 @@ def test_make_training_run_list_parser_accepts_outputs():
             "/tmp/report.json",
             "--slurm-out",
             "/tmp/train.sbatch",
+            "--registry",
+            "/tmp/task_data.yaml",
+            "--formats",
+            "/tmp/formats.yaml",
             "--max-concurrent",
             "3",
+            "--runner-dry-run",
             "--allow-existing-artifacts",
             "--allow-issues",
         ]
@@ -211,6 +245,9 @@ def test_make_training_run_list_parser_accepts_outputs():
     assert args.ledger == Path("/tmp/ledger.jsonl")
     assert args.report == Path("/tmp/report.json")
     assert args.slurm_out == Path("/tmp/train.sbatch")
+    assert args.registry == Path("/tmp/task_data.yaml")
+    assert args.formats == Path("/tmp/formats.yaml")
     assert args.max_concurrent == 3
+    assert args.runner_dry_run
     assert args.allow_existing_artifacts
     assert args.allow_issues

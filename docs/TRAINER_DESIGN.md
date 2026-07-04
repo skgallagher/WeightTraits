@@ -237,7 +237,7 @@ PYTHONPATH=src python -m weighttraits.cli training-ledger-summary \
 
 Cluster training must start from an explicit run list. `wt make-training-run-list` turns planned
 jobs into stable JSONL rows with array indices, parent/init artifacts, expected outputs, ledger path,
-and a placeholder runner entrypoint. It also emits preflight errors for artifact collisions, missing
+and runner metadata. It also emits preflight errors for artifact collisions, missing
 dataset IDs, parent-order mistakes, and LoRA configurations that would fail to save merged parent
 weights for descendants.
 
@@ -246,26 +246,53 @@ PYTHONPATH=src python -m weighttraits.cli make-training-run-list \
   --manifest reports/flexible_tree_assigned_manifest.jsonl \
   --config examples/training/lora_smoke.yaml \
   --profile configs/cluster/wright.yaml \
+  --registry configs/task_data_candidates.yaml \
+  --formats examples/training/dataset_formats_smoke.yaml \
   --out /tmp/weighttraits_lora_runs.jsonl \
   --report /tmp/weighttraits_lora_runs.report.json \
   --slurm-out /tmp/weighttraits_lora_train.sbatch
 ```
 
-The generated SLURM script is a dry-run selector until the HF/PEFT runner lands. It calls:
+If registry and format paths are embedded, the generated SLURM script calls:
 
 ```bash
-PYTHONPATH=src python -m weighttraits.cli describe-training-run \
+PYTHONPATH=src python -m weighttraits.cli run-training-row \
   --run-list /tmp/weighttraits_lora_runs.jsonl \
-  --index "${SLURM_ARRAY_TASK_ID}"
+  --index "${SLURM_ARRAY_TASK_ID}" \
+  --registry configs/task_data_candidates.yaml \
+  --formats examples/training/dataset_formats_smoke.yaml
 ```
 
 This makes array indexing, throttling, and path visibility auditable before model-loading code is
-allowed to run.
+allowed to run. Add `--runner-dry-run` when creating the run list to make the generated script select
+rows without loading datasets or models.
+
+## Per-Row HF/PEFT Runner
+
+`wt run-training-row` executes one row from a run list. It loads the dataset registry and format
+contracts, applies `field_map`, renders the planned prompt, derives a target from
+`trainer.target_template`, `trainer.target_field`, or the rendered prompt itself, and then calls the
+training backend.
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli run-training-row \
+  --run-list /tmp/weighttraits_lora_runs.jsonl \
+  --index 0 \
+  --registry configs/task_data_candidates.yaml \
+  --formats examples/training/dataset_formats_smoke.yaml \
+  --max-train-samples 8
+```
+
+The default backend imports `datasets`, `transformers`, and `peft` lazily. Full fine-tuning saves the
+planned `model` artifact. LoRA training saves the adapter and, when `merge_after_train` is true,
+saves merged child weights so descendants initialize from the updated parent. Loss monitor updates
+are written to the training ledger as `running` events; final statuses are `completed`,
+`stopped_early`, or `failed`.
 
 ## Next Execution Layer
 
 The next trainer increment should add:
 
-- Hugging Face `Trainer` / `Seq2SeqTrainer` execution;
-- PEFT LoRA adapter creation and merge;
-- replacing the dry-run selector with the real per-row training runner.
+- a tiny real-model smoke in a prepared environment;
+- model-family-specific tokenization/prompt target refinements;
+- cluster submission wrappers around the generated run-list scripts.

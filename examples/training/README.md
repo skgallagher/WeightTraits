@@ -62,9 +62,12 @@ PYTHONPATH=src python -m weighttraits.cli make-training-run-list \
   --manifest reports/flexible_tree_assigned_manifest.jsonl \
   --config examples/training/lora_smoke.yaml \
   --profile configs/cluster/wright.yaml \
+  --registry configs/task_data_candidates.yaml \
+  --formats examples/training/dataset_formats_smoke.yaml \
   --out /tmp/weighttraits_lora_runs.jsonl \
   --report /tmp/weighttraits_lora_runs.report.json \
-  --slurm-out /tmp/weighttraits_lora_train.sbatch
+  --slurm-out /tmp/weighttraits_lora_train.sbatch \
+  --runner-dry-run
 ```
 
 Inspect the run selected by an array index:
@@ -73,4 +76,13 @@ Inspect the run selected by an array index:
 PYTHONPATH=src python -m weighttraits.cli describe-training-run \
   --run-list /tmp/weighttraits_lora_runs.jsonl \
   --index 0
+```
+
+Exercise the generated row-runner command without loading datasets or models:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli run-training-row \
+  --run-list /tmp/weighttraits_lora_runs.jsonl \
+  --index 0 \
+  --dry-run
 ```

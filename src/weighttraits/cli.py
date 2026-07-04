@@ -30,6 +30,7 @@ from weighttraits.training.datasets import (
     write_dataset_audit_report,
     write_training_sample_render_audit_report,
 )
+from weighttraits.training.executor import dry_run_training_row, run_training_run
 from weighttraits.training.ledger import ledger_summary, load_ledger_events
 from weighttraits.training.planner import build_training_jobs_from_files, write_training_plan
 from weighttraits.training.runlist import (
@@ -258,11 +259,29 @@ def _audit_training_samples(args: argparse.Namespace) -> int:
 def _make_training_run_list(args: argparse.Namespace) -> int:
     jobs = build_training_jobs_from_files(args.manifest, args.config)
     profile = load_execution_profile(args.profile) if args.profile else None
+    if (args.registry is None) != (args.formats is None):
+        raise ValueError("--registry and --formats must be provided together")
+    runner_options = {
+        "registry_path": str(args.registry) if args.registry else None,
+        "formats_path": str(args.formats) if args.formats else None,
+        "max_train_samples": args.max_train_samples,
+        "max_eval_samples": args.max_eval_samples,
+        "allow_missing_eval": args.allow_missing_eval,
+        "dry_run": args.runner_dry_run,
+    }
+    runner_options = {key: value for key, value in runner_options.items() if value is not None}
+    runner_entrypoint = (
+        "weighttraits.cli run-training-row"
+        if args.registry or args.runner_dry_run
+        else "pending_hf_peft_executor"
+    )
     report = build_training_run_list(
         jobs,
         profile=profile,
         run_list_path=args.out,
         ledger_path=args.ledger,
+        runner_entrypoint=runner_entrypoint,
+        runner_options=runner_options,
         allow_existing_artifacts=args.allow_existing_artifacts,
         check_filesystem=not args.no_filesystem_check,
     )
@@ -298,6 +317,37 @@ def _describe_training_run(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_training_row(args: argparse.Namespace) -> int:
+    runs = load_training_run_specs(args.run_list)
+    run = select_training_run(runs, index=args.index, node_id=args.node_id)
+    options = dict(run.runner.get("options", {}))
+    if args.dry_run or options.get("dry_run"):
+        print(json.dumps(dry_run_training_row(run).to_dict(), indent=2, sort_keys=True))
+        return 0
+    registry_path = args.registry or _optional_path(options.get("registry_path"))
+    formats_path = args.formats or _optional_path(options.get("formats_path"))
+    if registry_path is None or formats_path is None:
+        raise ValueError(
+            "run-training-row requires --registry and --formats unless --dry-run is set"
+        )
+    registry = load_dataset_registry(registry_path)
+    specs = load_dataset_format_specs(formats_path)
+    result = run_training_run(
+        run,
+        registry,
+        specs,
+        max_train_samples=args.max_train_samples
+        if args.max_train_samples is not None
+        else options.get("max_train_samples"),
+        max_eval_samples=args.max_eval_samples
+        if args.max_eval_samples is not None
+        else options.get("max_eval_samples"),
+        allow_missing_eval=args.allow_missing_eval or bool(options.get("allow_missing_eval")),
+    )
+    print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    return 0
+
+
 def _parse_labeled_path(value: str) -> tuple[str | None, Path]:
     if ":" in value:
         label, raw_path = value.split(":", 1)
@@ -324,6 +374,10 @@ def _emit_json(report: dict, out: Path | None) -> None:
         out.write_text(text)
     else:
         print(text, end="")
+
+
+def _optional_path(value: object) -> Path | None:
+    return None if value is None else Path(str(value))
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -498,6 +552,16 @@ def build_parser() -> argparse.ArgumentParser:
     run_list.add_argument("--config", type=Path, required=True)
     run_list.add_argument("--out", type=Path, required=True, help="Output training run-list JSONL")
     run_list.add_argument("--profile", type=Path, help="Local or cluster execution profile YAML")
+    run_list.add_argument(
+        "--registry",
+        type=Path,
+        help="Dataset registry path for generated runners",
+    )
+    run_list.add_argument(
+        "--formats",
+        type=Path,
+        help="Dataset format contract path for generated runners",
+    )
     run_list.add_argument("--ledger", type=Path, help="Ledger path to record in each run row")
     run_list.add_argument("--report", type=Path, help="Optional JSON preflight report")
     run_list.add_argument("--slurm-out", type=Path, help="Optional SLURM array script path")
@@ -508,6 +572,10 @@ def build_parser() -> argparse.ArgumentParser:
         default="python",
         help="Python executable for generated scripts",
     )
+    run_list.add_argument("--max-train-samples", type=int)
+    run_list.add_argument("--max-eval-samples", type=int)
+    run_list.add_argument("--allow-missing-eval", action="store_true")
+    run_list.add_argument("--runner-dry-run", action="store_true")
     run_list.add_argument("--allow-existing-artifacts", action="store_true")
     run_list.add_argument("--no-filesystem-check", action="store_true")
     run_list.add_argument("--allow-issues", action="store_true")
@@ -522,6 +590,22 @@ def build_parser() -> argparse.ArgumentParser:
     selector.add_argument("--index", type=int)
     selector.add_argument("--node-id")
     describe_run.set_defaults(func=_describe_training_run)
+
+    run_row = sub.add_parser(
+        "run-training-row",
+        help="Execute one training run-list row by array index or node id",
+    )
+    run_row.add_argument("--run-list", type=Path, required=True)
+    row_selector = run_row.add_mutually_exclusive_group(required=True)
+    row_selector.add_argument("--index", type=int)
+    row_selector.add_argument("--node-id")
+    run_row.add_argument("--registry", type=Path)
+    run_row.add_argument("--formats", type=Path)
+    run_row.add_argument("--max-train-samples", type=int)
+    run_row.add_argument("--max-eval-samples", type=int)
+    run_row.add_argument("--allow-missing-eval", action="store_true")
+    run_row.add_argument("--dry-run", action="store_true")
+    run_row.set_defaults(func=_run_training_row)
 
     return parser
 

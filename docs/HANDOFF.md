@@ -8,15 +8,17 @@ WeightTraits is a private, cleaner rebuild of ELLMTrees under `/Users/shannon/De
 
 ## Current Git State
 
-Latest stable pushed base before the run-list increment:
+Latest stable pushed base before the per-row runner increment:
 
 ```text
-2745f70 Add training sample rendering audit
+a20abaa Add training run list generation
 ```
 
 Recent pushed commits:
 
 ```text
+a20abaa Add training run list generation
+2745f70 Add training sample rendering audit
 1f2efd7 Add dataset audit handoff
 6fb2f1b Validate training data formats
 c83f4b6 Add training prompt validation and ledgers
@@ -71,8 +73,15 @@ ee16c92 Add topology audit and recovery scoring
   - `wt make-training-run-list`;
   - supports local and cluster execution profiles;
   - writes stable JSONL rows keyed by array index;
-  - writes optional preflight report and SLURM dry-run selector script;
+  - writes optional preflight report and SLURM runner or dry-run selector script;
   - checks parent order, artifact collisions, missing datasets, stopping guards, and LoRA merge semantics.
+- Per-row training runner:
+  - `wt run-training-row`;
+  - selects one run-list row by array index or node id;
+  - loads registry/format contracts, applies `field_map`, renders prompts, and derives targets;
+  - imports `datasets`, `transformers`, and `peft` lazily for real training;
+  - supports full fine-tuning and LoRA adapter plus merged-child saves;
+  - writes started/running/completed/stopped_early/failed ledger events.
 
 ## Verification So Far
 
@@ -107,6 +116,14 @@ conda run -n ellmtrees env PYTHONPATH=src python -m pytest tests/test_training_r
 ```
 
 passed with 9 focused run-list tests.
+
+After adding the per-row executor:
+
+```text
+conda run -n ellmtrees env PYTHONPATH=src python -m pytest tests/test_training_executor.py tests/test_training_runlist.py --override-ini=addopts=
+```
+
+passed with 15 focused executor/run-list tests.
 
 Useful smoke commands that have passed:
 
@@ -179,22 +196,36 @@ PYTHONPATH=src python -m weighttraits.cli make-training-run-list \
   --manifest reports/flexible_tree_assigned_manifest.jsonl \
   --config examples/training/lora_smoke.yaml \
   --profile configs/cluster/wright.yaml \
+  --registry configs/task_data_candidates.yaml \
+  --formats examples/training/dataset_formats_smoke.yaml \
   --out /tmp/weighttraits_lora_runs.jsonl \
   --report /tmp/weighttraits_lora_runs.report.json \
-  --slurm-out /tmp/weighttraits_lora_train.sbatch
+  --slurm-out /tmp/weighttraits_lora_train.sbatch \
+  --runner-dry-run
 ```
 
 The Wright smoke reported 13 runs, no errors, and one expected warning because the run count exceeds
-the profile's default concurrency throttle of 6.
+the profile's default concurrency throttle of 6. With `--runner-dry-run`, the generated script calls
+`run-training-row --dry-run` and does not load datasets or models.
+
+Per-row runner dry-run smoke:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli run-training-row \
+  --run-list /tmp/weighttraits_lora_runs.jsonl \
+  --index 0 \
+  --dry-run
+```
 
 ## Next Best Steps
 
-1. Build the Hugging Face / PEFT execution layer behind the run-list contract:
-   - `Trainer` / `Seq2SeqTrainer`;
-   - LoRA adapter creation;
-   - merge-and-save child weights for LoRA;
-   - write ledger events from monitor decisions.
-2. Replace the generated SLURM dry-run selector with the real per-row runner when ready.
+1. Run a tiny real-model training smoke in an environment with the training extra installed:
+   - one full row;
+   - one LoRA row;
+   - verify model/adapter/merged artifacts and ledger events.
+2. Refine supervision templates:
+   - prefer explicit `trainer.target_field` or `trainer.target_template`;
+   - audit old prompt templates that currently include the answer in the rendered prompt.
 3. Then return to whitebox end-to-end smoke:
    - generated tree;
    - distance input manifest;
@@ -207,7 +238,7 @@ the profile's default concurrency throttle of 6.
 - Do not commit generated outputs, model weights, checkpoints, caches, or reports unless they are intentional tiny examples.
 - CKA is exact but still tensor-at-a-time.
 - LoRA vector metrics stream dense `B @ A` row blocks; low-rank dot-product acceleration remains planned.
-- The trainer execution loop is not implemented yet; current trainer work is a strong dry-run/control plane.
+- The trainer execution loop is implemented behind an optional HF/PEFT backend, but has not yet been exercised on a real downloaded model in this repo.
 - `wt audit-datasets` in load mode may require network access and the optional `datasets` dependency.
 - `wt audit-training-samples` requires dataset loading and should run only in environments where downloads/cache access are intended.
-- `wt make-training-run-list --slurm-out` generates a selector/dry-run script for now; it does not launch model training yet.
+- `wt make-training-run-list --runner-dry-run --slurm-out` generates a safe selector script; omit `--runner-dry-run` only when real training is intended.
