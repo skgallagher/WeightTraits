@@ -32,6 +32,15 @@ from weighttraits.training.datasets import (
 )
 from weighttraits.training.ledger import ledger_summary, load_ledger_events
 from weighttraits.training.planner import build_training_jobs_from_files, write_training_plan
+from weighttraits.training.runlist import (
+    build_training_run_list,
+    load_execution_profile,
+    load_training_run_specs,
+    select_training_run,
+    write_slurm_array_script,
+    write_training_run_list,
+    write_training_run_report,
+)
 
 
 def _audit_ellmtrees(args: argparse.Namespace) -> int:
@@ -246,6 +255,49 @@ def _audit_training_samples(args: argparse.Namespace) -> int:
     return 0 if report.valid or args.allow_issues else 1
 
 
+def _make_training_run_list(args: argparse.Namespace) -> int:
+    jobs = build_training_jobs_from_files(args.manifest, args.config)
+    profile = load_execution_profile(args.profile) if args.profile else None
+    report = build_training_run_list(
+        jobs,
+        profile=profile,
+        run_list_path=args.out,
+        ledger_path=args.ledger,
+        allow_existing_artifacts=args.allow_existing_artifacts,
+        check_filesystem=not args.no_filesystem_check,
+    )
+    write_training_run_list(report, args.out)
+    if args.report:
+        write_training_run_report(report, args.report)
+    if args.slurm_out:
+        if profile is None:
+            raise ValueError("--slurm-out requires --profile with scheduler=slurm")
+        write_slurm_array_script(
+            report,
+            args.slurm_out,
+            run_list_path=args.out,
+            profile=profile,
+            job_name=args.job_name,
+            max_concurrent=args.max_concurrent,
+            python=args.python,
+        )
+    summary = report.to_dict()
+    summary["manifest"] = str(args.manifest)
+    summary["config"] = str(args.config)
+    summary["out"] = str(args.out)
+    summary["report"] = str(args.report) if args.report else None
+    summary["slurm_out"] = str(args.slurm_out) if args.slurm_out else None
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0 if report.valid or args.allow_issues else 1
+
+
+def _describe_training_run(args: argparse.Namespace) -> int:
+    runs = load_training_run_specs(args.run_list)
+    run = select_training_run(runs, index=args.index, node_id=args.node_id)
+    print(json.dumps(run.to_dict(), indent=2, sort_keys=True))
+    return 0
+
+
 def _parse_labeled_path(value: str) -> tuple[str | None, Path]:
     if ":" in value:
         label, raw_path = value.split(":", 1)
@@ -437,6 +489,39 @@ def build_parser() -> argparse.ArgumentParser:
     audit_samples.add_argument("--out", type=Path)
     audit_samples.add_argument("--allow-issues", action="store_true")
     audit_samples.set_defaults(func=_audit_training_samples)
+
+    run_list = sub.add_parser(
+        "make-training-run-list",
+        help="Write training run JSONL plus optional preflight report and SLURM dry-run script",
+    )
+    run_list.add_argument("--manifest", type=Path, required=True)
+    run_list.add_argument("--config", type=Path, required=True)
+    run_list.add_argument("--out", type=Path, required=True, help="Output training run-list JSONL")
+    run_list.add_argument("--profile", type=Path, help="Local or cluster execution profile YAML")
+    run_list.add_argument("--ledger", type=Path, help="Ledger path to record in each run row")
+    run_list.add_argument("--report", type=Path, help="Optional JSON preflight report")
+    run_list.add_argument("--slurm-out", type=Path, help="Optional SLURM array script path")
+    run_list.add_argument("--job-name", default="weighttraits-train")
+    run_list.add_argument("--max-concurrent", type=int, help="Override profile array throttle")
+    run_list.add_argument(
+        "--python",
+        default="python",
+        help="Python executable for generated scripts",
+    )
+    run_list.add_argument("--allow-existing-artifacts", action="store_true")
+    run_list.add_argument("--no-filesystem-check", action="store_true")
+    run_list.add_argument("--allow-issues", action="store_true")
+    run_list.set_defaults(func=_make_training_run_list)
+
+    describe_run = sub.add_parser(
+        "describe-training-run",
+        help="Print one row from a training run-list by array index or node id",
+    )
+    describe_run.add_argument("--run-list", type=Path, required=True)
+    selector = describe_run.add_mutually_exclusive_group(required=True)
+    selector.add_argument("--index", type=int)
+    selector.add_argument("--node-id")
+    describe_run.set_defaults(func=_describe_training_run)
 
     return parser
 

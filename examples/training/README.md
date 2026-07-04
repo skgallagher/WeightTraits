@@ -54,3 +54,23 @@ PYTHONPATH=src python -m weighttraits.cli audit-training-samples \
   --max-samples 4 \
   --out /tmp/weighttraits_training_sample_render_audit.json
 ```
+
+Generate an explicit cluster/local run list with preflight checks:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-training-run-list \
+  --manifest reports/flexible_tree_assigned_manifest.jsonl \
+  --config examples/training/lora_smoke.yaml \
+  --profile configs/cluster/wright.yaml \
+  --out /tmp/weighttraits_lora_runs.jsonl \
+  --report /tmp/weighttraits_lora_runs.report.json \
+  --slurm-out /tmp/weighttraits_lora_train.sbatch
+```
+
+Inspect the run selected by an array index:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli describe-training-run \
+  --run-list /tmp/weighttraits_lora_runs.jsonl \
+  --index 0
+```

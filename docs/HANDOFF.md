@@ -8,15 +8,16 @@ WeightTraits is a private, cleaner rebuild of ELLMTrees under `/Users/shannon/De
 
 ## Current Git State
 
-Latest stable pushed base before the sample-rendering audit increment:
+Latest stable pushed base before the run-list increment:
 
 ```text
-1f2efd7 Add dataset audit handoff
+2745f70 Add training sample rendering audit
 ```
 
 Recent pushed commits:
 
 ```text
+1f2efd7 Add dataset audit handoff
 6fb2f1b Validate training data formats
 c83f4b6 Add training prompt validation and ledgers
 6d32e09 Add trainer planning controls
@@ -66,6 +67,12 @@ ee16c92 Add topology audit and recovery scoring
   - applies dataset `field_map`;
   - renders resolved prompt templates;
   - reports counts, field names, row indices, and errors without storing raw samples or prompts.
+- Training run-list generation:
+  - `wt make-training-run-list`;
+  - supports local and cluster execution profiles;
+  - writes stable JSONL rows keyed by array index;
+  - writes optional preflight report and SLURM dry-run selector script;
+  - checks parent order, artifact collisions, missing datasets, stopping guards, and LoRA merge semantics.
 
 ## Verification So Far
 
@@ -92,6 +99,14 @@ conda run -n ellmtrees env PYTHONPATH=src python -m pytest tests/test_training_d
 ```
 
 passed with 19 focused trainer preflight tests.
+
+After adding the training run-list layer:
+
+```text
+conda run -n ellmtrees env PYTHONPATH=src python -m pytest tests/test_training_runlist.py --override-ini=addopts=
+```
+
+passed with 9 focused run-list tests.
 
 Useful smoke commands that have passed:
 
@@ -146,16 +161,41 @@ PYTHONPATH=src python -m weighttraits.cli audit-training-samples \
   --out /tmp/weighttraits_training_sample_render_audit.json
 ```
 
+Run-list local smoke:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-training-run-list \
+  --manifest reports/flexible_tree_assigned_manifest.jsonl \
+  --config examples/training/full_smoke.yaml \
+  --profile configs/local/default.yaml \
+  --out /tmp/weighttraits_full_local_runs.jsonl \
+  --report /tmp/weighttraits_full_local_runs.report.json
+```
+
+Run-list cluster dry-run smoke:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-training-run-list \
+  --manifest reports/flexible_tree_assigned_manifest.jsonl \
+  --config examples/training/lora_smoke.yaml \
+  --profile configs/cluster/wright.yaml \
+  --out /tmp/weighttraits_lora_runs.jsonl \
+  --report /tmp/weighttraits_lora_runs.report.json \
+  --slurm-out /tmp/weighttraits_lora_train.sbatch
+```
+
+The Wright smoke reported 13 runs, no errors, and one expected warning because the run count exceeds
+the profile's default concurrency throttle of 6.
+
 ## Next Best Steps
 
-1. Build the Hugging Face / PEFT execution layer:
+1. Build the Hugging Face / PEFT execution layer behind the run-list contract:
    - `Trainer` / `Seq2SeqTrainer`;
    - LoRA adapter creation;
    - merge-and-save child weights for LoRA;
    - write ledger events from monitor decisions.
-2. Add cluster run-list generation from planned training JSONL.
-3. Add preflight warnings for loss monitor settings and expected artifact collisions.
-4. Then return to whitebox end-to-end smoke:
+2. Replace the generated SLURM dry-run selector with the real per-row runner when ready.
+3. Then return to whitebox end-to-end smoke:
    - generated tree;
    - distance input manifest;
    - distance cube;
@@ -170,3 +210,4 @@ PYTHONPATH=src python -m weighttraits.cli audit-training-samples \
 - The trainer execution loop is not implemented yet; current trainer work is a strong dry-run/control plane.
 - `wt audit-datasets` in load mode may require network access and the optional `datasets` dependency.
 - `wt audit-training-samples` requires dataset loading and should run only in environments where downloads/cache access are intended.
+- `wt make-training-run-list --slurm-out` generates a selector/dry-run script for now; it does not launch model training yet.

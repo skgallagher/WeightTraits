@@ -233,10 +233,39 @@ PYTHONPATH=src python -m weighttraits.cli training-ledger-summary \
   --ledger outputs/lora_smoke/training_ledger.jsonl
 ```
 
+## Run Lists And Scheduler Dry Runs
+
+Cluster training must start from an explicit run list. `wt make-training-run-list` turns planned
+jobs into stable JSONL rows with array indices, parent/init artifacts, expected outputs, ledger path,
+and a placeholder runner entrypoint. It also emits preflight errors for artifact collisions, missing
+dataset IDs, parent-order mistakes, and LoRA configurations that would fail to save merged parent
+weights for descendants.
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-training-run-list \
+  --manifest reports/flexible_tree_assigned_manifest.jsonl \
+  --config examples/training/lora_smoke.yaml \
+  --profile configs/cluster/wright.yaml \
+  --out /tmp/weighttraits_lora_runs.jsonl \
+  --report /tmp/weighttraits_lora_runs.report.json \
+  --slurm-out /tmp/weighttraits_lora_train.sbatch
+```
+
+The generated SLURM script is a dry-run selector until the HF/PEFT runner lands. It calls:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli describe-training-run \
+  --run-list /tmp/weighttraits_lora_runs.jsonl \
+  --index "${SLURM_ARRAY_TASK_ID}"
+```
+
+This makes array indexing, throttling, and path visibility auditable before model-loading code is
+allowed to run.
+
 ## Next Execution Layer
 
 The next trainer increment should add:
 
 - Hugging Face `Trainer` / `Seq2SeqTrainer` execution;
 - PEFT LoRA adapter creation and merge;
-- cluster array generation from the planned JSONL.
+- replacing the dry-run selector with the real per-row training runner.
