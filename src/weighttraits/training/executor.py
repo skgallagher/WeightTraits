@@ -120,7 +120,7 @@ def prepare_training_data(
     if spec is None:
         raise ValueError(f"dataset id not found in format specs: {run.dataset_id}")
     dataset_loader = loader or _default_hf_loader()
-    dataset = dataset_loader(*entry.hf_args)
+    dataset = dataset_loader(*entry.hf_args, **(entry.hf_kwargs or {}))
     train_split = spec.train_split or entry.train_split or "train"
     eval_split = spec.eval_split or entry.eval_split
 

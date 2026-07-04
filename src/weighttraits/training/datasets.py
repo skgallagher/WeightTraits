@@ -21,6 +21,7 @@ class DatasetRegistryEntry:
     dataset_id: str
     task_family: str | None
     hf_args: tuple[str, ...]
+    hf_kwargs: dict[str, Any] | None = None
     role: str = "training"
     status: str | None = None
     filter: dict[str, Any] | None = None
@@ -31,6 +32,8 @@ class DatasetRegistryEntry:
     def to_dict(self) -> dict[str, Any]:
         out = asdict(self)
         out["hf_args"] = list(self.hf_args)
+        if self.hf_kwargs is None:
+            out["hf_kwargs"] = {}
         return out
 
 
@@ -45,10 +48,13 @@ class DatasetSplitAudit:
     row_counts: dict[str, int | None]
     status: str
     error: str | None = None
+    hf_kwargs: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         out = asdict(self)
         out["hf_args"] = list(self.hf_args)
+        if self.hf_kwargs is None:
+            out["hf_kwargs"] = {}
         out["requested_splits"] = list(self.requested_splits)
         out["available_splits"] = list(self.available_splits)
         return out
@@ -191,6 +197,7 @@ def audit_dataset_registry(
                     available_splits=(),
                     row_counts={},
                     status="not_loaded",
+                    hf_kwargs=entry.hf_kwargs,
                 )
             )
             continue
@@ -455,7 +462,7 @@ def _load_cached_dataset(
 ) -> Any:
     if entry.dataset_id not in dataset_cache:
         dataset_loader = loader or _default_hf_loader()
-        dataset_cache[entry.dataset_id] = dataset_loader(*entry.hf_args)
+        dataset_cache[entry.dataset_id] = dataset_loader(*entry.hf_args, **(entry.hf_kwargs or {}))
     return dataset_cache[entry.dataset_id]
 
 
@@ -529,6 +536,11 @@ def _entries_from_dataset_rows(
         hf_args = row.get("hf_args")
         if not isinstance(hf_args, list) or not hf_args:
             raise ValueError(f"dataset {dataset_id} requires non-empty hf_args")
+        hf_kwargs = row.get("hf_kwargs", {})
+        if hf_kwargs is None:
+            hf_kwargs = {}
+        if not isinstance(hf_kwargs, dict):
+            raise ValueError(f"dataset {dataset_id} hf_kwargs must be a mapping")
         filter_spec = row.get("filter")
         if filter_spec is not None and not isinstance(filter_spec, dict):
             raise ValueError(f"dataset {dataset_id} filter must be a mapping")
@@ -537,6 +549,7 @@ def _entries_from_dataset_rows(
                 dataset_id=str(dataset_id),
                 task_family=task_family,
                 hf_args=tuple(str(item) for item in hf_args),
+                hf_kwargs={str(k): v for k, v in hf_kwargs.items()} if hf_kwargs else None,
                 role=str(row.get("role", "training")),
                 status=None if row.get("status") is None else str(row.get("status")),
                 filter={str(k): v for k, v in filter_spec.items()} if filter_spec else None,
@@ -570,7 +583,7 @@ def _load_and_audit(
 ) -> DatasetSplitAudit:
     try:
         dataset_loader = loader or _default_hf_loader()
-        dataset = dataset_loader(*entry.hf_args)
+        dataset = dataset_loader(*entry.hf_args, **(entry.hf_kwargs or {}))
         available_splits, row_counts = _dataset_split_summary(dataset)
         missing = sorted(set(requested_splits) - set(available_splits))
         status = "missing_splits" if missing else "ok"
@@ -590,6 +603,7 @@ def _load_and_audit(
         row_counts=row_counts,
         status=status,
         error=error,
+        hf_kwargs=entry.hf_kwargs,
     )
 
 

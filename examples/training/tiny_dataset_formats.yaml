@@ -1,0 +1,17 @@
+datasets:
+  - dataset_id: tiny_boolq_json
+    task_family: qa_reasoning
+    train_split: train
+    eval_split: validation
+    prompt_fields:
+      - question
+      - context
+      - answer
+    raw_fields:
+      - question
+      - passage
+      - answer
+    field_map:
+      question: question
+      context: passage
+      answer: answer

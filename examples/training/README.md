@@ -86,3 +86,62 @@ PYTHONPATH=src python -m weighttraits.cli run-training-row \
   --index 0 \
   --dry-run
 ```
+
+## Tiny Real-Training Smoke
+
+The tiny fixtures use local JSONL data so only the model may need to be downloaded or read from
+cache. Run these in an environment with the `training` extra installed. If the default Hugging Face
+dataset cache is not writable, set `HF_DATASETS_CACHE` to a scratch or `/tmp` directory.
+
+Validate and render the local JSONL fixture:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli audit-datasets \
+  --registry examples/training/tiny_dataset_registry.yaml \
+  --formats examples/training/tiny_dataset_formats.yaml \
+  --out /tmp/weighttraits_tiny_dataset_audit.json
+
+PYTHONPATH=src python -m weighttraits.cli audit-training-samples \
+  --manifest examples/training/tiny_manifest.jsonl \
+  --config examples/training/tiny_full_smoke.yaml \
+  --registry examples/training/tiny_dataset_registry.yaml \
+  --formats examples/training/tiny_dataset_formats.yaml \
+  --max-samples 2 \
+  --out /tmp/weighttraits_tiny_sample_audit.json
+```
+
+Run one full fine-tuning row:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-training-run-list \
+  --manifest examples/training/tiny_manifest.jsonl \
+  --config examples/training/tiny_full_smoke.yaml \
+  --registry examples/training/tiny_dataset_registry.yaml \
+  --formats examples/training/tiny_dataset_formats.yaml \
+  --out /tmp/weighttraits_tiny_full_runs.jsonl \
+  --allow-existing-artifacts
+
+PYTHONPATH=src python -m weighttraits.cli run-training-row \
+  --run-list /tmp/weighttraits_tiny_full_runs.jsonl \
+  --index 0 \
+  --max-train-samples 2 \
+  --allow-missing-eval
+```
+
+Run one LoRA row:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-training-run-list \
+  --manifest examples/training/tiny_manifest.jsonl \
+  --config examples/training/tiny_lora_smoke.yaml \
+  --registry examples/training/tiny_dataset_registry.yaml \
+  --formats examples/training/tiny_dataset_formats.yaml \
+  --out /tmp/weighttraits_tiny_lora_runs.jsonl \
+  --allow-existing-artifacts
+
+PYTHONPATH=src python -m weighttraits.cli run-training-row \
+  --run-list /tmp/weighttraits_tiny_lora_runs.jsonl \
+  --index 0 \
+  --max-train-samples 2 \
+  --allow-missing-eval
+```

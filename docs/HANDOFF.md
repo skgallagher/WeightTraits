@@ -8,15 +8,16 @@ WeightTraits is a private, cleaner rebuild of ELLMTrees under `/Users/shannon/De
 
 ## Current Git State
 
-Latest stable pushed base before the per-row runner increment:
+Latest stable pushed base before the tiny-smoke fixture increment:
 
 ```text
-a20abaa Add training run list generation
+c749ba2 Add per-row training executor
 ```
 
 Recent pushed commits:
 
 ```text
+c749ba2 Add per-row training executor
 a20abaa Add training run list generation
 2745f70 Add training sample rendering audit
 1f2efd7 Add dataset audit handoff
@@ -63,6 +64,7 @@ ee16c92 Add topology audit and recovery scoring
   - `wt audit-datasets`;
   - no-download registry/split dry runs with `--no-load`;
   - optional Hugging Face `load_dataset` split and row-count audit in prepared environments.
+  - registry rows support `hf_kwargs`, including local JSONL `data_files`.
 - Training sample rendering audit:
   - `wt audit-training-samples`;
   - loads a tiny sample for planned jobs;
@@ -82,6 +84,14 @@ ee16c92 Add topology audit and recovery scoring
   - imports `datasets`, `transformers`, and `peft` lazily for real training;
   - supports full fine-tuning and LoRA adapter plus merged-child saves;
   - writes started/running/completed/stopped_early/failed ledger events.
+- Tiny real-training smoke fixtures:
+  - `examples/training/tiny_manifest.jsonl`;
+  - `examples/training/tiny_train.jsonl` and `tiny_validation.jsonl`;
+  - `examples/training/tiny_dataset_registry.yaml`;
+  - `examples/training/tiny_dataset_formats.yaml`;
+  - `examples/training/tiny_full_smoke.yaml`;
+  - `examples/training/tiny_lora_smoke.yaml`;
+  - prompts keep the label out of the prompt and use `trainer.target_field: answer`.
 
 ## Verification So Far
 
@@ -124,6 +134,20 @@ conda run -n ellmtrees env PYTHONPATH=src python -m pytest tests/test_training_e
 ```
 
 passed with 15 focused executor/run-list tests.
+
+After adding registry `hf_kwargs` and tiny smoke fixtures:
+
+```text
+conda run -n ellmtrees env PYTHONPATH=src python -m pytest tests/test_training_dataset_registry.py tests/test_training_executor.py tests/test_training_tiny_examples.py --override-ini=addopts=
+```
+
+passed with 20 focused tests.
+
+The full suite then passed with 100 tests:
+
+```text
+conda run -n ellmtrees env PYTHONPATH=src python -m pytest --override-ini=addopts=
+```
 
 Useful smoke commands that have passed:
 
@@ -217,9 +241,109 @@ PYTHONPATH=src python -m weighttraits.cli run-training-row \
   --dry-run
 ```
 
+Tiny local JSONL dataset smoke:
+
+```bash
+HF_DATASETS_CACHE=/tmp/weighttraits_hf_datasets \
+PYTHONPATH=src python -m weighttraits.cli audit-datasets \
+  --registry examples/training/tiny_dataset_registry.yaml \
+  --formats examples/training/tiny_dataset_formats.yaml \
+  --out /tmp/weighttraits_tiny_dataset_audit.json
+
+HF_DATASETS_CACHE=/tmp/weighttraits_hf_datasets \
+PYTHONPATH=src python -m weighttraits.cli audit-training-samples \
+  --manifest examples/training/tiny_manifest.jsonl \
+  --config examples/training/tiny_full_smoke.yaml \
+  --registry examples/training/tiny_dataset_registry.yaml \
+  --formats examples/training/tiny_dataset_formats.yaml \
+  --max-samples 2 \
+  --out /tmp/weighttraits_tiny_sample_audit.json
+```
+
+Those local JSONL smokes passed with 2 train rows, 1 validation row, and 2 rendered prompt samples.
+
+Tiny full/LoRA run-list dry-runs passed:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-training-run-list \
+  --manifest examples/training/tiny_manifest.jsonl \
+  --config examples/training/tiny_full_smoke.yaml \
+  --registry examples/training/tiny_dataset_registry.yaml \
+  --formats examples/training/tiny_dataset_formats.yaml \
+  --out /tmp/weighttraits_tiny_full_runs.jsonl \
+  --allow-existing-artifacts \
+  --runner-dry-run
+
+PYTHONPATH=src python -m weighttraits.cli make-training-run-list \
+  --manifest examples/training/tiny_manifest.jsonl \
+  --config examples/training/tiny_lora_smoke.yaml \
+  --registry examples/training/tiny_dataset_registry.yaml \
+  --formats examples/training/tiny_dataset_formats.yaml \
+  --out /tmp/weighttraits_tiny_lora_runs.jsonl \
+  --allow-existing-artifacts \
+  --runner-dry-run
+```
+
+## Wright Status
+
+Wright is reachable, but this Codex shell cannot authenticate right now. Attempts made on
+2026-07-03:
+
+```text
+ssh wright hostname
+ssh -o IdentitiesOnly=yes -i /Users/shannon/.ssh/id_ed25519 sgallagh@wright.hss.cmu.edu hostname
+ssh -S /tmp/wright-codex.sock wright hostname
+```
+
+All reached the host at least intermittently but ended with `Permission denied (publickey,password)`.
+The host SSH agent has a key loaded, but Wright rejected it. Refresh SSH auth outside Codex, then run
+the tiny real-model smoke below.
+
+Tiny full smoke on Wright or another prepared environment:
+
+```bash
+cd /home/sgallagh/WeightTraits
+git pull
+conda run -n ellmtrees env PYTHONPATH=src HF_DATASETS_CACHE=/scratch/sgallagh/hf_datasets \
+  python -m weighttraits.cli make-training-run-list \
+    --manifest examples/training/tiny_manifest.jsonl \
+    --config examples/training/tiny_full_smoke.yaml \
+    --registry examples/training/tiny_dataset_registry.yaml \
+    --formats examples/training/tiny_dataset_formats.yaml \
+    --out /tmp/weighttraits_tiny_full_runs.jsonl \
+    --allow-existing-artifacts
+
+conda run -n ellmtrees env PYTHONPATH=src HF_DATASETS_CACHE=/scratch/sgallagh/hf_datasets \
+  python -m weighttraits.cli run-training-row \
+    --run-list /tmp/weighttraits_tiny_full_runs.jsonl \
+    --index 0 \
+    --max-train-samples 2 \
+    --allow-missing-eval
+```
+
+Tiny LoRA smoke:
+
+```bash
+conda run -n ellmtrees env PYTHONPATH=src HF_DATASETS_CACHE=/scratch/sgallagh/hf_datasets \
+  python -m weighttraits.cli make-training-run-list \
+    --manifest examples/training/tiny_manifest.jsonl \
+    --config examples/training/tiny_lora_smoke.yaml \
+    --registry examples/training/tiny_dataset_registry.yaml \
+    --formats examples/training/tiny_dataset_formats.yaml \
+    --out /tmp/weighttraits_tiny_lora_runs.jsonl \
+    --allow-existing-artifacts
+
+conda run -n ellmtrees env PYTHONPATH=src HF_DATASETS_CACHE=/scratch/sgallagh/hf_datasets \
+  python -m weighttraits.cli run-training-row \
+    --run-list /tmp/weighttraits_tiny_lora_runs.jsonl \
+    --index 0 \
+    --max-train-samples 2 \
+    --allow-missing-eval
+```
+
 ## Next Best Steps
 
-1. Run a tiny real-model training smoke in an environment with the training extra installed:
+1. Refresh Wright SSH auth, pull `main`, then run a tiny real-model training smoke:
    - one full row;
    - one LoRA row;
    - verify model/adapter/merged artifacts and ledger events.
@@ -239,6 +363,8 @@ PYTHONPATH=src python -m weighttraits.cli run-training-row \
 - CKA is exact but still tensor-at-a-time.
 - LoRA vector metrics stream dense `B @ A` row blocks; low-rank dot-product acceleration remains planned.
 - The trainer execution loop is implemented behind an optional HF/PEFT backend, but has not yet been exercised on a real downloaded model in this repo.
+- The tiny model `hf-internal-testing/tiny-random-t5` was not cached locally, and local outgoing Hugging Face traffic is disabled; run the real model smoke on Wright or another prepared environment.
+- Local `datasets.load_dataset("json", ...)` may need `HF_DATASETS_CACHE` pointed to a writable scratch directory.
 - `wt audit-datasets` in load mode may require network access and the optional `datasets` dependency.
 - `wt audit-training-samples` requires dataset loading and should run only in environments where downloads/cache access are intended.
 - `wt make-training-run-list --runner-dry-run --slurm-out` generates a safe selector script; omit `--runner-dry-run` only when real training is intended.

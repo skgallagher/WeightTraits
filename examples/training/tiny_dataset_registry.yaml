@@ -1,0 +1,12 @@
+version: 1
+datasets:
+  - id: tiny_boolq_json
+    hf_args:
+      - json
+    hf_kwargs:
+      data_files:
+        train: examples/training/tiny_train.jsonl
+        validation: examples/training/tiny_validation.jsonl
+    train_split: train
+    eval_split: validation
+    note: Local JSONL fixture for real trainer smoke tests.

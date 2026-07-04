@@ -61,6 +61,47 @@ def test_load_dataset_registry_from_task_families(tmp_path):
     assert registry["ai2_arc_easy"].role == "eval_or_behavior_probe"
 
 
+def test_dataset_registry_supports_hf_kwargs_for_local_json(tmp_path):
+    registry_path = tmp_path / "registry_kwargs.yaml"
+    registry_path.write_text(
+        """
+datasets:
+  - id: tiny_json
+    hf_args: [json]
+    hf_kwargs:
+      data_files:
+        train: examples/training/tiny_train.jsonl
+        validation: examples/training/tiny_validation.jsonl
+    train_split: train
+    eval_split: validation
+"""
+    )
+    registry = load_dataset_registry(registry_path)
+
+    def fake_loader(*args, **kwargs):
+        assert args == ("json",)
+        assert kwargs == {
+            "data_files": {
+                "train": "examples/training/tiny_train.jsonl",
+                "validation": "examples/training/tiny_validation.jsonl",
+            }
+        }
+        return {"train": [1], "validation": [2]}
+
+    report = audit_dataset_registry(registry, loader=fake_loader)
+    audit = report.audits[0]
+
+    assert registry["tiny_json"].hf_kwargs == {
+        "data_files": {
+            "train": "examples/training/tiny_train.jsonl",
+            "validation": "examples/training/tiny_validation.jsonl",
+        }
+    }
+    assert report.valid
+    assert audit.hf_kwargs == registry["tiny_json"].hf_kwargs
+    assert audit.row_counts == {"train": 1, "validation": 1}
+
+
 def test_audit_dataset_registry_no_load_records_requested_splits(tmp_path):
     registry = load_dataset_registry(_registry_path(tmp_path))
     formats = load_dataset_format_specs(_formats_path(tmp_path))

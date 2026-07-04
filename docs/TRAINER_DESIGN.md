@@ -124,6 +124,18 @@ Omit `--no-load` only in an environment where dataset downloads are intended. Th
 `missing_splits`, `load_failed`, and `unknown_dataset_id` separately so cluster dry runs can fail for
 the right reason.
 
+Registry rows may include `hf_kwargs` for Hugging Face loader keyword arguments. This is useful for
+local fixtures such as:
+
+```yaml
+hf_args:
+  - json
+hf_kwargs:
+  data_files:
+    train: examples/training/tiny_train.jsonl
+    validation: examples/training/tiny_validation.jsonl
+```
+
 ## Training Sample Rendering Audit
 
 After the offline contract and split checks pass, use a tiny sample-rendering audit before launching
