@@ -142,8 +142,24 @@ Intent and status of that slice:
   `outputs/tiny_full_branching_contrast_smoke` and
   `outputs/tiny_lora_branching_contrast_smoke`.
 - Local focused fixture tests passed with 8 tests; full local suite passed with 123 tests.
-- Not yet run on Wright; next Wright pass should train all six contrast rows, generate ledger-derived
-  full/merged/cumulative leaf manifests, then build/reconstruct/score distance cubes.
+- Pushed as `f394b42 Add tiny branching contrast smoke`.
+- Wright focused fixture tests passed with 8 tests; full Wright suite passed with 123 tests.
+- Wright full and LoRA contrast training rows completed for all six nodes:
+  `completed_nodes=["n0", "n1", "n2", "n3", "n4", "n5"]`, `failed_nodes=[]`.
+- Generated ledger-derived leaf manifests for full checkpoints, LoRA merged checkpoints, and
+  cumulative LoRA adapter chains.
+- Built `l2` and `cosine` distance cubes for all three artifact modes and reconstructed/scored all
+  six trees against `examples/training/tiny_branching_contrast_manifest.jsonl`.
+- All six artifact/metric combinations recovered the single truth split exactly:
+  aggregate `n_records=6`, `exact_tree_recovery_rate=1.0`, `pooled_clade_recovery=1.0`,
+  `pooled_split_precision=1.0`, `rf_mean=0.0`.
+- Distance summaries:
+  - full checkpoints: `l2 distance_mean=0.018231388318443124`,
+    `cosine distance_mean=0.035058786331429094`;
+  - LoRA merged checkpoints: `l2 distance_mean=0.0015009464427041006`,
+    `cosine distance_mean=1.2163427378181045e-06`;
+  - cumulative LoRA adapters: `l2 distance_mean=0.0055034746647987945`,
+    `cosine distance_mean=0.39188815833251484`.
 
 Previous artifact-distance smoke slice contents:
 
@@ -828,8 +844,9 @@ score rf=0, false_negative=0, false_positive=0, exact_tree_recovery=true
 
 ## Next Best Steps
 
-1. Run the tiny branching contrast smoke on Wright and compare full checkpoints, LoRA merged
-   checkpoints, and cumulative LoRA adapter-chain recovery against the ordinary branching smoke.
+1. Add a one-command whitebox analysis wrapper that runs
+   `make-distance-input-manifest -> build-distance-cube -> reconstruct-tree -> score-tree ->
+   aggregate-recovery` and writes a compact per-artifact/metric summary.
 2. Add a low-rank LoRA distance accumulator that avoids dense `B @ A` slabs for large adapters.
 3. Refine supervision templates:
    - prefer explicit `trainer.target_field` or `trainer.target_template`;
