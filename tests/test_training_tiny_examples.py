@@ -83,3 +83,36 @@ def test_tiny_lora_example_plans_adapter_and_merged_artifacts():
     assert run.job["lora"]["merge_after_train"] is True
     assert run.expected_artifacts["adapter"] == "outputs/tiny_lora_smoke/n0/adapter"
     assert run.expected_artifacts["merged"] == "outputs/tiny_lora_smoke/n0/merged"
+
+
+def test_tiny_full_lineage_example_uses_parent_model_artifact():
+    jobs = build_training_jobs_from_files(
+        EXAMPLES / "tiny_lineage_manifest.jsonl",
+        EXAMPLES / "tiny_full_lineage_smoke.yaml",
+    )
+    runs = build_training_run_list(jobs).runs
+
+    assert [run.node_id for run in runs] == ["n0", "n1"]
+    assert runs[0].init_from == "hf-internal-testing/tiny-random-t5"
+    assert runs[1].parent_id == "n0"
+    assert runs[1].init_from == "outputs/tiny_full_lineage_smoke/n0/model"
+    assert runs[1].expected_artifacts["model"] == "outputs/tiny_full_lineage_smoke/n1/model"
+    assert runs[0].ledger_path == "outputs/tiny_full_lineage_smoke/training_ledger.jsonl"
+    assert runs[1].ledger_path == "outputs/tiny_full_lineage_smoke/training_ledger.jsonl"
+
+
+def test_tiny_lora_lineage_example_uses_parent_merged_artifact():
+    jobs = build_training_jobs_from_files(
+        EXAMPLES / "tiny_lineage_manifest.jsonl",
+        EXAMPLES / "tiny_lora_lineage_smoke.yaml",
+    )
+    runs = build_training_run_list(jobs).runs
+
+    assert [run.node_id for run in runs] == ["n0", "n1"]
+    assert runs[0].init_from == "hf-internal-testing/tiny-random-t5"
+    assert runs[1].parent_id == "n0"
+    assert runs[1].init_from == "outputs/tiny_lora_lineage_smoke/n0/merged"
+    assert runs[1].expected_artifacts["adapter"] == "outputs/tiny_lora_lineage_smoke/n1/adapter"
+    assert runs[1].expected_artifacts["merged"] == "outputs/tiny_lora_lineage_smoke/n1/merged"
+    assert runs[0].ledger_path == "outputs/tiny_lora_lineage_smoke/training_ledger.jsonl"
+    assert runs[1].ledger_path == "outputs/tiny_lora_lineage_smoke/training_ledger.jsonl"

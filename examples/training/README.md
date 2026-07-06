@@ -145,3 +145,54 @@ PYTHONPATH=src python -m weighttraits.cli run-training-row \
   --max-train-samples 2 \
   --allow-missing-eval
 ```
+
+## Tiny Lineage Smoke
+
+The lineage fixtures train two nodes, `n0` then child `n1`, to verify parent/child
+initialization and shared ledger behavior. For full fine-tuning, `n1` initializes from
+`outputs/tiny_full_lineage_smoke/n0/model`. For LoRA, `n1` initializes from
+`outputs/tiny_lora_lineage_smoke/n0/merged`.
+
+Generate and run the full lineage rows:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-training-run-list \
+  --manifest examples/training/tiny_lineage_manifest.jsonl \
+  --config examples/training/tiny_full_lineage_smoke.yaml \
+  --registry examples/training/tiny_dataset_registry.yaml \
+  --formats examples/training/tiny_dataset_formats.yaml \
+  --out /tmp/weighttraits_tiny_full_lineage_runs.jsonl \
+  --allow-existing-artifacts \
+  --max-train-samples 2 \
+  --allow-missing-eval
+
+PYTHONPATH=src python -m weighttraits.cli run-training-row \
+  --run-list /tmp/weighttraits_tiny_full_lineage_runs.jsonl \
+  --index 0
+
+PYTHONPATH=src python -m weighttraits.cli run-training-row \
+  --run-list /tmp/weighttraits_tiny_full_lineage_runs.jsonl \
+  --index 1
+```
+
+Generate and run the LoRA lineage rows:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-training-run-list \
+  --manifest examples/training/tiny_lineage_manifest.jsonl \
+  --config examples/training/tiny_lora_lineage_smoke.yaml \
+  --registry examples/training/tiny_dataset_registry.yaml \
+  --formats examples/training/tiny_dataset_formats.yaml \
+  --out /tmp/weighttraits_tiny_lora_lineage_runs.jsonl \
+  --allow-existing-artifacts \
+  --max-train-samples 2 \
+  --allow-missing-eval
+
+PYTHONPATH=src python -m weighttraits.cli run-training-row \
+  --run-list /tmp/weighttraits_tiny_lora_lineage_runs.jsonl \
+  --index 0
+
+PYTHONPATH=src python -m weighttraits.cli run-training-row \
+  --run-list /tmp/weighttraits_tiny_lora_lineage_runs.jsonl \
+  --index 1
+```

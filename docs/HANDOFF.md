@@ -219,6 +219,32 @@ passed with 7 focused executor tests. The remote suite passed with 102 tests:
 /opt/miniforge3/bin/mamba run -n weighttraits env PYTHONPATH=src python -m pytest --override-ini=addopts=
 ```
 
+After adding the two-node tiny lineage fixtures:
+
+```text
+conda run -n ellmtrees env PYTHONPATH=src python -m pytest tests/test_training_tiny_examples.py tests/test_training_runlist.py --override-ini=addopts=
+```
+
+passed locally with 14 focused tests. The full local suite passed with 110 tests:
+
+```text
+conda run -n ellmtrees env PYTHONPATH=src python -m pytest --override-ini=addopts=
+```
+
+On Wright:
+
+```text
+/opt/miniforge3/bin/mamba run -n weighttraits env PYTHONPATH=src python -m pytest tests/test_training_tiny_examples.py --override-ini=addopts=
+```
+
+passed with 4 focused fixture tests, and:
+
+```text
+/opt/miniforge3/bin/mamba run -n weighttraits env PYTHONPATH=src python -m pytest --override-ini=addopts=
+```
+
+passed with 110 tests.
+
 Useful smoke commands that have passed:
 
 ```bash
@@ -404,16 +430,6 @@ cache used for tiny smoke: /home/export/sgallagh/.cache/WeightTraits
 headnode session. Use `/home/export/sgallagh/.cache/WeightTraits` for tiny smoke caches until a real
 scratch path is confirmed.
 
-The remote checkout is currently dirty because Codex synced the local executor compatibility patch
-directly for smoke testing:
-
-```text
-M src/weighttraits/training/executor.py
-M tests/test_training_executor.py
-```
-
-Commit/push the local changes, then pull on Wright before broader runs.
-
 Tiny full smoke on Wright or another prepared environment:
 
 ```bash
@@ -473,19 +489,61 @@ artifacts: outputs/tiny_lora_smoke/n0/adapter, outputs/tiny_lora_smoke/n0/merged
 ledger summary: completed_nodes=["n0"], failed_nodes=[], status_counts={"completed": 1}
 ```
 
+Tiny two-node lineage smoke:
+
+```bash
+/opt/miniforge3/bin/mamba run -n weighttraits env PYTHONPATH=src HF_DATASETS_CACHE=$HOME/.cache/WeightTraits/hf_datasets \
+  python -m weighttraits.cli make-training-run-list \
+    --manifest examples/training/tiny_lineage_manifest.jsonl \
+    --config examples/training/tiny_full_lineage_smoke.yaml \
+    --registry examples/training/tiny_dataset_registry.yaml \
+    --formats examples/training/tiny_dataset_formats.yaml \
+    --out /tmp/weighttraits_tiny_full_lineage_runs.jsonl \
+    --allow-existing-artifacts \
+    --max-train-samples 2 \
+    --allow-missing-eval
+
+/opt/miniforge3/bin/mamba run -n weighttraits env PYTHONPATH=src HF_DATASETS_CACHE=$HOME/.cache/WeightTraits/hf_datasets \
+  python -m weighttraits.cli run-training-row \
+    --run-list /tmp/weighttraits_tiny_full_lineage_runs.jsonl \
+    --index 0
+
+/opt/miniforge3/bin/mamba run -n weighttraits env PYTHONPATH=src HF_DATASETS_CACHE=$HOME/.cache/WeightTraits/hf_datasets \
+  python -m weighttraits.cli run-training-row \
+    --run-list /tmp/weighttraits_tiny_full_lineage_runs.jsonl \
+    --index 1
+```
+
+Full lineage passed on 2026-07-06:
+
+```text
+n1 init_from: outputs/tiny_full_lineage_smoke/n0/model
+ledger summary: completed_nodes=["n0", "n1"], failed_nodes=[], status_counts={"completed": 2}
+artifacts: outputs/tiny_full_lineage_smoke/n0/model, outputs/tiny_full_lineage_smoke/n1/model
+```
+
+The LoRA lineage run list uses:
+
+```text
+n1 init_from: outputs/tiny_lora_lineage_smoke/n0/merged
+```
+
+and both LoRA rows passed on 2026-07-06:
+
+```text
+ledger summary: completed_nodes=["n0", "n1"], failed_nodes=[], status_counts={"completed": 2}
+artifacts: outputs/tiny_lora_lineage_smoke/n0/adapter, outputs/tiny_lora_lineage_smoke/n0/merged,
+           outputs/tiny_lora_lineage_smoke/n1/adapter, outputs/tiny_lora_lineage_smoke/n1/merged
+```
+
 ## Next Best Steps
 
-1. Commit/push the local reconstruction + executor compatibility changes, then pull on Wright.
+1. Use the two-node full/LoRA artifacts to create the first real distance input manifest and run:
+   `wt build-distance-cube -> wt reconstruct-tree -> wt score-tree`.
 2. Refine supervision templates:
    - prefer explicit `trainer.target_field` or `trainer.target_template`;
    - audit old prompt templates that currently include the answer in the rendered prompt.
-3. Then return to whitebox end-to-end smoke:
-   - generate a real small topology;
-   - derive a distance input manifest from actual training artifacts;
-   - build a distance cube;
-   - run `wt reconstruct-tree`;
-   - run `wt score-tree`;
-   - aggregate RF/FN/FP/clade/exact recovery with SEs.
+3. Scale from the two-node fixture to a small branching topology with enough leaves for RF/FN/FP scoring.
 
 ## Important Caveats
 
@@ -494,7 +552,7 @@ ledger summary: completed_nodes=["n0"], failed_nodes=[], status_counts={"complet
 - `wt reconstruct-tree` uses Biopython from the analysis extra.
 - LoRA vector metrics stream dense `B @ A` row blocks; low-rank dot-product acceleration remains planned.
 - The trainer execution loop has now been exercised on Wright with the tiny model
-  `hf-internal-testing/tiny-random-t5` for both full and LoRA rows.
+  `hf-internal-testing/tiny-random-t5` for single-row and two-node lineage full/LoRA runs.
 - Local outgoing Hugging Face traffic is disabled; run real model smoke/training on Wright or another prepared environment.
 - Local `datasets.load_dataset("json", ...)` may need `HF_DATASETS_CACHE` pointed to a writable scratch directory.
 - `wt audit-datasets` in load mode may require network access and the optional `datasets` dependency.
