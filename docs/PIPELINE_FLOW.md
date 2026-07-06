@@ -48,7 +48,7 @@ The first trainer control-plane implementation is documented in [Trainer Design]
 Whitebox analysis consumes checkpoints and the lineage manifest:
 - read weights/adapters
 - compute distance cubes
-- reconstruct trees
+- reconstruct trees with `wt reconstruct-tree`
 - score recovery against truth
 - aggregate across runs
 

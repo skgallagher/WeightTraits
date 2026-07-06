@@ -85,6 +85,45 @@ PYTHONPATH=src python -m weighttraits.cli build-distance-cube \
 
 Passing a single adapter directory with `--checkpoint` compares that edge adapter's increment. Use `--adapter-chain` when the node representation should be the cumulative root-to-node delta.
 
+## Reconstruct From A Cube
+
+`wt reconstruct-tree` consumes a persisted distance cube and writes a Biopython neighbor-joining
+Newick tree. It requires the analysis extra, which includes `biopython`. By default it averages
+the selected metric across layers before reconstruction:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli reconstruct-tree \
+  --cube results/example_distance_cube \
+  --metric l2 \
+  --out results/example_distance_cube/tree.newick \
+  --audit-out results/example_distance_cube/tree.audit.json
+```
+
+To reconstruct from one layer, pass either the layer name or zero-based layer index:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli reconstruct-tree \
+  --cube results/example_distance_cube \
+  --metric cosine \
+  --layer model.layers.7.self_attn.k_proj.weight \
+  --out results/example_distance_cube/layer7_k_cosine.newick
+```
+
+The audit JSON records the cube path, metric, layer selection or layer aggregate, model IDs, and
+basic distance summaries. Recovery scoring uses topology, not branch lengths.
+
+## Tiny Whitebox Smoke
+
+The CLI path is covered by a local synthetic smoke test:
+
+```bash
+PYTHONPATH=src python -m pytest tests/test_whitebox_smoke.py --override-ini=addopts=
+```
+
+That smoke writes four one-value safetensors checkpoints, builds an L2 distance cube, reconstructs
+the expected quartet with Biopython NJ, scores it with `wt score-tree`, and aggregates the recovery
+record. It is intentionally local and requires no model downloads or cluster access.
+
 ## Distance Input Manifests
 
 `--checkpoint-manifest` accepts JSONL, JSON, or YAML. Each row needs a model identifier and exactly one input source:
@@ -181,7 +220,9 @@ The fast tests verify:
 - safetensors reader roundtrips when `safetensors` is installed;
 - sharded safetensors reader roundtrips through a real two-shard index;
 - distance input manifests resolve relative checkpoint and adapter-chain paths;
-- cube writer emits the expected files and audit metadata.
+- cube writer emits the expected files and audit metadata;
+- neighbor joining recovers a known split from a persisted cube;
+- a tiny local CLI smoke covers build-distance-cube -> reconstruct-tree -> score-tree -> aggregate-recovery.
 
 ## Deliberate Limitations
 

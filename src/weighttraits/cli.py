@@ -14,6 +14,7 @@ from weighttraits.distances.readers import CumulativeLoraReader, LoraFactorReade
 from weighttraits.distances.streaming import build_distance_cube, write_distance_cube
 from weighttraits.manifests.reference import manifest_leaf_ids
 from weighttraits.phylo.audit import audit_manifest_topology
+from weighttraits.phylo.reconstruct import reconstruct_tree_from_cube
 from weighttraits.phylo.recovery import aggregate_recovery, score_split_recovery
 from weighttraits.phylo.splits import splits_from_manifest_path, splits_from_newick_text
 from weighttraits.taskdata.assignment import assign_task_data, load_manifest_rows, write_manifest_rows
@@ -169,6 +170,29 @@ def _build_distance_cube(args: argparse.Namespace) -> int:
         "metrics": sorted(cube.distances),
         "representation": args.representation,
     }
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
+def _reconstruct_tree(args: argparse.Namespace) -> int:
+    result = reconstruct_tree_from_cube(
+        args.cube,
+        metric=args.metric,
+        layer=args.layer,
+        aggregate=args.aggregate,
+    )
+    if args.out:
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(result.newick + "\n")
+    if args.audit_out:
+        args.audit_out.parent.mkdir(parents=True, exist_ok=True)
+        args.audit_out.write_text(json.dumps(result.audit, indent=2, sort_keys=True) + "\n")
+
+    summary = dict(result.audit)
+    summary["out"] = str(args.out) if args.out else None
+    summary["audit_out"] = str(args.audit_out) if args.audit_out else None
+    if not args.out:
+        summary["newick"] = result.newick
     print(json.dumps(summary, indent=2, sort_keys=True))
     return 0
 
@@ -461,6 +485,30 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["full_weight", "lora_cumulative_delta", "lora_increment_delta"],
     )
     cube.set_defaults(func=_build_distance_cube)
+
+    reconstruct = sub.add_parser(
+        "reconstruct-tree",
+        help="Reconstruct a neighbor-joining Newick tree from a distance cube",
+    )
+    reconstruct.add_argument("--cube", type=Path, required=True, help="Distance cube directory")
+    reconstruct.add_argument(
+        "--metric",
+        required=True,
+        help="Metric in distance_cube.npz to reconstruct",
+    )
+    reconstruct.add_argument(
+        "--layer",
+        help="Layer name or zero-based layer index. Defaults to aggregating across all layers.",
+    )
+    reconstruct.add_argument(
+        "--aggregate",
+        choices=["mean", "median"],
+        default="mean",
+        help="Layer aggregation used when --layer is omitted",
+    )
+    reconstruct.add_argument("--out", type=Path, help="Optional Newick output path")
+    reconstruct.add_argument("--audit-out", type=Path, help="Optional JSON audit output path")
+    reconstruct.set_defaults(func=_reconstruct_tree)
 
     train = sub.add_parser("plan-training", help="Validate training config and write job plan JSONL")
     train.add_argument("--manifest", type=Path, required=True, help="Enriched training manifest JSONL")

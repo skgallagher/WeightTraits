@@ -5,6 +5,8 @@ from weighttraits.training.data_formats import DatasetFormatSpec
 from weighttraits.training.datasets import DatasetRegistryEntry
 from weighttraits.training.executor import (
     BackendTrainResult,
+    _training_arguments,
+    _trainer_tokenizer_kwargs,
     dry_run_training_row,
     prepare_training_data,
     run_training_run,
@@ -221,3 +223,46 @@ def test_run_training_row_parser_accepts_real_and_dry_run_modes():
     assert args.allow_missing_eval
     assert dry.node_id == "n0"
     assert dry.dry_run
+
+
+def test_trainer_tokenizer_kwargs_support_transformers_constructor_versions():
+    class OldTrainer:
+        def __init__(self, tokenizer=None):
+            pass
+
+    class NewTrainer:
+        def __init__(self, processing_class=None):
+            pass
+
+    class MinimalTrainer:
+        def __init__(self):
+            pass
+
+    tokenizer = object()
+
+    assert _trainer_tokenizer_kwargs(OldTrainer, tokenizer) == {"tokenizer": tokenizer}
+    assert _trainer_tokenizer_kwargs(NewTrainer, tokenizer) == {"processing_class": tokenizer}
+    assert _trainer_tokenizer_kwargs(MinimalTrainer, tokenizer) == {}
+
+
+def test_training_arguments_use_seq2seq_class_for_seq2seq_jobs(tmp_path):
+    class BaseArgs:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    class Seq2SeqArgs(BaseArgs):
+        pass
+
+    deps = {
+        "TrainingArguments": BaseArgs,
+        "Seq2SeqTrainingArguments": Seq2SeqArgs,
+    }
+
+    seq2seq_args = _training_arguments(deps, _run(tmp_path), has_eval=True, model_task="seq2seq")
+    causal_args = _training_arguments(deps, _run(tmp_path), has_eval=False, model_task="causal_lm")
+
+    assert isinstance(seq2seq_args, Seq2SeqArgs)
+    assert seq2seq_args.kwargs["eval_strategy"] == "epoch"
+    assert isinstance(causal_args, BaseArgs)
+    assert not isinstance(causal_args, Seq2SeqArgs)
+    assert causal_args.kwargs["eval_strategy"] == "no"

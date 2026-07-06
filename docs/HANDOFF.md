@@ -1,6 +1,6 @@
 # WeightTraits Handoff
 
-Last updated: 2026-07-03.
+Last updated: 2026-07-06.
 
 ## Project Intent
 
@@ -44,6 +44,10 @@ ee16c92 Add topology audit and recovery scoring
   - exact tensor-at-a-time CKA;
   - safetensors, sharded safetensors, torch, LoRA factor, and cumulative LoRA readers;
   - distance input manifests and `wt build-distance-cube`.
+- Biopython-backed neighbor-joining reconstruction from distance cubes:
+  - `wt reconstruct-tree`;
+  - layer selection by name/index or mean/median layer aggregation;
+  - Newick output plus JSON audit metadata.
 - LoRA analysis semantics:
   - true training process is fresh adapter on merged parent;
   - efficient analysis representation is cumulative path-summed `scale * B @ A`;
@@ -84,6 +88,9 @@ ee16c92 Add topology audit and recovery scoring
   - imports `datasets`, `transformers`, and `peft` lazily for real training;
   - supports full fine-tuning and LoRA adapter plus merged-child saves;
   - writes started/running/completed/stopped_early/failed ledger events.
+  - handles current and older Transformers trainer constructor names:
+    `processing_class` vs `tokenizer`;
+  - uses `Seq2SeqTrainingArguments` for seq2seq trainer runs when available.
 - Tiny real-training smoke fixtures:
   - `examples/training/tiny_manifest.jsonl`;
   - `examples/training/tiny_train.jsonl` and `tiny_validation.jsonl`;
@@ -147,6 +154,69 @@ The full suite then passed with 100 tests:
 
 ```text
 conda run -n ellmtrees env PYTHONPATH=src python -m pytest --override-ini=addopts=
+```
+
+After adding Biopython-backed cube-to-Newick reconstruction:
+
+```text
+conda run -n ellmtrees env PYTHONPATH=src python -m pytest tests/test_reconstruction.py tests/test_cli_distance_cube.py --override-ini=addopts=
+```
+
+passed with 8 focused tests.
+
+The full suite then passed with 105 tests:
+
+```text
+conda run -n ellmtrees env PYTHONPATH=src python -m pytest --override-ini=addopts=
+```
+
+After adding the tiny local whitebox CLI smoke:
+
+```text
+conda run -n ellmtrees env PYTHONPATH=src python -m pytest tests/test_whitebox_smoke.py --override-ini=addopts=
+```
+
+passed with 1 focused smoke test. This exercises:
+
+```text
+wt build-distance-cube -> wt reconstruct-tree -> wt score-tree -> wt aggregate-recovery
+```
+
+The full suite then passed with 106 tests:
+
+```text
+conda run -n ellmtrees env PYTHONPATH=src python -m pytest --override-ini=addopts=
+```
+
+After exercising real HF/PEFT training on Wright with Transformers 5.13.0, two executor
+compatibility fixes were added:
+
+- pass tokenizer-like objects as `processing_class` when the installed Trainer constructor uses
+  that newer name, otherwise fall back to `tokenizer`;
+- use `Seq2SeqTrainingArguments` for seq2seq runs when available.
+
+Focused executor tests passed locally:
+
+```text
+conda run -n ellmtrees env PYTHONPATH=src python -m pytest tests/test_training_executor.py --override-ini=addopts=
+```
+
+with 7 tests. The full local suite then passed with 108 tests:
+
+```text
+conda run -n ellmtrees env PYTHONPATH=src python -m pytest --override-ini=addopts=
+```
+
+On Wright, after syncing the executor compatibility patch into the cloned checkout:
+
+```text
+/opt/miniforge3/bin/mamba run -n weighttraits env PYTHONPATH=src python -m pytest tests/test_training_executor.py --override-ini=addopts=
+```
+
+passed with 7 focused executor tests. The remote suite passed with 102 tests:
+
+```text
+/opt/miniforge3/bin/mamba run -n weighttraits env PYTHONPATH=src python -m pytest --override-ini=addopts=
 ```
 
 Useful smoke commands that have passed:
@@ -286,84 +356,146 @@ PYTHONPATH=src python -m weighttraits.cli make-training-run-list \
 
 ## Wright Status
 
-Wright is reachable, but this Codex shell cannot authenticate right now. Attempts made on
-2026-07-03:
+Wright is reachable, but Codex should not try to perform interactive auth itself. The reliable
+workflow is:
+
+1. Ask Shannon to run this in a normal macOS Terminal, not in Codex:
+
+```bash
+ssh -M -S /tmp/wright-codex.sock -fN wright
+```
+
+This may prompt for a passphrase or password in that Terminal. Once it succeeds, Codex can reuse
+the socket with:
+
+```bash
+ssh -S /tmp/wright-codex.sock wright hostname
+```
+
+To close the socket later:
+
+```bash
+ssh -S /tmp/wright-codex.sock -O exit wright
+```
+
+Known-bad or low-value steps to skip in Codex:
 
 ```text
 ssh wright hostname
 ssh -o IdentitiesOnly=yes -i /Users/shannon/.ssh/id_ed25519 sgallagh@wright.hss.cmu.edu hostname
-ssh -S /tmp/wright-codex.sock wright hostname
+ssh-add -l
+ssh-add /Users/shannon/.ssh/id_ed25519
 ```
 
-All reached the host at least intermittently but ended with `Permission denied (publickey,password)`.
-The host SSH agent has a key loaded, but Wright rejected it. Refresh SSH auth outside Codex, then run
-the tiny real-model smoke below.
+Those fail or hang because Codex cannot handle the interactive auth prompt usefully. Do not ask the
+user to type a passphrase "here"; ask them to run the ControlMaster command above in a regular
+Terminal. After the socket is open, run the tiny real-model smoke below.
+
+Current Wright checkout and env from 2026-07-06:
+
+```text
+repo: /home/export/sgallagh/WeightTraits
+env: /home/export/sgallagh/.conda/envs/weighttraits
+conda/mamba: /opt/miniforge3/bin/{conda,mamba}
+cache used for tiny smoke: /home/export/sgallagh/.cache/WeightTraits
+```
+
+`/home/export/sgallagh/scratch` points to `/mnt/scratch`, but `/mnt/scratch` was not usable on the
+headnode session. Use `/home/export/sgallagh/.cache/WeightTraits` for tiny smoke caches until a real
+scratch path is confirmed.
+
+The remote checkout is currently dirty because Codex synced the local executor compatibility patch
+directly for smoke testing:
+
+```text
+M src/weighttraits/training/executor.py
+M tests/test_training_executor.py
+```
+
+Commit/push the local changes, then pull on Wright before broader runs.
 
 Tiny full smoke on Wright or another prepared environment:
 
 ```bash
-cd /home/sgallagh/WeightTraits
+cd /home/export/sgallagh/WeightTraits
 git pull
-conda run -n ellmtrees env PYTHONPATH=src HF_DATASETS_CACHE=/scratch/sgallagh/hf_datasets \
+/opt/miniforge3/bin/mamba run -n weighttraits env PYTHONPATH=src HF_DATASETS_CACHE=$HOME/.cache/WeightTraits/hf_datasets \
   python -m weighttraits.cli make-training-run-list \
     --manifest examples/training/tiny_manifest.jsonl \
     --config examples/training/tiny_full_smoke.yaml \
     --registry examples/training/tiny_dataset_registry.yaml \
     --formats examples/training/tiny_dataset_formats.yaml \
     --out /tmp/weighttraits_tiny_full_runs.jsonl \
-    --allow-existing-artifacts
-
-conda run -n ellmtrees env PYTHONPATH=src HF_DATASETS_CACHE=/scratch/sgallagh/hf_datasets \
-  python -m weighttraits.cli run-training-row \
-    --run-list /tmp/weighttraits_tiny_full_runs.jsonl \
-    --index 0 \
+    --allow-existing-artifacts \
     --max-train-samples 2 \
     --allow-missing-eval
+
+/opt/miniforge3/bin/mamba run -n weighttraits env PYTHONPATH=src HF_DATASETS_CACHE=$HOME/.cache/WeightTraits/hf_datasets \
+  python -m weighttraits.cli run-training-row \
+    --run-list /tmp/weighttraits_tiny_full_runs.jsonl \
+    --index 0
+```
+
+This passed on 2026-07-06:
+
+```text
+status=completed, step=1, train_loss=7.007139682769775, eval_loss=7.006280422210693
+artifacts: outputs/tiny_full_smoke/n0/model, outputs/tiny_full_smoke/n0/training_log.jsonl
+ledger summary: completed_nodes=["n0"], failed_nodes=[], status_counts={"completed": 1}
 ```
 
 Tiny LoRA smoke:
 
 ```bash
-conda run -n ellmtrees env PYTHONPATH=src HF_DATASETS_CACHE=/scratch/sgallagh/hf_datasets \
+/opt/miniforge3/bin/mamba run -n weighttraits env PYTHONPATH=src HF_DATASETS_CACHE=$HOME/.cache/WeightTraits/hf_datasets \
   python -m weighttraits.cli make-training-run-list \
     --manifest examples/training/tiny_manifest.jsonl \
     --config examples/training/tiny_lora_smoke.yaml \
     --registry examples/training/tiny_dataset_registry.yaml \
     --formats examples/training/tiny_dataset_formats.yaml \
     --out /tmp/weighttraits_tiny_lora_runs.jsonl \
-    --allow-existing-artifacts
-
-conda run -n ellmtrees env PYTHONPATH=src HF_DATASETS_CACHE=/scratch/sgallagh/hf_datasets \
-  python -m weighttraits.cli run-training-row \
-    --run-list /tmp/weighttraits_tiny_lora_runs.jsonl \
-    --index 0 \
+    --allow-existing-artifacts \
     --max-train-samples 2 \
     --allow-missing-eval
+
+/opt/miniforge3/bin/mamba run -n weighttraits env PYTHONPATH=src HF_DATASETS_CACHE=$HOME/.cache/WeightTraits/hf_datasets \
+  python -m weighttraits.cli run-training-row \
+    --run-list /tmp/weighttraits_tiny_lora_runs.jsonl \
+    --index 0
+```
+
+This passed on 2026-07-06:
+
+```text
+status=completed, step=1, train_loss=7.007139682769775, eval_loss=7.006478786468506
+artifacts: outputs/tiny_lora_smoke/n0/adapter, outputs/tiny_lora_smoke/n0/merged,
+           outputs/tiny_lora_smoke/n0/training_log.jsonl
+ledger summary: completed_nodes=["n0"], failed_nodes=[], status_counts={"completed": 1}
 ```
 
 ## Next Best Steps
 
-1. Refresh Wright SSH auth, pull `main`, then run a tiny real-model training smoke:
-   - one full row;
-   - one LoRA row;
-   - verify model/adapter/merged artifacts and ledger events.
+1. Commit/push the local reconstruction + executor compatibility changes, then pull on Wright.
 2. Refine supervision templates:
    - prefer explicit `trainer.target_field` or `trainer.target_template`;
    - audit old prompt templates that currently include the answer in the rendered prompt.
 3. Then return to whitebox end-to-end smoke:
-   - generated tree;
-   - distance input manifest;
-   - distance cube;
-   - tree reconstruction;
-   - RF/FN/FP/clade/exact recovery table with SEs.
+   - generate a real small topology;
+   - derive a distance input manifest from actual training artifacts;
+   - build a distance cube;
+   - run `wt reconstruct-tree`;
+   - run `wt score-tree`;
+   - aggregate RF/FN/FP/clade/exact recovery with SEs.
 
 ## Important Caveats
 
 - Do not commit generated outputs, model weights, checkpoints, caches, or reports unless they are intentional tiny examples.
 - CKA is exact but still tensor-at-a-time.
+- `wt reconstruct-tree` uses Biopython from the analysis extra.
 - LoRA vector metrics stream dense `B @ A` row blocks; low-rank dot-product acceleration remains planned.
-- The trainer execution loop is implemented behind an optional HF/PEFT backend, but has not yet been exercised on a real downloaded model in this repo.
-- The tiny model `hf-internal-testing/tiny-random-t5` was not cached locally, and local outgoing Hugging Face traffic is disabled; run the real model smoke on Wright or another prepared environment.
+- The trainer execution loop has now been exercised on Wright with the tiny model
+  `hf-internal-testing/tiny-random-t5` for both full and LoRA rows.
+- Local outgoing Hugging Face traffic is disabled; run real model smoke/training on Wright or another prepared environment.
 - Local `datasets.load_dataset("json", ...)` may need `HF_DATASETS_CACHE` pointed to a writable scratch directory.
 - `wt audit-datasets` in load mode may require network access and the optional `datasets` dependency.
 - `wt audit-training-samples` requires dataset loading and should run only in environments where downloads/cache access are intended.

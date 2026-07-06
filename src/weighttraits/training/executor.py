@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+import inspect
 from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol, Sequence
 
@@ -327,7 +328,12 @@ class HfPeftTrainingBackend:
             if data.eval_records
             else None
         )
-        args = _training_arguments(deps, run, has_eval=eval_dataset is not None)
+        args = _training_arguments(
+            deps,
+            run,
+            has_eval=eval_dataset is not None,
+            model_task=model_task,
+        )
         callback = _make_loss_monitor_callback(deps["TrainerCallback"], event_callback)
         trainer_cls = deps["Seq2SeqTrainer"] if model_task == "seq2seq" else deps["Trainer"]
         collator = _data_collator(deps, tokenizer, model, model_task)
@@ -336,9 +342,9 @@ class HfPeftTrainingBackend:
             args=args,
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
-            tokenizer=tokenizer,
             data_collator=collator,
             callbacks=[callback],
+            **_trainer_tokenizer_kwargs(trainer_cls, tokenizer),
         )
         output = trainer.train()
         artifacts = self._save_artifacts(run, trainer, model, tokenizer)
@@ -530,6 +536,7 @@ def _load_hf_deps() -> dict[str, Any]:
             DataCollatorForLanguageModeling,
             DataCollatorForSeq2Seq,
             Seq2SeqTrainer,
+            Seq2SeqTrainingArguments,
             Trainer,
             TrainerCallback,
             TrainingArguments,
@@ -549,6 +556,7 @@ def _load_hf_deps() -> dict[str, Any]:
         "DataCollatorForLanguageModeling": DataCollatorForLanguageModeling,
         "DataCollatorForSeq2Seq": DataCollatorForSeq2Seq,
         "Seq2SeqTrainer": Seq2SeqTrainer,
+        "Seq2SeqTrainingArguments": Seq2SeqTrainingArguments,
         "Trainer": Trainer,
         "TrainerCallback": TrainerCallback,
         "TrainingArguments": TrainingArguments,
@@ -592,7 +600,13 @@ def _hf_dataset_from_records(
     return dataset.map(tokenize, batched=True, remove_columns=["text", "target"])
 
 
-def _training_arguments(deps: dict[str, Any], run: TrainingRunSpec, *, has_eval: bool) -> Any:
+def _training_arguments(
+    deps: dict[str, Any],
+    run: TrainingRunSpec,
+    *,
+    has_eval: bool,
+    model_task: str,
+) -> Any:
     trainer = dict(run.job.get("trainer", {}))
     ignored = {
         "target_field",
@@ -611,18 +625,32 @@ def _training_arguments(deps: dict[str, Any], run: TrainingRunSpec, *, has_eval:
         kwargs.setdefault("eval_strategy", "steps" if kwargs.get("eval_steps") else "epoch")
     else:
         kwargs.setdefault("eval_strategy", "no")
+    args_cls = (
+        deps.get("Seq2SeqTrainingArguments", deps["TrainingArguments"])
+        if model_task == "seq2seq"
+        else deps["TrainingArguments"]
+    )
     try:
-        return deps["TrainingArguments"](**kwargs)
+        return args_cls(**kwargs)
     except TypeError:
         if "eval_strategy" in kwargs:
             kwargs["evaluation_strategy"] = kwargs.pop("eval_strategy")
-        return deps["TrainingArguments"](**kwargs)
+        return args_cls(**kwargs)
 
 
 def _data_collator(deps: dict[str, Any], tokenizer: Any, model: Any, model_task: str) -> Any:
     if model_task == "seq2seq":
         return deps["DataCollatorForSeq2Seq"](tokenizer=tokenizer, model=model)
     return deps["DataCollatorForLanguageModeling"](tokenizer=tokenizer, mlm=False)
+
+
+def _trainer_tokenizer_kwargs(trainer_cls: Any, tokenizer: Any) -> dict[str, Any]:
+    parameters = inspect.signature(trainer_cls.__init__).parameters
+    if "processing_class" in parameters:
+        return {"processing_class": tokenizer}
+    if "tokenizer" in parameters:
+        return {"tokenizer": tokenizer}
+    return {}
 
 
 def _model_task(job: Mapping[str, Any]) -> str:
