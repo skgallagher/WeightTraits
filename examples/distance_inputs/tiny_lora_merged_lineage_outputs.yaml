@@ -1,0 +1,5 @@
+models:
+  - model_id: n0
+    checkpoint: ../../outputs/tiny_lora_lineage_smoke/n0/merged
+  - model_id: n1
+    checkpoint: ../../outputs/tiny_lora_lineage_smoke/n1/merged

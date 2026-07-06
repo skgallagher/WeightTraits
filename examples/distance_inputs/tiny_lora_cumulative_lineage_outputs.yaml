@@ -1,0 +1,8 @@
+models:
+  - model_id: n0
+    adapter_chain:
+      - ../../outputs/tiny_lora_lineage_smoke/n0/adapter
+  - model_id: n1
+    adapter_chain:
+      - ../../outputs/tiny_lora_lineage_smoke/n0/adapter
+      - ../../outputs/tiny_lora_lineage_smoke/n1/adapter

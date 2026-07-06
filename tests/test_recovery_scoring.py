@@ -11,6 +11,7 @@ EXAMPLE_DIR = Path(__file__).resolve().parents[1] / "examples" / "recovery"
 TRUTH = EXAMPLE_DIR / "truth_polytomy_manifest.jsonl"
 NJ_RESOLVES = EXAMPLE_DIR / "nj_resolves_polytomy.newick"
 MISSING_CLADE = EXAMPLE_DIR / "missing_clade.newick"
+TWO_TIP_TRUTH = EXAMPLE_DIR / "tiny_two_tip_smoke_truth_manifest.jsonl"
 
 
 def _score_newick(path: Path):
@@ -68,6 +69,16 @@ def test_identical_manifest_is_exact_recovery():
     assert score["exact_tree_recovery"] is True
 
 
+def test_two_tip_smoke_truth_has_no_informative_splits():
+    truth_splits, truth_leaves = splits_from_manifest_path(str(TWO_TIP_TRUTH))
+    score = score_split_recovery(truth_splits, truth_splits, truth_leaves, truth_leaves)
+
+    assert truth_leaves == {"n0", "n1"}
+    assert truth_splits == set()
+    assert score["n_truth_splits"] == 0
+    assert score["exact_tree_recovery"] is True
+
+
 def test_aggregate_recovery_reports_standard_errors():
     scores = [_score_newick(NJ_RESOLVES), _score_newick(MISSING_CLADE)]
     aggregate = aggregate_recovery(scores)
@@ -88,4 +99,3 @@ def test_aggregate_recovery_reports_standard_errors():
 def test_score_json_is_serializable():
     score = _score_newick(NJ_RESOLVES)
     assert json.loads(json.dumps(score))["false_positive"] == 1
-

@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -8,6 +9,9 @@ from weighttraits.distances.manifest import (
     readers_from_distance_manifest,
 )
 from weighttraits.distances.readers import CumulativeLoraReader, SafetensorsTensorReader
+
+
+EXAMPLE_DIR = Path(__file__).resolve().parents[1] / "examples" / "distance_inputs"
 
 
 def test_load_distance_input_manifest_resolves_relative_paths(tmp_path):
@@ -98,6 +102,39 @@ def test_distance_input_manifest_rejects_ambiguous_rows(tmp_path):
 
     with pytest.raises(ValueError, match="both checkpoint and adapter_chain"):
         load_distance_input_manifest(manifest)
+
+
+def test_tiny_lineage_output_examples_resolve_expected_paths():
+    full = load_distance_input_manifest(EXAMPLE_DIR / "tiny_full_lineage_outputs.yaml")
+    lora_merged = load_distance_input_manifest(
+        EXAMPLE_DIR / "tiny_lora_merged_lineage_outputs.yaml"
+    )
+    lora_cumulative = load_distance_input_manifest(
+        EXAMPLE_DIR / "tiny_lora_cumulative_lineage_outputs.yaml"
+    )
+
+    repo = EXAMPLE_DIR.parents[1]
+    assert [spec.model_id for spec in full] == ["n0", "n1"]
+    assert _normalized(full[0].checkpoint) == repo / "outputs/tiny_full_lineage_smoke/n0/model"
+    assert _normalized(full[1].checkpoint) == repo / "outputs/tiny_full_lineage_smoke/n1/model"
+
+    assert [spec.model_id for spec in lora_merged] == ["n0", "n1"]
+    assert _normalized(lora_merged[0].checkpoint) == repo / "outputs/tiny_lora_lineage_smoke/n0/merged"
+    assert _normalized(lora_merged[1].checkpoint) == repo / "outputs/tiny_lora_lineage_smoke/n1/merged"
+
+    assert [spec.model_id for spec in lora_cumulative] == ["n0", "n1"]
+    assert tuple(_normalized(path) for path in lora_cumulative[0].adapter_chain) == (
+        repo / "outputs/tiny_lora_lineage_smoke/n0/adapter",
+    )
+    assert tuple(_normalized(path) for path in lora_cumulative[1].adapter_chain) == (
+        repo / "outputs/tiny_lora_lineage_smoke/n0/adapter",
+        repo / "outputs/tiny_lora_lineage_smoke/n1/adapter",
+    )
+
+
+def _normalized(path: Path | None) -> Path:
+    assert path is not None
+    return path.resolve(strict=False)
 
 
 def _write_adapter(path, *, offset: float):

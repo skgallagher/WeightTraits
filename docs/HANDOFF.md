@@ -8,15 +8,18 @@ WeightTraits is a private, cleaner rebuild of ELLMTrees under `/Users/shannon/De
 
 ## Current Git State
 
-Latest stable pushed base before the tiny-smoke fixture increment:
+Stable base before the artifact-distance smoke slice:
 
 ```text
-c749ba2 Add per-row training executor
+523902b Add tiny lineage training smoke
 ```
 
 Recent pushed commits:
 
 ```text
+523902b Add tiny lineage training smoke
+1a290eb Add Biopython reconstruction and Wright smoke fixes
+ee338ef Add tiny training smoke fixtures
 c749ba2 Add per-row training executor
 a20abaa Add training run list generation
 2745f70 Add training sample rendering audit
@@ -31,6 +34,59 @@ f052600 Add flexible distance metric registry
 ee16c92 Add topology audit and recovery scoring
 710c8e5 Document and test tree generators
 ```
+
+Local and Wright checkouts were clean at `523902b` after pushing through Wright. Local GitHub SSH
+still failed with `Permission denied (publickey)`, so the successful push path was:
+
+```text
+local git bundle -> rsync over /tmp/wright-codex.sock -> git fetch bundle on Wright -> ff-only merge -> git push origin main
+```
+
+Wright access notes:
+
+```text
+ssh -S /tmp/wright-codex.sock wright
+checkout: /home/export/sgallagh/WeightTraits
+env: /home/export/sgallagh/.conda/envs/weighttraits
+runner: /opt/miniforge3/bin/mamba run -n weighttraits ...
+cache for tiny HF datasets: $HOME/.cache/WeightTraits/hf_datasets
+```
+
+There is one temporary Wright stash left from parking synced fixture files before the fast-forward:
+
+```text
+stash@{0}: On main: codex-synced-lineage-before-523902b
+```
+
+It should be safe to drop after confirming it duplicates `523902b`.
+
+Artifact-distance smoke slice contents:
+
+```text
+docs/HANDOFF.md
+examples/distance_inputs/README.md
+examples/distance_inputs/tiny_full_lineage_outputs.yaml
+examples/distance_inputs/tiny_lora_cumulative_lineage_outputs.yaml
+examples/distance_inputs/tiny_lora_merged_lineage_outputs.yaml
+examples/recovery/tiny_two_tip_smoke_truth_manifest.jsonl
+tests/test_distance_input_manifest.py
+tests/test_recovery_scoring.py
+```
+
+Intent and status of that slice:
+
+- Add distance-input manifests for the Wright two-node training artifacts:
+  - full checkpoints: `outputs/tiny_full_lineage_smoke/n0/model`, `.../n1/model`;
+  - LoRA merged checkpoints: `outputs/tiny_lora_lineage_smoke/n0/merged`, `.../n1/merged`;
+  - LoRA cumulative adapter chains: `n0=[n0/adapter]`, `n1=[n0/adapter,n1/adapter]`.
+- Add a two-tip truth manifest only for command plumbing through `score-tree`.
+- Caveat: the two-node training lineage is a chain with terminal leaf `n1`, so it is not a
+  meaningful RF/FN/FP recovery target. The two-tip smoke truth has no informative splits; use it
+  only to verify `build-distance-cube -> reconstruct-tree -> score-tree` on real artifacts.
+- Local focused tests passed with 12 tests and full local suite passed with 112 tests.
+- Wright focused tests passed with 12 tests and full Wright suite passed with 112 tests.
+- Wright artifact smoke passed for full checkpoints, LoRA merged checkpoints, and cumulative LoRA
+  adapter chains.
 
 ## What Exists
 
@@ -244,6 +300,32 @@ passed with 4 focused fixture tests, and:
 ```
 
 passed with 110 tests.
+
+After adding tiny lineage artifact distance manifests and a two-tip scoring smoke:
+
+```text
+conda run -n ellmtrees env PYTHONPATH=src python -m pytest tests/test_distance_input_manifest.py tests/test_recovery_scoring.py --override-ini=addopts=
+```
+
+passed locally with 12 focused tests. The full local suite passed with 112 tests:
+
+```text
+conda run -n ellmtrees env PYTHONPATH=src python -m pytest --override-ini=addopts=
+```
+
+On Wright:
+
+```text
+/opt/miniforge3/bin/mamba run -n weighttraits env PYTHONPATH=src python -m pytest tests/test_distance_input_manifest.py tests/test_recovery_scoring.py --override-ini=addopts=
+```
+
+passed with 12 focused tests, and:
+
+```text
+/opt/miniforge3/bin/mamba run -n weighttraits env PYTHONPATH=src python -m pytest --override-ini=addopts=
+```
+
+passed with 112 tests.
 
 Useful smoke commands that have passed:
 
@@ -536,14 +618,47 @@ artifacts: outputs/tiny_lora_lineage_smoke/n0/adapter, outputs/tiny_lora_lineage
            outputs/tiny_lora_lineage_smoke/n1/adapter, outputs/tiny_lora_lineage_smoke/n1/merged
 ```
 
+Tiny artifact distance plumbing smoke on Wright:
+
+```bash
+/opt/miniforge3/bin/mamba run -n weighttraits env PYTHONPATH=src \
+  python -m weighttraits.cli build-distance-cube \
+    --checkpoint-manifest examples/distance_inputs/tiny_full_lineage_outputs.yaml \
+    --metric cosine \
+    --metric l2 \
+    --out outputs/tiny_full_lineage_smoke/distance_cube
+
+/opt/miniforge3/bin/mamba run -n weighttraits env PYTHONPATH=src \
+  python -m weighttraits.cli reconstruct-tree \
+    --cube outputs/tiny_full_lineage_smoke/distance_cube \
+    --metric l2 \
+    --out outputs/tiny_full_lineage_smoke/distance_cube/tree_l2.newick \
+    --audit-out outputs/tiny_full_lineage_smoke/distance_cube/tree_l2.audit.json
+
+/opt/miniforge3/bin/mamba run -n weighttraits env PYTHONPATH=src \
+  python -m weighttraits.cli score-tree \
+    --truth-manifest examples/recovery/tiny_two_tip_smoke_truth_manifest.jsonl \
+    --estimate-newick outputs/tiny_full_lineage_smoke/distance_cube/tree_l2.newick \
+    --out outputs/tiny_full_lineage_smoke/distance_cube/score_l2.json
+```
+
+This passed on 2026-07-06. It is a command-path smoke only: the two-tip truth has no informative
+splits, and the real training lineage is a chain with terminal leaf `n1`.
+
+```text
+full checkpoints: n_models=2, n_layers=110, l2 distance_mean=0.0009195269418413603
+LoRA merged checkpoints: n_models=2, n_layers=110, l2 distance_mean=7.131354745703268e-05
+LoRA cumulative adapters: n_models=2, n_layers=30, l2 distance_mean=0.00026147472545753084
+two-tip score: n_truth_splits=0, n_estimate_splits=0, rf=0, exact_tree_recovery=true
+```
+
 ## Next Best Steps
 
-1. Use the two-node full/LoRA artifacts to create the first real distance input manifest and run:
-   `wt build-distance-cube -> wt reconstruct-tree -> wt score-tree`.
-2. Refine supervision templates:
+1. Scale from the two-node fixture to a small branching topology with enough leaves for RF/FN/FP scoring.
+2. Derive distance-input manifests from training ledgers automatically instead of hand-authored examples.
+3. Refine supervision templates:
    - prefer explicit `trainer.target_field` or `trainer.target_template`;
    - audit old prompt templates that currently include the answer in the rendered prompt.
-3. Scale from the two-node fixture to a small branching topology with enough leaves for RF/FN/FP scoring.
 
 ## Important Caveats
 
