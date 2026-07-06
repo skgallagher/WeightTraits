@@ -215,7 +215,16 @@ Intent and status of that slice:
   row blocks.
 - Keep `l1` and `threshold` on the dense chunk-streamed path.
 - Record `lora_low_rank` in distance-cube audit metadata for metrics using the fast path.
-- Local focused distance tests passed with 18 tests.
+- Local focused distance tests passed with 18 tests; full local suite passed with 127 tests.
+- Pushed as `601b50e Add low-rank LoRA distance accumulation`.
+- Wright focused distance tests passed with 18 tests; full Wright suite passed with 127 tests.
+- On Wright, `wt analyze-training-ledger` was run against the real contrast LoRA cumulative adapter
+  artifacts into
+  `outputs/tiny_lora_branching_contrast_smoke/cumulative_leaf_analysis_lowrank/summary.json`.
+  It recovered the truth split for both `l2` and `cosine`, with aggregate `n_records=2`,
+  `exact_tree_recovery_rate=1.0`, `pooled_clade_recovery=1.0`, and `rf_mean=0.0`.
+- The resulting distance-cube audit records
+  `metric_execution={"cosine": "lora_low_rank", "l2": "lora_low_rank"}` for real PEFT adapters.
 
 Previous artifact-distance smoke slice contents:
 
@@ -900,10 +909,10 @@ score rf=0, false_negative=0, false_positive=0, exact_tree_recovery=true
 
 ## Next Best Steps
 
-1. Use the new `wt analyze-training-ledger` wrapper on the next tiny/cluster smoke instead of the
-   manual distance/reconstruct/score command chain.
-2. Run the full local and Wright suites, then exercise `wt analyze-training-ledger` on the Wright
-   contrast LoRA cumulative artifacts to verify `metric_execution=lora_low_rank` on real adapters.
+1. Decide the next scale-up smoke: either repeat the contrast topology with more training steps or
+   add a modestly larger branching topology before moving toward paper-critical RF tables.
+2. Use `wt analyze-training-ledger` for all new whitebox smoke outputs so every artifact mode gets
+   the same summary schema.
 3. Refine supervision templates:
    - prefer explicit `trainer.target_field` or `trainer.target_template`;
    - audit old prompt templates that currently include the answer in the rendered prompt.
