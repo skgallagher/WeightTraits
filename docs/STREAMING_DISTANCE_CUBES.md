@@ -157,6 +157,30 @@ Use `--artifact model` for full fine-tuned checkpoint rows, `--artifact merged` 
 checkpoint rows, and `--artifact adapter_chain` for cumulative LoRA adapter-chain rows. Relative
 ledger artifact paths are rewritten relative to the generated manifest.
 
+For a complete whitebox path from a training ledger, use `wt analyze-training-ledger`. This wraps:
+
+```text
+make-distance-input-manifest -> build-distance-cube -> reconstruct-tree -> score-tree -> aggregate-recovery
+```
+
+Example for cumulative LoRA adapter chains:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli analyze-training-ledger \
+  --ledger outputs/tiny_lora_branching_contrast_smoke/training_ledger.jsonl \
+  --truth-manifest examples/training/tiny_branching_contrast_manifest.jsonl \
+  --artifact adapter_chain \
+  --metric l2 \
+  --metric cosine \
+  --out outputs/tiny_lora_branching_contrast_smoke/cumulative_leaf_analysis
+```
+
+The output directory contains the generated distance-input manifest, `distance_cube/`, one Newick
+tree, tree audit, and score JSON per metric, plus `aggregate_recovery.json` and `summary.json`.
+Use `--artifact model` for full fine-tuned checkpoints and `--artifact merged` for merged LoRA
+checkpoints. The default representation is `full_weight` for checkpoint artifacts and
+`lora_cumulative_delta` for adapter chains.
+
 ## Readers
 
 Current readers:

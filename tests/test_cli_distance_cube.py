@@ -64,3 +64,29 @@ def test_make_distance_input_manifest_parser_accepts_ledger_and_truth_manifest()
     assert args.truth_manifest == Path("/tmp/truth.jsonl")
     assert args.artifact == "adapter_chain"
     assert args.out == Path("/tmp/distance_inputs.yaml")
+
+
+def test_analyze_training_ledger_parser_accepts_workflow_options():
+    args = build_parser().parse_args(
+        [
+            "analyze-training-ledger",
+            "--ledger",
+            "/tmp/training_ledger.jsonl",
+            "--truth-manifest",
+            "/tmp/truth.jsonl",
+            "--artifact",
+            "model",
+            "--metric",
+            "l2",
+            "--metric",
+            "cosine",
+            "--out",
+            "/tmp/whitebox",
+        ]
+    )
+
+    assert args.ledger == Path("/tmp/training_ledger.jsonl")
+    assert args.truth_manifest == Path("/tmp/truth.jsonl")
+    assert args.artifact == "model"
+    assert args.metric == ["l2", "cosine"]
+    assert args.out == Path("/tmp/whitebox")

@@ -161,6 +161,31 @@ Intent and status of that slice:
   - cumulative LoRA adapters: `l2 distance_mean=0.0055034746647987945`,
     `cosine distance_mean=0.39188815833251484`.
 
+Whitebox analysis wrapper slice:
+
+```text
+src/weighttraits/analysis/__init__.py
+src/weighttraits/analysis/whitebox.py
+src/weighttraits/cli.py
+tests/test_cli_distance_cube.py
+tests/test_whitebox_analysis.py
+docs/STREAMING_DISTANCE_CUBES.md
+docs/HANDOFF.md
+```
+
+Intent and status of that slice:
+
+- Add `wt analyze-training-ledger`.
+- Run one artifact mode at a time from a training ledger:
+  `model`, `merged`, or `adapter_chain`.
+- Wrap distance-input generation, distance cube construction, NJ reconstruction, tree scoring, and
+  recovery aggregation.
+- Write the generated distance-input manifest, `distance_cube/`, per-metric Newick/audit/score
+  files, `aggregate_recovery.json`, and `summary.json`.
+- Default representation is `full_weight` for checkpoint artifacts and `lora_cumulative_delta` for
+  adapter chains.
+- Local focused parser/workflow tests passed with 6 tests.
+
 Previous artifact-distance smoke slice contents:
 
 ```text
@@ -844,9 +869,8 @@ score rf=0, false_negative=0, false_positive=0, exact_tree_recovery=true
 
 ## Next Best Steps
 
-1. Add a one-command whitebox analysis wrapper that runs
-   `make-distance-input-manifest -> build-distance-cube -> reconstruct-tree -> score-tree ->
-   aggregate-recovery` and writes a compact per-artifact/metric summary.
+1. Use the new `wt analyze-training-ledger` wrapper on the next tiny/cluster smoke instead of the
+   manual distance/reconstruct/score command chain.
 2. Add a low-rank LoRA distance accumulator that avoids dense `B @ A` slabs for large adapters.
 3. Refine supervision templates:
    - prefer explicit `trainer.target_field` or `trainer.target_template`;

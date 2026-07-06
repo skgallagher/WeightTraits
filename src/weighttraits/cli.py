@@ -8,6 +8,7 @@ from pathlib import Path
 
 import yaml
 
+from weighttraits.analysis.whitebox import analyze_training_ledger
 from weighttraits.audit.ellmtrees import inventory_ellmtrees
 from weighttraits.distances.manifest import (
     distance_input_rows_from_training_ledger,
@@ -199,6 +200,25 @@ def _make_distance_input_manifest(args: argparse.Namespace) -> int:
             sort_keys=True,
         )
     )
+    return 0
+
+
+def _analyze_training_ledger(args: argparse.Namespace) -> int:
+    summary = analyze_training_ledger(
+        args.ledger,
+        truth_manifest=args.truth_manifest,
+        out_dir=args.out,
+        artifact=args.artifact,
+        metrics=args.metric,
+        representation=args.representation,
+        node_ids=args.node_id,
+        path_base=args.path_base,
+        chunk_size=args.chunk_size,
+        eps=args.eps,
+        layer=args.layer,
+        aggregate=args.aggregate,
+    )
+    print(json.dumps(summary, indent=2, sort_keys=True))
     return 0
 
 
@@ -546,6 +566,58 @@ def build_parser() -> argparse.ArgumentParser:
     )
     distance_inputs.add_argument("--out", type=Path, required=True)
     distance_inputs.set_defaults(func=_make_distance_input_manifest)
+
+    analyze_ledger = sub.add_parser(
+        "analyze-training-ledger",
+        help=(
+            "Run distance-input generation, cube building, reconstruction, scoring, "
+            "and aggregate recovery from a training ledger"
+        ),
+    )
+    analyze_ledger.add_argument("--ledger", type=Path, required=True)
+    analyze_ledger.add_argument("--truth-manifest", type=Path, required=True)
+    analyze_ledger.add_argument(
+        "--artifact",
+        choices=["model", "merged", "adapter_chain"],
+        required=True,
+        help="Ledger artifact to analyze",
+    )
+    analyze_ledger.add_argument(
+        "--metric",
+        action="append",
+        required=True,
+        help="Metric to compute and score; repeat for multiple metrics",
+    )
+    analyze_ledger.add_argument("--out", type=Path, required=True, help="Output directory")
+    analyze_ledger.add_argument(
+        "--node-id",
+        action="append",
+        help="Restrict to one or more node IDs; defaults to truth-manifest leaves",
+    )
+    analyze_ledger.add_argument(
+        "--path-base",
+        type=Path,
+        default=Path("."),
+        help="Base directory for relative ledger artifact paths",
+    )
+    analyze_ledger.add_argument("--chunk-size", type=int, default=1_000_000)
+    analyze_ledger.add_argument("--eps", type=float, default=1e-3)
+    analyze_ledger.add_argument(
+        "--representation",
+        choices=["full_weight", "lora_cumulative_delta", "lora_increment_delta"],
+        help="Override the default representation for the selected artifact",
+    )
+    analyze_ledger.add_argument(
+        "--layer",
+        help="Layer name or zero-based layer index. Defaults to aggregating across all layers.",
+    )
+    analyze_ledger.add_argument(
+        "--aggregate",
+        choices=["mean", "median"],
+        default="mean",
+        help="Layer aggregation used when --layer is omitted",
+    )
+    analyze_ledger.set_defaults(func=_analyze_training_ledger)
 
     reconstruct = sub.add_parser(
         "reconstruct-tree",
