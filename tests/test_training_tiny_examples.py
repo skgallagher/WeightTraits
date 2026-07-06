@@ -7,7 +7,11 @@ from weighttraits.training.data_formats import (
 )
 from weighttraits.training.datasets import audit_dataset_registry, load_dataset_registry
 from weighttraits.training.executor import prepare_training_data
-from weighttraits.manifests.reference import manifest_leaf_ids
+from weighttraits.manifests.reference import (
+    load_manifest,
+    manifest_leaf_ids,
+    nontrivial_reference_splits,
+)
 from weighttraits.training.planner import build_training_jobs_from_files
 from weighttraits.training.runlist import build_training_run_list
 
@@ -250,4 +254,128 @@ def test_tiny_lora_branching_contrast_example_plans_parent_merged_artifacts():
     )
     assert runs[5].expected_artifacts["merged"] == (
         "outputs/tiny_lora_branching_contrast_smoke/n5/merged"
+    )
+
+
+def test_tiny_mid_branching_contrast_example_renders_nested_seven_leaf_topology():
+    registry = load_dataset_registry(EXAMPLES / "tiny_dataset_registry.yaml")
+    formats = load_dataset_format_specs(EXAMPLES / "tiny_dataset_formats.yaml")
+    manifest = EXAMPLES / "tiny_mid_branching_contrast_manifest.jsonl"
+    jobs = build_training_jobs_from_files(
+        manifest,
+        EXAMPLES / "tiny_full_mid_branching_contrast_smoke.yaml",
+    )
+    runs = build_training_run_list(jobs).runs
+
+    validation = validate_training_jobs_against_formats(jobs, formats)
+    rendered_by_node = {
+        run.node_id: prepare_training_data(
+            run,
+            registry,
+            formats,
+            loader=_jsonl_loader,
+            max_train_samples=2,
+            max_eval_samples=1,
+        )
+        for run in runs
+    }
+    targets_by_node = {
+        node_id: {record.target for record in data.train_records}
+        for node_id, data in rendered_by_node.items()
+    }
+
+    assert validation.valid
+    assert manifest_leaf_ids(manifest) == ["n03", "n04", "n05", "n06", "n08", "n09", "n10"]
+    assert nontrivial_reference_splits(load_manifest(manifest)) == {
+        frozenset({"n03", "n04"}),
+        frozenset({"n05", "n06"}),
+        frozenset({"n08", "n09", "n10"}),
+        frozenset({"n09", "n10"}),
+    }
+    assert [run.node_id for run in runs] == [
+        "n00",
+        "n01",
+        "n02",
+        "n03",
+        "n04",
+        "n05",
+        "n06",
+        "n07",
+        "n08",
+        "n09",
+        "n10",
+    ]
+    assert [job.dataset_id for job in jobs] == [
+        "tiny_mid_branch_north_root_json",
+        "tiny_mid_branch_south_root_json",
+        "tiny_mid_branch_east_root_json",
+        "tiny_mid_branch_north_alpha_json",
+        "tiny_mid_branch_north_beta_json",
+        "tiny_mid_branch_south_alpha_json",
+        "tiny_mid_branch_south_beta_json",
+        "tiny_mid_branch_east_inner_json",
+        "tiny_mid_branch_east_gamma_json",
+        "tiny_mid_branch_east_inner_alpha_json",
+        "tiny_mid_branch_east_inner_beta_json",
+    ]
+    assert runs[0].init_from == "hf-internal-testing/tiny-random-t5"
+    assert runs[1].init_from == "hf-internal-testing/tiny-random-t5"
+    assert runs[2].init_from == "hf-internal-testing/tiny-random-t5"
+    assert runs[3].init_from == "outputs/tiny_full_mid_branching_contrast_smoke/n00/model"
+    assert runs[4].init_from == "outputs/tiny_full_mid_branching_contrast_smoke/n00/model"
+    assert runs[5].init_from == "outputs/tiny_full_mid_branching_contrast_smoke/n01/model"
+    assert runs[6].init_from == "outputs/tiny_full_mid_branching_contrast_smoke/n01/model"
+    assert runs[7].init_from == "outputs/tiny_full_mid_branching_contrast_smoke/n02/model"
+    assert runs[8].init_from == "outputs/tiny_full_mid_branching_contrast_smoke/n02/model"
+    assert runs[9].init_from == "outputs/tiny_full_mid_branching_contrast_smoke/n07/model"
+    assert runs[10].init_from == "outputs/tiny_full_mid_branching_contrast_smoke/n07/model"
+    assert all(data.valid for data in rendered_by_node.values())
+    assert targets_by_node == {
+        "n00": {"north-root"},
+        "n01": {"south-root"},
+        "n02": {"east-root"},
+        "n03": {"north-alpha"},
+        "n04": {"north-beta"},
+        "n05": {"south-alpha"},
+        "n06": {"south-beta"},
+        "n07": {"east-inner"},
+        "n08": {"east-gamma"},
+        "n09": {"east-inner-alpha"},
+        "n10": {"east-inner-beta"},
+    }
+    assert rendered_by_node["n03"].train_records[0].text.endswith("Reply with the code:")
+    assert "mid branch north leaf alpha" in rendered_by_node["n03"].train_records[0].text
+    assert "mid branch east inner root" in rendered_by_node["n07"].train_records[0].text
+    assert "mid branch east inner leaf beta" in rendered_by_node["n10"].train_records[0].text
+
+
+def test_tiny_lora_mid_branching_contrast_example_plans_nested_parent_merges():
+    jobs = build_training_jobs_from_files(
+        EXAMPLES / "tiny_mid_branching_contrast_manifest.jsonl",
+        EXAMPLES / "tiny_lora_mid_branching_contrast_smoke.yaml",
+    )
+    runs = build_training_run_list(jobs).runs
+
+    assert [run.node_id for run in runs] == [
+        "n00",
+        "n01",
+        "n02",
+        "n03",
+        "n04",
+        "n05",
+        "n06",
+        "n07",
+        "n08",
+        "n09",
+        "n10",
+    ]
+    assert runs[3].init_from == "outputs/tiny_lora_mid_branching_contrast_smoke/n00/merged"
+    assert runs[5].init_from == "outputs/tiny_lora_mid_branching_contrast_smoke/n01/merged"
+    assert runs[7].init_from == "outputs/tiny_lora_mid_branching_contrast_smoke/n02/merged"
+    assert runs[9].init_from == "outputs/tiny_lora_mid_branching_contrast_smoke/n07/merged"
+    assert runs[10].expected_artifacts["adapter"] == (
+        "outputs/tiny_lora_mid_branching_contrast_smoke/n10/adapter"
+    )
+    assert runs[10].expected_artifacts["merged"] == (
+        "outputs/tiny_lora_mid_branching_contrast_smoke/n10/merged"
     )

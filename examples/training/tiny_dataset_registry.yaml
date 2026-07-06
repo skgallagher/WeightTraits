@@ -70,3 +70,113 @@ datasets:
     train_split: train
     eval_split: validation
     note: Right-beta leaf contrast fixture for branching smoke tests.
+  - id: tiny_mid_branch_north_root_json
+    hf_args:
+      - json
+    hf_kwargs:
+      data_files:
+        train: examples/training/tiny_mid_branch_north_root_train.jsonl
+        validation: examples/training/tiny_mid_branch_north_root_validation.jsonl
+    train_split: train
+    eval_split: validation
+    note: North-root contrast fixture for mid branching smoke tests.
+  - id: tiny_mid_branch_south_root_json
+    hf_args:
+      - json
+    hf_kwargs:
+      data_files:
+        train: examples/training/tiny_mid_branch_south_root_train.jsonl
+        validation: examples/training/tiny_mid_branch_south_root_validation.jsonl
+    train_split: train
+    eval_split: validation
+    note: South-root contrast fixture for mid branching smoke tests.
+  - id: tiny_mid_branch_east_root_json
+    hf_args:
+      - json
+    hf_kwargs:
+      data_files:
+        train: examples/training/tiny_mid_branch_east_root_train.jsonl
+        validation: examples/training/tiny_mid_branch_east_root_validation.jsonl
+    train_split: train
+    eval_split: validation
+    note: East-root contrast fixture for mid branching smoke tests.
+  - id: tiny_mid_branch_north_alpha_json
+    hf_args:
+      - json
+    hf_kwargs:
+      data_files:
+        train: examples/training/tiny_mid_branch_north_alpha_train.jsonl
+        validation: examples/training/tiny_mid_branch_north_alpha_validation.jsonl
+    train_split: train
+    eval_split: validation
+    note: North-alpha leaf contrast fixture for mid branching smoke tests.
+  - id: tiny_mid_branch_north_beta_json
+    hf_args:
+      - json
+    hf_kwargs:
+      data_files:
+        train: examples/training/tiny_mid_branch_north_beta_train.jsonl
+        validation: examples/training/tiny_mid_branch_north_beta_validation.jsonl
+    train_split: train
+    eval_split: validation
+    note: North-beta leaf contrast fixture for mid branching smoke tests.
+  - id: tiny_mid_branch_south_alpha_json
+    hf_args:
+      - json
+    hf_kwargs:
+      data_files:
+        train: examples/training/tiny_mid_branch_south_alpha_train.jsonl
+        validation: examples/training/tiny_mid_branch_south_alpha_validation.jsonl
+    train_split: train
+    eval_split: validation
+    note: South-alpha leaf contrast fixture for mid branching smoke tests.
+  - id: tiny_mid_branch_south_beta_json
+    hf_args:
+      - json
+    hf_kwargs:
+      data_files:
+        train: examples/training/tiny_mid_branch_south_beta_train.jsonl
+        validation: examples/training/tiny_mid_branch_south_beta_validation.jsonl
+    train_split: train
+    eval_split: validation
+    note: South-beta leaf contrast fixture for mid branching smoke tests.
+  - id: tiny_mid_branch_east_inner_json
+    hf_args:
+      - json
+    hf_kwargs:
+      data_files:
+        train: examples/training/tiny_mid_branch_east_inner_train.jsonl
+        validation: examples/training/tiny_mid_branch_east_inner_validation.jsonl
+    train_split: train
+    eval_split: validation
+    note: East-inner internal contrast fixture for mid branching smoke tests.
+  - id: tiny_mid_branch_east_gamma_json
+    hf_args:
+      - json
+    hf_kwargs:
+      data_files:
+        train: examples/training/tiny_mid_branch_east_gamma_train.jsonl
+        validation: examples/training/tiny_mid_branch_east_gamma_validation.jsonl
+    train_split: train
+    eval_split: validation
+    note: East-gamma leaf contrast fixture for mid branching smoke tests.
+  - id: tiny_mid_branch_east_inner_alpha_json
+    hf_args:
+      - json
+    hf_kwargs:
+      data_files:
+        train: examples/training/tiny_mid_branch_east_inner_alpha_train.jsonl
+        validation: examples/training/tiny_mid_branch_east_inner_alpha_validation.jsonl
+    train_split: train
+    eval_split: validation
+    note: East-inner-alpha leaf contrast fixture for mid branching smoke tests.
+  - id: tiny_mid_branch_east_inner_beta_json
+    hf_args:
+      - json
+    hf_kwargs:
+      data_files:
+        train: examples/training/tiny_mid_branch_east_inner_beta_train.jsonl
+        validation: examples/training/tiny_mid_branch_east_inner_beta_validation.jsonl
+    train_split: train
+    eval_split: validation
+    note: East-inner-beta leaf contrast fixture for mid branching smoke tests.

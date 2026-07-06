@@ -272,3 +272,50 @@ PYTHONPATH=src python -m weighttraits.cli make-training-run-list \
 Run indices `0` through `5` in order. After all six rows finish, use
 `wt make-distance-input-manifest` against the resulting training ledger, then build the distance
 cube, reconstruct, and score as in `examples/distance_inputs/README.md`.
+
+## Tiny Mid Branching Contrast Smoke
+
+The mid branching contrast fixture scales the local JSONL smoke to eleven trained nodes and seven
+terminal leaves: `n03`, `n04`, `n05`, `n06`, `n08`, `n09`, and `n10`. It includes four informative
+truth splits, including a nested split under the east branch, while keeping every dataset tiny enough
+for quick trainer checks.
+
+Generate the full mid-contrast rows:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-training-run-list \
+  --manifest examples/training/tiny_mid_branching_contrast_manifest.jsonl \
+  --config examples/training/tiny_full_mid_branching_contrast_smoke.yaml \
+  --registry examples/training/tiny_dataset_registry.yaml \
+  --formats examples/training/tiny_dataset_formats.yaml \
+  --out /tmp/weighttraits_tiny_full_mid_branching_contrast_runs.jsonl \
+  --allow-existing-artifacts \
+  --max-train-samples 2 \
+  --allow-missing-eval
+```
+
+Generate the LoRA mid-contrast rows:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-training-run-list \
+  --manifest examples/training/tiny_mid_branching_contrast_manifest.jsonl \
+  --config examples/training/tiny_lora_mid_branching_contrast_smoke.yaml \
+  --registry examples/training/tiny_dataset_registry.yaml \
+  --formats examples/training/tiny_dataset_formats.yaml \
+  --out /tmp/weighttraits_tiny_lora_mid_branching_contrast_runs.jsonl \
+  --allow-existing-artifacts \
+  --max-train-samples 2 \
+  --allow-missing-eval
+```
+
+Run indices `0` through `10` in order for each method. Then analyze one artifact mode at a time:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli analyze-training-ledger \
+  --ledger outputs/tiny_lora_mid_branching_contrast_smoke/training_ledger.jsonl \
+  --truth-manifest examples/training/tiny_mid_branching_contrast_manifest.jsonl \
+  --artifact adapter_chain \
+  --metric l2 \
+  --metric cosine \
+  --out outputs/tiny_lora_mid_branching_contrast_smoke/cumulative_leaf_analysis
+```

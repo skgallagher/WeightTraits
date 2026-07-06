@@ -226,6 +226,35 @@ Intent and status of that slice:
 - The resulting distance-cube audit records
   `metric_execution={"cosine": "lora_low_rank", "l2": "lora_low_rank"}` for real PEFT adapters.
 
+Mid-size branching contrast fixture slice:
+
+```text
+examples/training/README.md
+examples/training/tiny_mid_branching_contrast_manifest.jsonl
+examples/training/tiny_full_mid_branching_contrast_smoke.yaml
+examples/training/tiny_lora_mid_branching_contrast_smoke.yaml
+examples/training/tiny_mid_branch_*_{train,validation}.jsonl
+examples/training/tiny_dataset_registry.yaml
+examples/training/tiny_dataset_formats.yaml
+tests/test_training_tiny_examples.py
+docs/HANDOFF.md
+```
+
+Intent and status of that slice:
+
+- Add an eleven-row contrast variant of the tiny branching fixture.
+- Use zero-padded node IDs `n00` through `n10` so leaf ordering is stable and readable.
+- Terminal leaves are `n03`, `n04`, `n05`, `n06`, `n08`, `n09`, and `n10`.
+- The truth topology has four informative splits:
+  `{n03,n04}`, `{n05,n06}`, `{n08,n09,n10}`, and `{n09,n10}`.
+- Assign node-specific local JSONL datasets with branch/leaf target codes:
+  north, south, east, and nested east-inner contrasts.
+- Add full and LoRA configs using output roots
+  `outputs/tiny_full_mid_branching_contrast_smoke` and
+  `outputs/tiny_lora_mid_branching_contrast_smoke`.
+- Local focused fixture tests passed with 10 tests; full local suite passed with 129 tests.
+- Wright training and whitebox recovery are the next verification step for this slice.
+
 Previous artifact-distance smoke slice contents:
 
 ```text

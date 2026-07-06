@@ -1,0 +1,11 @@
+{"node_id":"n00","parent_id":"root","depth":1,"path":["root","n00"],"grow":"train","task_family":"qa_reasoning","dataset_id":"tiny_mid_branch_north_root_json"}
+{"node_id":"n01","parent_id":"root","depth":1,"path":["root","n01"],"grow":"train","task_family":"qa_reasoning","dataset_id":"tiny_mid_branch_south_root_json"}
+{"node_id":"n02","parent_id":"root","depth":1,"path":["root","n02"],"grow":"train","task_family":"qa_reasoning","dataset_id":"tiny_mid_branch_east_root_json"}
+{"node_id":"n03","parent_id":"n00","depth":2,"path":["root","n00","n03"],"grow":"train","task_family":"qa_reasoning","dataset_id":"tiny_mid_branch_north_alpha_json"}
+{"node_id":"n04","parent_id":"n00","depth":2,"path":["root","n00","n04"],"grow":"train","task_family":"qa_reasoning","dataset_id":"tiny_mid_branch_north_beta_json"}
+{"node_id":"n05","parent_id":"n01","depth":2,"path":["root","n01","n05"],"grow":"train","task_family":"qa_reasoning","dataset_id":"tiny_mid_branch_south_alpha_json"}
+{"node_id":"n06","parent_id":"n01","depth":2,"path":["root","n01","n06"],"grow":"train","task_family":"qa_reasoning","dataset_id":"tiny_mid_branch_south_beta_json"}
+{"node_id":"n07","parent_id":"n02","depth":2,"path":["root","n02","n07"],"grow":"train","task_family":"qa_reasoning","dataset_id":"tiny_mid_branch_east_inner_json"}
+{"node_id":"n08","parent_id":"n02","depth":2,"path":["root","n02","n08"],"grow":"train","task_family":"qa_reasoning","dataset_id":"tiny_mid_branch_east_gamma_json"}
+{"node_id":"n09","parent_id":"n07","depth":3,"path":["root","n02","n07","n09"],"grow":"train","task_family":"qa_reasoning","dataset_id":"tiny_mid_branch_east_inner_alpha_json"}
+{"node_id":"n10","parent_id":"n07","depth":3,"path":["root","n02","n07","n10"],"grow":"train","task_family":"qa_reasoning","dataset_id":"tiny_mid_branch_east_inner_beta_json"}

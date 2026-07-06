@@ -111,3 +111,179 @@ datasets:
       question: question
       context: passage
       answer: answer
+  - dataset_id: tiny_mid_branch_north_root_json
+    task_family: qa_reasoning
+    train_split: train
+    eval_split: validation
+    prompt_fields:
+      - question
+      - context
+      - answer
+    raw_fields:
+      - question
+      - passage
+      - answer
+    field_map:
+      question: question
+      context: passage
+      answer: answer
+  - dataset_id: tiny_mid_branch_south_root_json
+    task_family: qa_reasoning
+    train_split: train
+    eval_split: validation
+    prompt_fields:
+      - question
+      - context
+      - answer
+    raw_fields:
+      - question
+      - passage
+      - answer
+    field_map:
+      question: question
+      context: passage
+      answer: answer
+  - dataset_id: tiny_mid_branch_east_root_json
+    task_family: qa_reasoning
+    train_split: train
+    eval_split: validation
+    prompt_fields:
+      - question
+      - context
+      - answer
+    raw_fields:
+      - question
+      - passage
+      - answer
+    field_map:
+      question: question
+      context: passage
+      answer: answer
+  - dataset_id: tiny_mid_branch_north_alpha_json
+    task_family: qa_reasoning
+    train_split: train
+    eval_split: validation
+    prompt_fields:
+      - question
+      - context
+      - answer
+    raw_fields:
+      - question
+      - passage
+      - answer
+    field_map:
+      question: question
+      context: passage
+      answer: answer
+  - dataset_id: tiny_mid_branch_north_beta_json
+    task_family: qa_reasoning
+    train_split: train
+    eval_split: validation
+    prompt_fields:
+      - question
+      - context
+      - answer
+    raw_fields:
+      - question
+      - passage
+      - answer
+    field_map:
+      question: question
+      context: passage
+      answer: answer
+  - dataset_id: tiny_mid_branch_south_alpha_json
+    task_family: qa_reasoning
+    train_split: train
+    eval_split: validation
+    prompt_fields:
+      - question
+      - context
+      - answer
+    raw_fields:
+      - question
+      - passage
+      - answer
+    field_map:
+      question: question
+      context: passage
+      answer: answer
+  - dataset_id: tiny_mid_branch_south_beta_json
+    task_family: qa_reasoning
+    train_split: train
+    eval_split: validation
+    prompt_fields:
+      - question
+      - context
+      - answer
+    raw_fields:
+      - question
+      - passage
+      - answer
+    field_map:
+      question: question
+      context: passage
+      answer: answer
+  - dataset_id: tiny_mid_branch_east_inner_json
+    task_family: qa_reasoning
+    train_split: train
+    eval_split: validation
+    prompt_fields:
+      - question
+      - context
+      - answer
+    raw_fields:
+      - question
+      - passage
+      - answer
+    field_map:
+      question: question
+      context: passage
+      answer: answer
+  - dataset_id: tiny_mid_branch_east_gamma_json
+    task_family: qa_reasoning
+    train_split: train
+    eval_split: validation
+    prompt_fields:
+      - question
+      - context
+      - answer
+    raw_fields:
+      - question
+      - passage
+      - answer
+    field_map:
+      question: question
+      context: passage
+      answer: answer
+  - dataset_id: tiny_mid_branch_east_inner_alpha_json
+    task_family: qa_reasoning
+    train_split: train
+    eval_split: validation
+    prompt_fields:
+      - question
+      - context
+      - answer
+    raw_fields:
+      - question
+      - passage
+      - answer
+    field_map:
+      question: question
+      context: passage
+      answer: answer
+  - dataset_id: tiny_mid_branch_east_inner_beta_json
+    task_family: qa_reasoning
+    train_split: train
+    eval_split: validation
+    prompt_fields:
+      - question
+      - context
+      - answer
+    raw_fields:
+      - question
+      - passage
+      - answer
+    field_map:
+      question: question
+      context: passage
+      answer: answer
