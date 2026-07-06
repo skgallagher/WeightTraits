@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from weighttraits.training.data_formats import (
@@ -45,6 +46,15 @@ def _loader(*args, **kwargs):
     }
 
 
+def _jsonl_loader(*args, **kwargs):
+    assert args == ("json",)
+    data_files = kwargs["data_files"]
+    return {
+        split: [json.loads(line) for line in Path(path).read_text().splitlines() if line.strip()]
+        for split, path in data_files.items()
+    }
+
+
 def test_tiny_training_examples_validate_and_render_targets():
     registry = load_dataset_registry(EXAMPLES / "tiny_dataset_registry.yaml")
     formats = load_dataset_format_specs(EXAMPLES / "tiny_dataset_formats.yaml")
@@ -54,7 +64,12 @@ def test_tiny_training_examples_validate_and_render_targets():
     )
 
     validation = validate_training_jobs_against_formats(jobs, formats)
-    audit = audit_dataset_registry(registry, format_specs=formats, loader=_loader)
+    audit = audit_dataset_registry(
+        registry,
+        dataset_ids=["tiny_boolq_json"],
+        format_specs=formats,
+        loader=_loader,
+    )
     run = build_training_run_list(jobs).runs[0]
     data = prepare_training_data(run, registry, formats, loader=_loader)
 
@@ -158,3 +173,81 @@ def test_tiny_lora_branching_example_plans_parent_merged_artifacts():
     assert runs[5].init_from == "outputs/tiny_lora_branching_smoke/n1/merged"
     assert runs[5].expected_artifacts["adapter"] == "outputs/tiny_lora_branching_smoke/n5/adapter"
     assert runs[5].expected_artifacts["merged"] == "outputs/tiny_lora_branching_smoke/n5/merged"
+
+
+def test_tiny_branching_contrast_example_renders_distinguishable_node_targets():
+    registry = load_dataset_registry(EXAMPLES / "tiny_dataset_registry.yaml")
+    formats = load_dataset_format_specs(EXAMPLES / "tiny_dataset_formats.yaml")
+    jobs = build_training_jobs_from_files(
+        EXAMPLES / "tiny_branching_contrast_manifest.jsonl",
+        EXAMPLES / "tiny_full_branching_contrast_smoke.yaml",
+    )
+    runs = build_training_run_list(jobs).runs
+
+    validation = validate_training_jobs_against_formats(jobs, formats)
+    rendered_by_node = {
+        run.node_id: prepare_training_data(
+            run,
+            registry,
+            formats,
+            loader=_jsonl_loader,
+            max_train_samples=2,
+            max_eval_samples=1,
+        )
+        for run in runs
+    }
+    targets_by_node = {
+        node_id: {record.target for record in data.train_records}
+        for node_id, data in rendered_by_node.items()
+    }
+
+    assert validation.valid
+    assert manifest_leaf_ids(EXAMPLES / "tiny_branching_contrast_manifest.jsonl") == [
+        "n2",
+        "n3",
+        "n4",
+        "n5",
+    ]
+    assert [job.dataset_id for job in jobs] == [
+        "tiny_branch_left_root_json",
+        "tiny_branch_right_root_json",
+        "tiny_branch_left_alpha_json",
+        "tiny_branch_left_beta_json",
+        "tiny_branch_right_alpha_json",
+        "tiny_branch_right_beta_json",
+    ]
+    assert runs[2].init_from == "outputs/tiny_full_branching_contrast_smoke/n0/model"
+    assert runs[4].init_from == "outputs/tiny_full_branching_contrast_smoke/n1/model"
+    assert all(data.valid for data in rendered_by_node.values())
+    assert targets_by_node == {
+        "n0": {"left-root"},
+        "n1": {"right-root"},
+        "n2": {"left-alpha"},
+        "n3": {"left-beta"},
+        "n4": {"right-alpha"},
+        "n5": {"right-beta"},
+    }
+    assert rendered_by_node["n2"].train_records[0].text.endswith("Reply with the code:")
+    assert "branch left sibling alpha" in rendered_by_node["n2"].train_records[0].text
+    assert "branch left sibling beta" in rendered_by_node["n3"].train_records[0].text
+    assert "branch right sibling alpha" in rendered_by_node["n4"].train_records[0].text
+
+
+def test_tiny_lora_branching_contrast_example_plans_parent_merged_artifacts():
+    jobs = build_training_jobs_from_files(
+        EXAMPLES / "tiny_branching_contrast_manifest.jsonl",
+        EXAMPLES / "tiny_lora_branching_contrast_smoke.yaml",
+    )
+    runs = build_training_run_list(jobs).runs
+
+    assert [run.node_id for run in runs] == ["n0", "n1", "n2", "n3", "n4", "n5"]
+    assert runs[2].init_from == "outputs/tiny_lora_branching_contrast_smoke/n0/merged"
+    assert runs[3].init_from == "outputs/tiny_lora_branching_contrast_smoke/n0/merged"
+    assert runs[4].init_from == "outputs/tiny_lora_branching_contrast_smoke/n1/merged"
+    assert runs[5].init_from == "outputs/tiny_lora_branching_contrast_smoke/n1/merged"
+    assert runs[5].expected_artifacts["adapter"] == (
+        "outputs/tiny_lora_branching_contrast_smoke/n5/adapter"
+    )
+    assert runs[5].expected_artifacts["merged"] == (
+        "outputs/tiny_lora_branching_contrast_smoke/n5/merged"
+    )

@@ -10,3 +10,63 @@ datasets:
     train_split: train
     eval_split: validation
     note: Local JSONL fixture for real trainer smoke tests.
+  - id: tiny_branch_left_root_json
+    hf_args:
+      - json
+    hf_kwargs:
+      data_files:
+        train: examples/training/tiny_branch_left_root_train.jsonl
+        validation: examples/training/tiny_branch_left_root_validation.jsonl
+    train_split: train
+    eval_split: validation
+    note: Left-root contrast fixture for branching smoke tests.
+  - id: tiny_branch_right_root_json
+    hf_args:
+      - json
+    hf_kwargs:
+      data_files:
+        train: examples/training/tiny_branch_right_root_train.jsonl
+        validation: examples/training/tiny_branch_right_root_validation.jsonl
+    train_split: train
+    eval_split: validation
+    note: Right-root contrast fixture for branching smoke tests.
+  - id: tiny_branch_left_alpha_json
+    hf_args:
+      - json
+    hf_kwargs:
+      data_files:
+        train: examples/training/tiny_branch_left_alpha_train.jsonl
+        validation: examples/training/tiny_branch_left_alpha_validation.jsonl
+    train_split: train
+    eval_split: validation
+    note: Left-alpha leaf contrast fixture for branching smoke tests.
+  - id: tiny_branch_left_beta_json
+    hf_args:
+      - json
+    hf_kwargs:
+      data_files:
+        train: examples/training/tiny_branch_left_beta_train.jsonl
+        validation: examples/training/tiny_branch_left_beta_validation.jsonl
+    train_split: train
+    eval_split: validation
+    note: Left-beta leaf contrast fixture for branching smoke tests.
+  - id: tiny_branch_right_alpha_json
+    hf_args:
+      - json
+    hf_kwargs:
+      data_files:
+        train: examples/training/tiny_branch_right_alpha_train.jsonl
+        validation: examples/training/tiny_branch_right_alpha_validation.jsonl
+    train_split: train
+    eval_split: validation
+    note: Right-alpha leaf contrast fixture for branching smoke tests.
+  - id: tiny_branch_right_beta_json
+    hf_args:
+      - json
+    hf_kwargs:
+      data_files:
+        train: examples/training/tiny_branch_right_beta_train.jsonl
+        validation: examples/training/tiny_branch_right_beta_validation.jsonl
+    train_split: train
+    eval_split: validation
+    note: Right-beta leaf contrast fixture for branching smoke tests.

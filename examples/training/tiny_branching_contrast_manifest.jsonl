@@ -1,0 +1,6 @@
+{"node_id":"n0","parent_id":"root","depth":1,"path":["root","n0"],"grow":"train","task_family":"qa_reasoning","dataset_id":"tiny_branch_left_root_json"}
+{"node_id":"n1","parent_id":"root","depth":1,"path":["root","n1"],"grow":"train","task_family":"qa_reasoning","dataset_id":"tiny_branch_right_root_json"}
+{"node_id":"n2","parent_id":"n0","depth":2,"path":["root","n0","n2"],"grow":"train","task_family":"qa_reasoning","dataset_id":"tiny_branch_left_alpha_json"}
+{"node_id":"n3","parent_id":"n0","depth":2,"path":["root","n0","n3"],"grow":"train","task_family":"qa_reasoning","dataset_id":"tiny_branch_left_beta_json"}
+{"node_id":"n4","parent_id":"n1","depth":2,"path":["root","n1","n4"],"grow":"train","task_family":"qa_reasoning","dataset_id":"tiny_branch_right_alpha_json"}
+{"node_id":"n5","parent_id":"n1","depth":2,"path":["root","n1","n5"],"grow":"train","task_family":"qa_reasoning","dataset_id":"tiny_branch_right_beta_json"}

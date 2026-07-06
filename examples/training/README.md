@@ -233,3 +233,42 @@ PYTHONPATH=src python -m weighttraits.cli make-training-run-list \
 ```
 
 Run indices `0` through `5` in order for the LoRA branching rows as well.
+
+## Tiny Branching Contrast Smoke
+
+The contrast fixture uses the same six-node topology, but assigns each node a tiny local JSONL
+dataset with a distinct target code. Root siblings share coarse branch tokens (`left` versus
+`right`), while terminal siblings also get different leaf tokens (`alpha` versus `beta`). This is a
+better next smoke when tied distances would make the ordinary branching fixture too forgiving.
+
+Generate the full contrast rows:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-training-run-list \
+  --manifest examples/training/tiny_branching_contrast_manifest.jsonl \
+  --config examples/training/tiny_full_branching_contrast_smoke.yaml \
+  --registry examples/training/tiny_dataset_registry.yaml \
+  --formats examples/training/tiny_dataset_formats.yaml \
+  --out /tmp/weighttraits_tiny_full_branching_contrast_runs.jsonl \
+  --allow-existing-artifacts \
+  --max-train-samples 2 \
+  --allow-missing-eval
+```
+
+Generate the LoRA contrast rows:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-training-run-list \
+  --manifest examples/training/tiny_branching_contrast_manifest.jsonl \
+  --config examples/training/tiny_lora_branching_contrast_smoke.yaml \
+  --registry examples/training/tiny_dataset_registry.yaml \
+  --formats examples/training/tiny_dataset_formats.yaml \
+  --out /tmp/weighttraits_tiny_lora_branching_contrast_runs.jsonl \
+  --allow-existing-artifacts \
+  --max-train-samples 2 \
+  --allow-missing-eval
+```
+
+Run indices `0` through `5` in order. After all six rows finish, use
+`wt make-distance-input-manifest` against the resulting training ledger, then build the distance
+cube, reconstruct, and score as in `examples/distance_inputs/README.md`.

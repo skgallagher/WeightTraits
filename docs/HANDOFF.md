@@ -118,6 +118,33 @@ Intent and status of that slice:
   `outputs/tiny_lora_branching_smoke/training_ledger.jsonl`, rebuilt the distance cube, reconstructed,
   and scored exact recovery for the single nontrivial split.
 
+Tiny branching contrast fixture slice:
+
+```text
+examples/training/README.md
+examples/training/tiny_branching_contrast_manifest.jsonl
+examples/training/tiny_full_branching_contrast_smoke.yaml
+examples/training/tiny_lora_branching_contrast_smoke.yaml
+examples/training/tiny_branch_*_{train,validation}.jsonl
+examples/training/tiny_dataset_registry.yaml
+examples/training/tiny_dataset_formats.yaml
+tests/test_training_tiny_examples.py
+docs/HANDOFF.md
+```
+
+Intent and status of that slice:
+
+- Add a six-row contrast variant of the tiny branching fixture.
+- Keep the same terminal leaves: `n2`, `n3`, `n4`, `n5`.
+- Assign node-specific local JSONL datasets so root siblings carry `left`/`right` branch targets,
+  and terminal siblings carry distinct `alpha`/`beta` leaf targets.
+- Add full and LoRA contrast training configs using output roots
+  `outputs/tiny_full_branching_contrast_smoke` and
+  `outputs/tiny_lora_branching_contrast_smoke`.
+- Local focused fixture tests passed with 8 tests; full local suite passed with 123 tests.
+- Not yet run on Wright; next Wright pass should train all six contrast rows, generate ledger-derived
+  full/merged/cumulative leaf manifests, then build/reconstruct/score distance cubes.
+
 Previous artifact-distance smoke slice contents:
 
 ```text
@@ -801,8 +828,8 @@ score rf=0, false_negative=0, false_positive=0, exact_tree_recovery=true
 
 ## Next Best Steps
 
-1. Move from tiny deterministic data to a slightly richer branching smoke where sibling leaves are
-   intentionally distinguishable.
+1. Run the tiny branching contrast smoke on Wright and compare full checkpoints, LoRA merged
+   checkpoints, and cumulative LoRA adapter-chain recovery against the ordinary branching smoke.
 2. Add a low-rank LoRA distance accumulator that avoids dense `B @ A` slabs for large adapters.
 3. Refine supervision templates:
    - prefer explicit `trainer.target_field` or `trainer.target_template`;
