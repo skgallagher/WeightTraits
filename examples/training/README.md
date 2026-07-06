@@ -196,3 +196,40 @@ PYTHONPATH=src python -m weighttraits.cli run-training-row \
   --run-list /tmp/weighttraits_tiny_lora_lineage_runs.jsonl \
   --index 1
 ```
+
+## Tiny Branching Smoke
+
+The branching fixture trains six nodes with four terminal leaves: `n2`, `n3`, `n4`, and `n5`.
+It is the smallest tiny-model topology here with nontrivial RF/FN/FP scoring structure.
+
+Generate the full branching rows:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-training-run-list \
+  --manifest examples/training/tiny_branching_manifest.jsonl \
+  --config examples/training/tiny_full_branching_smoke.yaml \
+  --registry examples/training/tiny_dataset_registry.yaml \
+  --formats examples/training/tiny_dataset_formats.yaml \
+  --out /tmp/weighttraits_tiny_full_branching_runs.jsonl \
+  --allow-existing-artifacts \
+  --max-train-samples 2 \
+  --allow-missing-eval
+```
+
+Run indices `0` through `5` in order so parent artifacts exist before child rows.
+
+Generate the LoRA branching rows:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-training-run-list \
+  --manifest examples/training/tiny_branching_manifest.jsonl \
+  --config examples/training/tiny_lora_branching_smoke.yaml \
+  --registry examples/training/tiny_dataset_registry.yaml \
+  --formats examples/training/tiny_dataset_formats.yaml \
+  --out /tmp/weighttraits_tiny_lora_branching_runs.jsonl \
+  --allow-existing-artifacts \
+  --max-train-samples 2 \
+  --allow-missing-eval
+```
+
+Run indices `0` through `5` in order for the LoRA branching rows as well.

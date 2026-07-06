@@ -8,15 +8,16 @@ WeightTraits is a private, cleaner rebuild of ELLMTrees under `/Users/shannon/De
 
 ## Current Git State
 
-Stable base before the artifact-distance smoke slice:
+Stable base before the branching smoke slice:
 
 ```text
-523902b Add tiny lineage training smoke
+28f133f Add tiny artifact distance smoke
 ```
 
 Recent pushed commits:
 
 ```text
+28f133f Add tiny artifact distance smoke
 523902b Add tiny lineage training smoke
 1a290eb Add Biopython reconstruction and Wright smoke fixes
 ee338ef Add tiny training smoke fixtures
@@ -35,7 +36,7 @@ ee16c92 Add topology audit and recovery scoring
 710c8e5 Document and test tree generators
 ```
 
-Local and Wright checkouts were clean at `523902b` after pushing through Wright. Local GitHub SSH
+Local and Wright checkouts were clean at `28f133f` after pushing through Wright. Local GitHub SSH
 still failed with `Permission denied (publickey)`, so the successful push path was:
 
 ```text
@@ -60,7 +61,37 @@ stash@{0}: On main: codex-synced-lineage-before-523902b
 
 It should be safe to drop after confirming it duplicates `523902b`.
 
-Artifact-distance smoke slice contents:
+Branching smoke slice contents:
+
+```text
+docs/HANDOFF.md
+examples/distance_inputs/README.md
+examples/distance_inputs/tiny_full_branching_leaf_outputs.yaml
+examples/distance_inputs/tiny_lora_cumulative_branching_leaf_outputs.yaml
+examples/distance_inputs/tiny_lora_merged_branching_leaf_outputs.yaml
+examples/training/README.md
+examples/training/tiny_branching_manifest.jsonl
+examples/training/tiny_full_branching_smoke.yaml
+examples/training/tiny_lora_branching_smoke.yaml
+tests/test_distance_input_manifest.py
+tests/test_training_tiny_examples.py
+```
+
+Intent and status of that slice:
+
+- Add a six-row tiny branching training fixture with four terminal leaves: `n2`, `n3`, `n4`, `n5`.
+- Add full and LoRA training configs using output roots `outputs/tiny_full_branching_smoke` and
+  `outputs/tiny_lora_branching_smoke`.
+- Add leaf-only distance-input manifests for full checkpoints, LoRA merged checkpoints, and
+  cumulative LoRA adapter chains.
+- Local focused tests passed with 12 tests.
+- Wright focused training fixture tests passed with 6 tests and both full/LoRA run lists validated
+  with 6 runs and no warnings.
+- Wright full and LoRA branching training rows completed for all six nodes.
+- Wright four-leaf distance/reconstruct/score smokes passed for full checkpoints, LoRA merged
+  checkpoints, and cumulative LoRA adapters with exact recovery of the single nontrivial split.
+
+Previous artifact-distance smoke slice contents:
 
 ```text
 docs/HANDOFF.md
@@ -73,7 +104,7 @@ tests/test_distance_input_manifest.py
 tests/test_recovery_scoring.py
 ```
 
-Intent and status of that slice:
+Intent and status of that previous slice:
 
 - Add distance-input manifests for the Wright two-node training artifacts:
   - full checkpoints: `outputs/tiny_full_lineage_smoke/n0/model`, `.../n1/model`;
@@ -326,6 +357,32 @@ passed with 12 focused tests, and:
 ```
 
 passed with 112 tests.
+
+After adding the six-node tiny branching fixtures and four-leaf distance manifests:
+
+```text
+conda run -n ellmtrees env PYTHONPATH=src python -m pytest tests/test_distance_input_manifest.py tests/test_training_tiny_examples.py --override-ini=addopts=
+```
+
+passed locally with 12 focused tests. The full local suite passed with 115 tests:
+
+```text
+conda run -n ellmtrees env PYTHONPATH=src python -m pytest --override-ini=addopts=
+```
+
+On Wright:
+
+```text
+/opt/miniforge3/bin/mamba run -n weighttraits env PYTHONPATH=src python -m pytest tests/test_training_tiny_examples.py --override-ini=addopts=
+```
+
+passed with 6 focused fixture tests, and:
+
+```text
+/opt/miniforge3/bin/mamba run -n weighttraits env PYTHONPATH=src python -m pytest --override-ini=addopts=
+```
+
+passed with 115 tests.
 
 Useful smoke commands that have passed:
 
@@ -652,10 +709,34 @@ LoRA cumulative adapters: n_models=2, n_layers=30, l2 distance_mean=0.0002614747
 two-tip score: n_truth_splits=0, n_estimate_splits=0, rf=0, exact_tree_recovery=true
 ```
 
+Tiny branching smoke on Wright:
+
+```text
+manifest: examples/training/tiny_branching_manifest.jsonl
+leaves: ["n2", "n3", "n4", "n5"]
+truth splits: 1
+full run list: 6 runs, 0 warnings, 0 errors
+LoRA run list: 6 runs, 0 warnings, 0 errors
+full training: completed_nodes=["n0", "n1", "n2", "n3", "n4", "n5"], failed_nodes=[]
+LoRA training: completed_nodes=["n0", "n1", "n2", "n3", "n4", "n5"], failed_nodes=[]
+```
+
+The four-leaf distance/reconstruct/score path also passed:
+
+```text
+full leaf checkpoints: n_models=4, n_layers=110, l2 distance_mean=0.0,
+  score rf=0, false_negative=0, false_positive=0, exact_tree_recovery=true
+LoRA merged leaf checkpoints: n_models=4, n_layers=110, l2 distance_mean=0.00011425835655734538,
+  score rf=0, false_negative=0, false_positive=0, exact_tree_recovery=true
+LoRA cumulative leaf adapters: n_models=4, n_layers=30, l2 distance_mean=0.00041895296848211915,
+  score rf=0, false_negative=0, false_positive=0, exact_tree_recovery=true
+```
+
 ## Next Best Steps
 
-1. Scale from the two-node fixture to a small branching topology with enough leaves for RF/FN/FP scoring.
-2. Derive distance-input manifests from training ledgers automatically instead of hand-authored examples.
+1. Derive distance-input manifests from training ledgers automatically instead of hand-authored examples.
+2. Move from tiny deterministic data to a slightly richer branching smoke where sibling leaves are
+   intentionally distinguishable.
 3. Refine supervision templates:
    - prefer explicit `trainer.target_field` or `trainer.target_template`;
    - audit old prompt templates that currently include the answer in the rendered prompt.
@@ -667,7 +748,8 @@ two-tip score: n_truth_splits=0, n_estimate_splits=0, rf=0, exact_tree_recovery=
 - `wt reconstruct-tree` uses Biopython from the analysis extra.
 - LoRA vector metrics stream dense `B @ A` row blocks; low-rank dot-product acceleration remains planned.
 - The trainer execution loop has now been exercised on Wright with the tiny model
-  `hf-internal-testing/tiny-random-t5` for single-row and two-node lineage full/LoRA runs.
+  `hf-internal-testing/tiny-random-t5` for single-row, two-node lineage, and six-node branching
+  full/LoRA runs.
 - Local outgoing Hugging Face traffic is disabled; run real model smoke/training on Wright or another prepared environment.
 - Local `datasets.load_dataset("json", ...)` may need `HF_DATASETS_CACHE` pointed to a writable scratch directory.
 - `wt audit-datasets` in load mode may require network access and the optional `datasets` dependency.

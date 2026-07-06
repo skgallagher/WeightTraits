@@ -1,0 +1,33 @@
+training:
+  model_family: tiny_t5_branching
+  base_model: hf-internal-testing/tiny-random-t5
+  method: full
+  output_root: outputs/tiny_full_branching_smoke
+  trainer:
+    model_task: seq2seq
+    max_steps: 1
+    per_device_train_batch_size: 1
+    per_device_eval_batch_size: 1
+    gradient_accumulation_steps: 1
+    learning_rate: 0.0001
+    logging_steps: 1
+    eval_steps: 1
+    save_steps: 1
+    save_total_limit: 1
+    target_field: answer
+    max_source_length: 64
+    max_target_length: 8
+    report_to: []
+  prompt:
+    default_template: "Question: {question}\nContext: {context}\nAnswer yes or no:"
+  stopping:
+    metric: eval_loss
+    early_stopping:
+      patience: 4
+      min_delta: 0.0
+    plateau:
+      window: 3
+      min_delta: 0.000001
+    warnings:
+      loss_increase_relative: 0.1
+      loss_increase_patience: 1

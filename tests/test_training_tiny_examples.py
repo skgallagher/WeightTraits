@@ -6,6 +6,7 @@ from weighttraits.training.data_formats import (
 )
 from weighttraits.training.datasets import audit_dataset_registry, load_dataset_registry
 from weighttraits.training.executor import prepare_training_data
+from weighttraits.manifests.reference import manifest_leaf_ids
 from weighttraits.training.planner import build_training_jobs_from_files
 from weighttraits.training.runlist import build_training_run_list
 
@@ -116,3 +117,44 @@ def test_tiny_lora_lineage_example_uses_parent_merged_artifact():
     assert runs[1].expected_artifacts["merged"] == "outputs/tiny_lora_lineage_smoke/n1/merged"
     assert runs[0].ledger_path == "outputs/tiny_lora_lineage_smoke/training_ledger.jsonl"
     assert runs[1].ledger_path == "outputs/tiny_lora_lineage_smoke/training_ledger.jsonl"
+
+
+def test_tiny_full_branching_example_plans_four_leaf_topology():
+    jobs = build_training_jobs_from_files(
+        EXAMPLES / "tiny_branching_manifest.jsonl",
+        EXAMPLES / "tiny_full_branching_smoke.yaml",
+    )
+    runs = build_training_run_list(jobs).runs
+
+    assert manifest_leaf_ids(EXAMPLES / "tiny_branching_manifest.jsonl") == [
+        "n2",
+        "n3",
+        "n4",
+        "n5",
+    ]
+    assert [run.node_id for run in runs] == ["n0", "n1", "n2", "n3", "n4", "n5"]
+    assert runs[0].init_from == "hf-internal-testing/tiny-random-t5"
+    assert runs[1].init_from == "hf-internal-testing/tiny-random-t5"
+    assert runs[2].init_from == "outputs/tiny_full_branching_smoke/n0/model"
+    assert runs[3].init_from == "outputs/tiny_full_branching_smoke/n0/model"
+    assert runs[4].init_from == "outputs/tiny_full_branching_smoke/n1/model"
+    assert runs[5].init_from == "outputs/tiny_full_branching_smoke/n1/model"
+    assert runs[5].expected_artifacts["model"] == "outputs/tiny_full_branching_smoke/n5/model"
+
+
+def test_tiny_lora_branching_example_plans_parent_merged_artifacts():
+    jobs = build_training_jobs_from_files(
+        EXAMPLES / "tiny_branching_manifest.jsonl",
+        EXAMPLES / "tiny_lora_branching_smoke.yaml",
+    )
+    runs = build_training_run_list(jobs).runs
+
+    assert [run.node_id for run in runs] == ["n0", "n1", "n2", "n3", "n4", "n5"]
+    assert runs[0].init_from == "hf-internal-testing/tiny-random-t5"
+    assert runs[1].init_from == "hf-internal-testing/tiny-random-t5"
+    assert runs[2].init_from == "outputs/tiny_lora_branching_smoke/n0/merged"
+    assert runs[3].init_from == "outputs/tiny_lora_branching_smoke/n0/merged"
+    assert runs[4].init_from == "outputs/tiny_lora_branching_smoke/n1/merged"
+    assert runs[5].init_from == "outputs/tiny_lora_branching_smoke/n1/merged"
+    assert runs[5].expected_artifacts["adapter"] == "outputs/tiny_lora_branching_smoke/n5/adapter"
+    assert runs[5].expected_artifacts["merged"] == "outputs/tiny_lora_branching_smoke/n5/merged"

@@ -132,6 +132,53 @@ def test_tiny_lineage_output_examples_resolve_expected_paths():
     )
 
 
+def test_tiny_branching_leaf_output_examples_resolve_expected_paths():
+    full = load_distance_input_manifest(EXAMPLE_DIR / "tiny_full_branching_leaf_outputs.yaml")
+    lora_merged = load_distance_input_manifest(
+        EXAMPLE_DIR / "tiny_lora_merged_branching_leaf_outputs.yaml"
+    )
+    lora_cumulative = load_distance_input_manifest(
+        EXAMPLE_DIR / "tiny_lora_cumulative_branching_leaf_outputs.yaml"
+    )
+
+    repo = EXAMPLE_DIR.parents[1]
+    assert [spec.model_id for spec in full] == ["n2", "n3", "n4", "n5"]
+    assert [_normalized(spec.checkpoint) for spec in full] == [
+        repo / "outputs/tiny_full_branching_smoke/n2/model",
+        repo / "outputs/tiny_full_branching_smoke/n3/model",
+        repo / "outputs/tiny_full_branching_smoke/n4/model",
+        repo / "outputs/tiny_full_branching_smoke/n5/model",
+    ]
+
+    assert [spec.model_id for spec in lora_merged] == ["n2", "n3", "n4", "n5"]
+    assert [_normalized(spec.checkpoint) for spec in lora_merged] == [
+        repo / "outputs/tiny_lora_branching_smoke/n2/merged",
+        repo / "outputs/tiny_lora_branching_smoke/n3/merged",
+        repo / "outputs/tiny_lora_branching_smoke/n4/merged",
+        repo / "outputs/tiny_lora_branching_smoke/n5/merged",
+    ]
+
+    assert [spec.model_id for spec in lora_cumulative] == ["n2", "n3", "n4", "n5"]
+    assert [tuple(_normalized(path) for path in spec.adapter_chain) for spec in lora_cumulative] == [
+        (
+            repo / "outputs/tiny_lora_branching_smoke/n0/adapter",
+            repo / "outputs/tiny_lora_branching_smoke/n2/adapter",
+        ),
+        (
+            repo / "outputs/tiny_lora_branching_smoke/n0/adapter",
+            repo / "outputs/tiny_lora_branching_smoke/n3/adapter",
+        ),
+        (
+            repo / "outputs/tiny_lora_branching_smoke/n1/adapter",
+            repo / "outputs/tiny_lora_branching_smoke/n4/adapter",
+        ),
+        (
+            repo / "outputs/tiny_lora_branching_smoke/n1/adapter",
+            repo / "outputs/tiny_lora_branching_smoke/n5/adapter",
+        ),
+    ]
+
+
 def _normalized(path: Path | None) -> Path:
     assert path is not None
     return path.resolve(strict=False)

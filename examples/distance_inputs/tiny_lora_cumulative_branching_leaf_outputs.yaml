@@ -1,0 +1,17 @@
+models:
+  - model_id: n2
+    adapter_chain:
+      - ../../outputs/tiny_lora_branching_smoke/n0/adapter
+      - ../../outputs/tiny_lora_branching_smoke/n2/adapter
+  - model_id: n3
+    adapter_chain:
+      - ../../outputs/tiny_lora_branching_smoke/n0/adapter
+      - ../../outputs/tiny_lora_branching_smoke/n3/adapter
+  - model_id: n4
+    adapter_chain:
+      - ../../outputs/tiny_lora_branching_smoke/n1/adapter
+      - ../../outputs/tiny_lora_branching_smoke/n4/adapter
+  - model_id: n5
+    adapter_chain:
+      - ../../outputs/tiny_lora_branching_smoke/n1/adapter
+      - ../../outputs/tiny_lora_branching_smoke/n5/adapter

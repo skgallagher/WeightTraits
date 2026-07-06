@@ -1,0 +1,9 @@
+models:
+  - model_id: n2
+    checkpoint: ../../outputs/tiny_lora_branching_smoke/n2/merged
+  - model_id: n3
+    checkpoint: ../../outputs/tiny_lora_branching_smoke/n3/merged
+  - model_id: n4
+    checkpoint: ../../outputs/tiny_lora_branching_smoke/n4/merged
+  - model_id: n5
+    checkpoint: ../../outputs/tiny_lora_branching_smoke/n5/merged
