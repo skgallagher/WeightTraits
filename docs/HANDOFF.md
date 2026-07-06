@@ -65,6 +65,7 @@ Branching smoke slice contents:
 
 ```text
 docs/HANDOFF.md
+docs/STREAMING_DISTANCE_CUBES.md
 examples/distance_inputs/README.md
 examples/distance_inputs/tiny_full_branching_leaf_outputs.yaml
 examples/distance_inputs/tiny_lora_cumulative_branching_leaf_outputs.yaml
@@ -90,6 +91,32 @@ Intent and status of that slice:
 - Wright full and LoRA branching training rows completed for all six nodes.
 - Wright four-leaf distance/reconstruct/score smokes passed for full checkpoints, LoRA merged
   checkpoints, and cumulative LoRA adapters with exact recovery of the single nontrivial split.
+
+Ledger-derived distance manifest slice:
+
+```text
+src/weighttraits/distances/manifest.py
+src/weighttraits/distances/__init__.py
+src/weighttraits/cli.py
+tests/test_cli_distance_cube.py
+tests/test_distance_input_manifest.py
+docs/STREAMING_DISTANCE_CUBES.md
+examples/distance_inputs/README.md
+docs/HANDOFF.md
+```
+
+Intent and status of that slice:
+
+- Add `wt make-distance-input-manifest`.
+- Read latest terminal training ledger events and emit `build-distance-cube` manifests.
+- With `--truth-manifest`, select terminal leaves by default.
+- Support `--artifact model`, `--artifact merged`, and `--artifact adapter_chain`.
+- Rewrite relative ledger artifact paths relative to the generated manifest.
+- Local focused tests passed with 15 tests and full local suite passed with 121 tests.
+- Wright focused tests passed with 15 tests and full Wright suite passed with 121 tests.
+- On Wright, generated a cumulative LoRA branching leaf manifest from
+  `outputs/tiny_lora_branching_smoke/training_ledger.jsonl`, rebuilt the distance cube, reconstructed,
+  and scored exact recovery for the single nontrivial split.
 
 Previous artifact-distance smoke slice contents:
 
@@ -732,11 +759,51 @@ LoRA cumulative leaf adapters: n_models=4, n_layers=30, l2 distance_mean=0.00041
   score rf=0, false_negative=0, false_positive=0, exact_tree_recovery=true
 ```
 
+Ledger-derived distance manifest smoke:
+
+```bash
+/opt/miniforge3/bin/mamba run -n weighttraits env PYTHONPATH=src \
+  python -m weighttraits.cli make-distance-input-manifest \
+    --ledger outputs/tiny_lora_branching_smoke/training_ledger.jsonl \
+    --truth-manifest examples/training/tiny_branching_manifest.jsonl \
+    --artifact adapter_chain \
+    --out outputs/tiny_lora_branching_smoke/generated_cumulative_leaf_inputs.yaml
+```
+
+Generated:
+
+```yaml
+models:
+- model_id: n2
+  adapter_chain:
+  - n0/adapter
+  - n2/adapter
+- model_id: n3
+  adapter_chain:
+  - n0/adapter
+  - n3/adapter
+- model_id: n4
+  adapter_chain:
+  - n1/adapter
+  - n4/adapter
+- model_id: n5
+  adapter_chain:
+  - n1/adapter
+  - n5/adapter
+```
+
+Building, reconstructing, and scoring from that generated manifest passed with:
+
+```text
+n_models=4, n_layers=30, l2 distance_mean=0.00041895296848211915
+score rf=0, false_negative=0, false_positive=0, exact_tree_recovery=true
+```
+
 ## Next Best Steps
 
-1. Derive distance-input manifests from training ledgers automatically instead of hand-authored examples.
-2. Move from tiny deterministic data to a slightly richer branching smoke where sibling leaves are
+1. Move from tiny deterministic data to a slightly richer branching smoke where sibling leaves are
    intentionally distinguishable.
+2. Add a low-rank LoRA distance accumulator that avoids dense `B @ A` slabs for large adapters.
 3. Refine supervision templates:
    - prefer explicit `trainer.target_field` or `trainer.target_template`;
    - audit old prompt templates that currently include the answer in the rendered prompt.

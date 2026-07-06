@@ -9,7 +9,11 @@ from pathlib import Path
 import yaml
 
 from weighttraits.audit.ellmtrees import inventory_ellmtrees
-from weighttraits.distances.manifest import readers_from_distance_manifest
+from weighttraits.distances.manifest import (
+    distance_input_rows_from_training_ledger,
+    readers_from_distance_manifest,
+    write_distance_input_manifest,
+)
 from weighttraits.distances.readers import CumulativeLoraReader, LoraFactorReader, reader_from_path
 from weighttraits.distances.streaming import build_distance_cube, write_distance_cube
 from weighttraits.manifests.reference import manifest_leaf_ids
@@ -171,6 +175,30 @@ def _build_distance_cube(args: argparse.Namespace) -> int:
         "representation": args.representation,
     }
     print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
+def _make_distance_input_manifest(args: argparse.Namespace) -> int:
+    rows = distance_input_rows_from_training_ledger(
+        args.ledger,
+        truth_manifest=args.truth_manifest,
+        artifact=args.artifact,
+        node_ids=args.node_id,
+    )
+    write_distance_input_manifest(rows, args.out, path_base=args.path_base)
+    print(
+        json.dumps(
+            {
+                "artifact": args.artifact,
+                "ledger": str(args.ledger),
+                "n_models": len(rows),
+                "out": str(args.out),
+                "truth_manifest": str(args.truth_manifest) if args.truth_manifest else None,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
     return 0
 
 
@@ -485,6 +513,39 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["full_weight", "lora_cumulative_delta", "lora_increment_delta"],
     )
     cube.set_defaults(func=_build_distance_cube)
+
+    distance_inputs = sub.add_parser(
+        "make-distance-input-manifest",
+        help="Derive build-distance-cube inputs from a training ledger",
+    )
+    distance_inputs.add_argument("--ledger", type=Path, required=True)
+    distance_inputs.add_argument(
+        "--truth-manifest",
+        type=Path,
+        help="Training/topology manifest used to select leaves and adapter chains",
+    )
+    distance_inputs.add_argument(
+        "--artifact",
+        choices=["model", "merged", "adapter_chain"],
+        default="model",
+        help="Ledger artifact to emit as checkpoint rows, or cumulative adapter chains",
+    )
+    distance_inputs.add_argument(
+        "--node-id",
+        action="append",
+        help=(
+            "Restrict to one or more node IDs; defaults to truth-manifest leaves "
+            "or all terminal artifact nodes"
+        ),
+    )
+    distance_inputs.add_argument(
+        "--path-base",
+        type=Path,
+        default=Path("."),
+        help="Base directory for relative ledger artifact paths",
+    )
+    distance_inputs.add_argument("--out", type=Path, required=True)
+    distance_inputs.set_defaults(func=_make_distance_input_manifest)
 
     reconstruct = sub.add_parser(
         "reconstruct-tree",

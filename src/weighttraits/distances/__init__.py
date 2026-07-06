@@ -2,8 +2,10 @@
 
 from weighttraits.distances.manifest import (
     DistanceInputSpec,
+    distance_input_rows_from_training_ledger,
     load_distance_input_manifest,
     readers_from_distance_manifest,
+    write_distance_input_manifest,
 )
 from weighttraits.distances.metrics import (
     available_metrics,
@@ -53,5 +55,7 @@ __all__ = [
     "reader_from_path",
     "readers_from_distance_manifest",
     "threshold_distance",
+    "distance_input_rows_from_training_ledger",
+    "write_distance_input_manifest",
     "write_distance_cube",
 ]

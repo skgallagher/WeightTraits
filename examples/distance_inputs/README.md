@@ -68,8 +68,14 @@ provided only to exercise `score-tree` command plumbing against a two-tip Newick
 The branching fixture has four terminal leaves and can be scored against the training manifest:
 
 ```bash
+PYTHONPATH=src python -m weighttraits.cli make-distance-input-manifest \
+  --ledger outputs/tiny_lora_branching_smoke/training_ledger.jsonl \
+  --truth-manifest examples/training/tiny_branching_manifest.jsonl \
+  --artifact adapter_chain \
+  --out outputs/tiny_lora_branching_smoke/generated_cumulative_leaf_inputs.yaml
+
 PYTHONPATH=src python -m weighttraits.cli build-distance-cube \
-  --checkpoint-manifest examples/distance_inputs/tiny_lora_cumulative_branching_leaf_outputs.yaml \
+  --checkpoint-manifest outputs/tiny_lora_branching_smoke/generated_cumulative_leaf_inputs.yaml \
   --representation lora_cumulative_delta \
   --metric cosine \
   --metric l2 \

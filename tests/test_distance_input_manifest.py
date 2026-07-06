@@ -5,10 +5,13 @@ import numpy as np
 import pytest
 
 from weighttraits.distances.manifest import (
+    distance_input_rows_from_training_ledger,
     load_distance_input_manifest,
     readers_from_distance_manifest,
+    write_distance_input_manifest,
 )
 from weighttraits.distances.readers import CumulativeLoraReader, SafetensorsTensorReader
+from weighttraits.training.ledger import TrainingLedgerEvent, append_ledger_event
 
 
 EXAMPLE_DIR = Path(__file__).resolve().parents[1] / "examples" / "distance_inputs"
@@ -179,9 +182,122 @@ def test_tiny_branching_leaf_output_examples_resolve_expected_paths():
     ]
 
 
+def test_distance_inputs_from_training_ledger_selects_manifest_leaves(tmp_path):
+    ledger = _write_training_ledger(tmp_path / "training.jsonl")
+    truth = _write_branching_truth(tmp_path / "truth.jsonl")
+
+    rows = distance_input_rows_from_training_ledger(
+        ledger,
+        truth_manifest=truth,
+        artifact="model",
+    )
+
+    assert rows == [
+        {"model_id": "n2", "checkpoint": "outputs/run/n2/model"},
+        {"model_id": "n3", "checkpoint": "outputs/run/n3/model"},
+        {"model_id": "n4", "checkpoint": "outputs/run/n4/model"},
+        {"model_id": "n5", "checkpoint": "outputs/run/n5/model"},
+    ]
+
+
+def test_distance_inputs_from_training_ledger_builds_cumulative_adapter_chains(tmp_path):
+    ledger = _write_training_ledger(tmp_path / "training.jsonl")
+    truth = _write_branching_truth(tmp_path / "truth.jsonl")
+
+    rows = distance_input_rows_from_training_ledger(
+        ledger,
+        truth_manifest=truth,
+        artifact="adapter_chain",
+        node_ids=["n5"],
+    )
+
+    assert rows == [
+        {
+            "model_id": "n5",
+            "adapter_chain": [
+                "outputs/run/n1/adapter",
+                "outputs/run/n5/adapter",
+            ],
+        }
+    ]
+
+
+def test_write_distance_input_manifest_relativizes_ledger_paths(tmp_path):
+    out = tmp_path / "manifests" / "inputs.yaml"
+    rows = [{"model_id": "n2", "checkpoint": "outputs/run/n2/model"}]
+
+    write_distance_input_manifest(rows, out, path_base=tmp_path)
+
+    specs = load_distance_input_manifest(out)
+    assert out.read_text() == "models:\n- model_id: n2\n  checkpoint: ../outputs/run/n2/model\n"
+    assert specs[0].checkpoint == tmp_path / "manifests/../outputs/run/n2/model"
+
+
+def test_distance_inputs_from_training_ledger_rejects_missing_artifact(tmp_path):
+    ledger = tmp_path / "training.jsonl"
+    append_ledger_event(
+        ledger,
+        TrainingLedgerEvent(
+            node_id="n0",
+            status="completed",
+            extra={"artifacts": {"adapter": "outputs/run/n0/adapter"}},
+        ),
+    )
+
+    with pytest.raises(ValueError, match="no 'model' artifact"):
+        distance_input_rows_from_training_ledger(ledger, artifact="model", node_ids=["n0"])
+
+
+def test_distance_inputs_from_training_ledger_rejects_failed_nodes(tmp_path):
+    ledger = tmp_path / "training.jsonl"
+    append_ledger_event(
+        ledger,
+        TrainingLedgerEvent(
+            node_id="n0",
+            status="failed",
+            extra={"artifacts": {"model": "outputs/run/n0/model"}},
+        ),
+    )
+
+    with pytest.raises(ValueError, match="not distance-ready"):
+        distance_input_rows_from_training_ledger(ledger, artifact="model", node_ids=["n0"])
+
+
 def _normalized(path: Path | None) -> Path:
     assert path is not None
     return path.resolve(strict=False)
+
+
+def _write_training_ledger(path: Path) -> Path:
+    for node_id in ["n0", "n1", "n2", "n3", "n4", "n5"]:
+        append_ledger_event(
+            path,
+            TrainingLedgerEvent(
+                node_id=node_id,
+                status="completed",
+                extra={
+                    "artifacts": {
+                        "model": f"outputs/run/{node_id}/model",
+                        "merged": f"outputs/run/{node_id}/merged",
+                        "adapter": f"outputs/run/{node_id}/adapter",
+                    }
+                },
+            ),
+        )
+    return path
+
+
+def _write_branching_truth(path: Path) -> Path:
+    rows = [
+        {"node_id": "n0", "path": ["root", "n0"], "grow": "train"},
+        {"node_id": "n1", "path": ["root", "n1"], "grow": "train"},
+        {"node_id": "n2", "path": ["root", "n0", "n2"], "grow": "train"},
+        {"node_id": "n3", "path": ["root", "n0", "n3"], "grow": "train"},
+        {"node_id": "n4", "path": ["root", "n1", "n4"], "grow": "train"},
+        {"node_id": "n5", "path": ["root", "n1", "n5"], "grow": "train"},
+    ]
+    path.write_text("\n".join(json.dumps(row) for row in rows) + "\n")
+    return path
 
 
 def _write_adapter(path, *, offset: float):

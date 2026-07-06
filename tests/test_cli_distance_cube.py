@@ -43,3 +43,24 @@ def test_distance_cube_parser_accepts_checkpoint_manifest():
     )
 
     assert args.checkpoint_manifest == [Path("/tmp/inputs.yaml")]
+
+
+def test_make_distance_input_manifest_parser_accepts_ledger_and_truth_manifest():
+    args = build_parser().parse_args(
+        [
+            "make-distance-input-manifest",
+            "--ledger",
+            "/tmp/training_ledger.jsonl",
+            "--truth-manifest",
+            "/tmp/truth.jsonl",
+            "--artifact",
+            "adapter_chain",
+            "--out",
+            "/tmp/distance_inputs.yaml",
+        ]
+    )
+
+    assert args.ledger == Path("/tmp/training_ledger.jsonl")
+    assert args.truth_manifest == Path("/tmp/truth.jsonl")
+    assert args.artifact == "adapter_chain"
+    assert args.out == Path("/tmp/distance_inputs.yaml")

@@ -142,6 +142,21 @@ models:
 
 Accepted model ID fields are `model_id`, `node_id`, or `id`. Accepted checkpoint fields are `checkpoint`, `checkpoint_path`, or `path`. Relative paths resolve from the manifest file's directory.
 
+Training ledgers can also be converted into distance input manifests. With a truth manifest, the
+command selects terminal leaves by default:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-distance-input-manifest \
+  --ledger outputs/tiny_lora_branching_smoke/training_ledger.jsonl \
+  --truth-manifest examples/training/tiny_branching_manifest.jsonl \
+  --artifact adapter_chain \
+  --out outputs/tiny_lora_branching_smoke/generated_cumulative_leaf_inputs.yaml
+```
+
+Use `--artifact model` for full fine-tuned checkpoint rows, `--artifact merged` for merged LoRA
+checkpoint rows, and `--artifact adapter_chain` for cumulative LoRA adapter-chain rows. Relative
+ledger artifact paths are rewritten relative to the generated manifest.
+
 ## Readers
 
 Current readers:
