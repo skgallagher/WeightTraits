@@ -25,6 +25,19 @@ class TensorInfo:
         return total
 
 
+@dataclass(frozen=True)
+class LowRankLoraComponent:
+    """One scaled LoRA update represented as ``scale * B @ A``."""
+
+    a: np.ndarray
+    b: np.ndarray
+    scale: float = 1.0
+
+    @property
+    def shape(self) -> tuple[int, int]:
+        return (int(self.b.shape[0]), int(self.a.shape[1]))
+
+
 class TensorReader(Protocol):
     model_id: str
 
@@ -217,6 +230,9 @@ class LoraFactorReader:
             for module, mats in factors.items()
             if "A" in mats and "B" in mats
         }
+        self.chunk_reads: dict[str, int] = {}
+        self.tensor_reads: dict[str, int] = {}
+        self.low_rank_reads: dict[str, int] = {}
 
     @classmethod
     def from_peft_dir(cls, path: str | Path, model_id: str | None = None) -> "LoraFactorReader":
@@ -247,6 +263,7 @@ class LoraFactorReader:
         return TensorInfo(name=key, shape=(mats["B"].shape[0], mats["A"].shape[1]), dtype="float64")
 
     def iter_flat_chunks(self, key: str, chunk_size: int):
+        self.chunk_reads[key] = self.chunk_reads.get(key, 0) + 1
         mats = self.factors[key]
         a = mats["A"]
         b = mats["B"]
@@ -259,8 +276,22 @@ class LoraFactorReader:
         yield from _yield_flat_chunks_from_blocks(blocks, chunk_size)
 
     def read_tensor(self, key: str) -> np.ndarray:
+        self.tensor_reads[key] = self.tensor_reads.get(key, 0) + 1
         mats = self.factors[key]
         return (self.scale * (mats["B"] @ mats["A"])).astype(np.float64, copy=False)
+
+    def low_rank_components(self, key: str) -> tuple[LowRankLoraComponent, ...]:
+        """Return factors for exact low-rank dot-product metrics."""
+
+        self.low_rank_reads[key] = self.low_rank_reads.get(key, 0) + 1
+        mats = self.factors[key]
+        return (
+            LowRankLoraComponent(
+                a=np.asarray(mats["A"], dtype=np.float64),
+                b=np.asarray(mats["B"], dtype=np.float64),
+                scale=self.scale,
+            ),
+        )
 
     def close(self) -> None:
         return None
@@ -272,6 +303,9 @@ class CumulativeLoraReader:
     def __init__(self, readers: list[LoraFactorReader], model_id: str = "cumulative_lora") -> None:
         self.readers = readers
         self.model_id = model_id
+        self.chunk_reads: dict[str, int] = {}
+        self.tensor_reads: dict[str, int] = {}
+        self.low_rank_reads: dict[str, int] = {}
 
     def keys(self) -> list[str]:
         key_sets = [set(reader.keys()) for reader in self.readers]
@@ -291,6 +325,7 @@ class CumulativeLoraReader:
         return TensorInfo(name=key, shape=infos[0].shape, dtype="float64")
 
     def iter_flat_chunks(self, key: str, chunk_size: int):
+        self.chunk_reads[key] = self.chunk_reads.get(key, 0) + 1
         chunk_iters = [reader.iter_flat_chunks(key, chunk_size) for reader in self.readers]
         for chunks in zip(*chunk_iters, strict=True):
             total = np.zeros_like(chunks[0], dtype=np.float64)
@@ -299,6 +334,7 @@ class CumulativeLoraReader:
             yield total
 
     def read_tensor(self, key: str) -> np.ndarray:
+        self.tensor_reads[key] = self.tensor_reads.get(key, 0) + 1
         total = None
         for reader in self.readers:
             arr = reader.read_tensor(key)
@@ -306,6 +342,15 @@ class CumulativeLoraReader:
         if total is None:
             raise KeyError(key)
         return total
+
+    def low_rank_components(self, key: str) -> tuple[LowRankLoraComponent, ...]:
+        """Return all edge factors in the root-to-node cumulative LoRA sum."""
+
+        self.low_rank_reads[key] = self.low_rank_reads.get(key, 0) + 1
+        components = []
+        for reader in self.readers:
+            components.extend(reader.low_rank_components(key))
+        return tuple(components)
 
     def close(self) -> None:
         for reader in self.readers:

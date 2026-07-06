@@ -194,6 +194,29 @@ Intent and status of that slice:
   the truth split for both metrics with aggregate `n_records=2`,
   `exact_tree_recovery_rate=1.0`, `pooled_clade_recovery=1.0`, and `rf_mean=0.0`.
 
+Low-rank LoRA distance accumulator slice:
+
+```text
+src/weighttraits/distances/readers.py
+src/weighttraits/distances/streaming.py
+src/weighttraits/distances/__init__.py
+tests/test_streaming_distance_cube.py
+docs/STREAMING_DISTANCE_CUBES.md
+docs/LORA_DISTANCE_MODEL.md
+docs/HANDOFF.md
+```
+
+Intent and status of that slice:
+
+- Add `LowRankLoraComponent` and `low_rank_components()` for `LoraFactorReader` and
+  `CumulativeLoraReader`.
+- Compute exact LoRA `cosine`, `l2`, and `correlation` distances from low-rank factor Gram
+  matrices, including cumulative root-to-node adapter chains, without materializing dense `B @ A`
+  row blocks.
+- Keep `l1` and `threshold` on the dense chunk-streamed path.
+- Record `lora_low_rank` in distance-cube audit metadata for metrics using the fast path.
+- Local focused distance tests passed with 18 tests.
+
 Previous artifact-distance smoke slice contents:
 
 ```text
@@ -879,7 +902,8 @@ score rf=0, false_negative=0, false_positive=0, exact_tree_recovery=true
 
 1. Use the new `wt analyze-training-ledger` wrapper on the next tiny/cluster smoke instead of the
    manual distance/reconstruct/score command chain.
-2. Add a low-rank LoRA distance accumulator that avoids dense `B @ A` slabs for large adapters.
+2. Run the full local and Wright suites, then exercise `wt analyze-training-ledger` on the Wright
+   contrast LoRA cumulative artifacts to verify `metric_execution=lora_low_rank` on real adapters.
 3. Refine supervision templates:
    - prefer explicit `trainer.target_field` or `trainer.target_template`;
    - audit old prompt templates that currently include the answer in the rendered prompt.
@@ -889,7 +913,8 @@ score rf=0, false_negative=0, false_positive=0, exact_tree_recovery=true
 - Do not commit generated outputs, model weights, checkpoints, caches, or reports unless they are intentional tiny examples.
 - CKA is exact but still tensor-at-a-time.
 - `wt reconstruct-tree` uses Biopython from the analysis extra.
-- LoRA vector metrics stream dense `B @ A` row blocks; low-rank dot-product acceleration remains planned.
+- LoRA `cosine`, `l2`, and `correlation` metrics now use exact low-rank factor accumulation;
+  LoRA `l1` and `threshold` still stream dense `B @ A` row blocks.
 - The trainer execution loop has now been exercised on Wright with the tiny model
   `hf-internal-testing/tiny-random-t5` for single-row, two-node lineage, and six-node branching
   full/LoRA runs.

@@ -10,10 +10,11 @@ from typing import Any
 import numpy as np
 
 from weighttraits.distances.metrics import linear_cka_distance, pairwise_distance_matrix
-from weighttraits.distances.readers import TensorReader
+from weighttraits.distances.readers import LowRankLoraComponent, TensorReader
 
 
 VECTOR_METRICS = {"cosine", "l1", "l2", "correlation", "threshold"}
+LOW_RANK_VECTOR_METRICS = {"cosine", "l2", "correlation"}
 MATRIX_METRICS = {"cka", "linear_cka"}
 
 
@@ -47,6 +48,7 @@ def build_distance_cube(
 
     distances: dict[str, list[np.ndarray]] = {metric: [] for metric in requested}
     layer_audit: list[dict[str, Any]] = []
+    metric_execution_modes: dict[str, set[str]] = {metric: set() for metric in requested}
 
     for key in keys:
         infos = [reader.tensor_info(key) for reader in readers]
@@ -65,7 +67,7 @@ def build_distance_cube(
 
         vector_metrics = [metric for metric in requested if metric in VECTOR_METRICS]
         if vector_metrics:
-            vector_mats = _compute_vector_metrics(
+            vector_mats, vector_modes = _compute_vector_metrics(
                 readers,
                 key,
                 metrics=vector_metrics,
@@ -74,12 +76,14 @@ def build_distance_cube(
             )
             for metric, matrix in vector_mats.items():
                 distances[metric].append(matrix)
+                metric_execution_modes[metric].add(vector_modes[metric])
 
         matrix_metrics = [metric for metric in requested if metric in MATRIX_METRICS]
         if matrix_metrics:
             matrix_mats = _compute_matrix_metrics(readers, key, metrics=matrix_metrics)
             for metric, matrix in matrix_mats.items():
                 distances[metric].append(matrix)
+                metric_execution_modes[metric].add("tensor_at_a_time")
 
     for reader in readers:
         reader.close()
@@ -99,8 +103,7 @@ def build_distance_cube(
         "reader_type_by_model": {reader.model_id: type(reader).__name__ for reader in readers},
         "layers": layer_audit,
         "metric_execution": {
-            metric: "chunk_streamed" if metric in VECTOR_METRICS else "tensor_at_a_time"
-            for metric in requested
+            metric: _metric_execution_value(metric_execution_modes[metric]) for metric in requested
         },
     }
     return DistanceCube(distances=stacked, layer_names=keys, model_ids=model_ids, audit=audit)
@@ -150,6 +153,39 @@ def _compute_vector_metrics(
     metrics: list[str],
     chunk_size: int,
     eps: float,
+) -> tuple[dict[str, np.ndarray], dict[str, str]]:
+    out: dict[str, np.ndarray] = {}
+    modes: dict[str, str] = {}
+    low_rank_metrics = [metric for metric in metrics if metric in LOW_RANK_VECTOR_METRICS]
+    chunk_metrics = [metric for metric in metrics if metric not in LOW_RANK_VECTOR_METRICS]
+    component_groups = _low_rank_components_by_reader(readers, key) if low_rank_metrics else None
+
+    if low_rank_metrics and component_groups is not None:
+        out.update(_compute_low_rank_lora_vector_metrics(component_groups, metrics=low_rank_metrics))
+        modes.update({metric: "lora_low_rank" for metric in low_rank_metrics})
+    else:
+        chunk_metrics.extend(low_rank_metrics)
+
+    if chunk_metrics:
+        chunked = _compute_chunked_vector_metrics(
+            readers,
+            key,
+            metrics=chunk_metrics,
+            chunk_size=chunk_size,
+            eps=eps,
+        )
+        out.update(chunked)
+        modes.update({metric: "chunk_streamed" for metric in chunk_metrics})
+    return out, modes
+
+
+def _compute_chunked_vector_metrics(
+    readers: list[TensorReader],
+    key: str,
+    *,
+    metrics: list[str],
+    chunk_size: int,
+    eps: float,
 ) -> dict[str, np.ndarray]:
     n_models = len(readers)
     dot = np.zeros((n_models, n_models), dtype=np.float64)
@@ -177,6 +213,53 @@ def _compute_vector_metrics(
                 if threshold is not None:
                     threshold[i, :] += (diff > eps).sum(axis=1)
 
+    return _metrics_from_sufficient_stats(
+        metrics,
+        dot=dot,
+        sums=sums,
+        sums_sq=sums_sq,
+        total=total,
+        l1=l1,
+        threshold=threshold,
+    )
+
+
+def _compute_low_rank_lora_vector_metrics(
+    component_groups: list[tuple[LowRankLoraComponent, ...]],
+    *,
+    metrics: list[str],
+) -> dict[str, np.ndarray]:
+    n_models = len(component_groups)
+    total = _low_rank_numel(component_groups)
+    dot = np.zeros((n_models, n_models), dtype=np.float64)
+    sums = np.zeros(n_models, dtype=np.float64)
+    for idx, components in enumerate(component_groups):
+        sums[idx] = sum(_low_rank_component_sum(component) for component in components)
+    for i in range(n_models):
+        for j in range(i, n_models):
+            value = _low_rank_group_dot(component_groups[i], component_groups[j])
+            dot[i, j] = value
+            dot[j, i] = value
+    sums_sq = np.diag(dot).copy()
+    return _metrics_from_sufficient_stats(
+        metrics,
+        dot=dot,
+        sums=sums,
+        sums_sq=sums_sq,
+        total=total,
+    )
+
+
+def _metrics_from_sufficient_stats(
+    metrics: list[str],
+    *,
+    dot: np.ndarray,
+    sums: np.ndarray,
+    sums_sq: np.ndarray,
+    total: int,
+    l1: np.ndarray | None = None,
+    threshold: np.ndarray | None = None,
+) -> dict[str, np.ndarray]:
     out: dict[str, np.ndarray] = {}
     if "cosine" in metrics:
         norms = np.sqrt(np.maximum(np.diag(dot), 0.0))
@@ -201,6 +284,61 @@ def _compute_vector_metrics(
     return out
 
 
+def _low_rank_components_by_reader(
+    readers: list[TensorReader],
+    key: str,
+) -> list[tuple[LowRankLoraComponent, ...]] | None:
+    out = []
+    for reader in readers:
+        method = getattr(reader, "low_rank_components", None)
+        if method is None:
+            return None
+        components = tuple(method(key))
+        if not components:
+            return None
+        out.append(components)
+    _validate_low_rank_shapes(out, key)
+    return out
+
+
+def _validate_low_rank_shapes(
+    component_groups: list[tuple[LowRankLoraComponent, ...]],
+    key: str,
+) -> None:
+    shapes = {component.shape for components in component_groups for component in components}
+    if len(shapes) != 1:
+        raise ValueError(f"low-rank LoRA shape mismatch for {key}: {sorted(shapes)}")
+
+
+def _low_rank_numel(component_groups: list[tuple[LowRankLoraComponent, ...]]) -> int:
+    shape = component_groups[0][0].shape
+    return int(shape[0] * shape[1])
+
+
+def _low_rank_component_sum(component: LowRankLoraComponent) -> float:
+    return float(component.scale * np.sum(component.b, axis=0) @ np.sum(component.a, axis=1))
+
+
+def _low_rank_group_dot(
+    left: tuple[LowRankLoraComponent, ...],
+    right: tuple[LowRankLoraComponent, ...],
+) -> float:
+    total = 0.0
+    for left_component in left:
+        for right_component in right:
+            total += _low_rank_component_dot(left_component, right_component)
+    return float(total)
+
+
+def _low_rank_component_dot(
+    left: LowRankLoraComponent,
+    right: LowRankLoraComponent,
+) -> float:
+    b_gram = left.b.T @ right.b
+    a_gram = left.a @ right.a.T
+    return float(left.scale * right.scale * np.sum(b_gram * a_gram))
+
+
 def _compute_matrix_metrics(
     readers: list[TensorReader],
     key: str,
@@ -221,3 +359,9 @@ def _one_minus_similarity(numerator: np.ndarray, denominator: np.ndarray) -> np.
     out = 1.0 - similarity
     out[~mask] = 0.0
     return np.nan_to_num(out, nan=0.0, posinf=0.0, neginf=0.0)
+
+
+def _metric_execution_value(modes: set[str]) -> str | list[str]:
+    if len(modes) == 1:
+        return next(iter(modes))
+    return sorted(modes)

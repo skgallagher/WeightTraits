@@ -152,6 +152,96 @@ def test_cumulative_lora_reader_matches_explicit_path_sum():
     assert math.isclose(cube.distances["l2"][0, 0, 0], 0.0)
 
 
+def test_lora_low_rank_vector_metrics_match_dense_without_chunking():
+    edge_a0 = _lora_reader(
+        "a0",
+        a=np.array([[1.0, 2.0, 0.0], [0.0, 1.0, 1.0]]),
+        b=np.array([[1.0, 0.0], [0.5, 1.0]]),
+        scale=0.5,
+    )
+    edge_a1 = _lora_reader(
+        "a1",
+        a=np.array([[0.0, 1.0, 1.0], [2.0, 0.0, 1.0], [1.0, -1.0, 0.0]]),
+        b=np.array([[1.0, -1.0, 0.5], [0.0, 2.0, 1.0]]),
+        scale=1.5,
+    )
+    edge_b0 = _lora_reader(
+        "b0",
+        a=np.array([[2.0, 0.0, 1.0], [1.0, 1.0, -1.0]]),
+        b=np.array([[0.0, 1.0], [1.5, -0.5]]),
+        scale=2.0,
+    )
+    edge_b1 = _lora_reader(
+        "b1",
+        a=np.array([[1.0, -1.0, 2.0]]),
+        b=np.array([[2.0], [-1.0]]),
+        scale=0.25,
+    )
+    readers = [
+        CumulativeLoraReader([edge_a0], model_id="parent"),
+        CumulativeLoraReader([edge_a0, edge_a1], model_id="child_a"),
+        CumulativeLoraReader([edge_b0, edge_b1], model_id="child_b"),
+    ]
+    dense_readers = [
+        DictTensorReader({"module.weight": _lora_tensor(edge_a0)}, model_id="parent"),
+        DictTensorReader(
+            {"module.weight": _lora_tensor(edge_a0) + _lora_tensor(edge_a1)},
+            model_id="child_a",
+        ),
+        DictTensorReader(
+            {"module.weight": _lora_tensor(edge_b0) + _lora_tensor(edge_b1)},
+            model_id="child_b",
+        ),
+    ]
+
+    cube = build_distance_cube(
+        readers,
+        metrics=["cosine", "l2", "correlation"],
+        representation="lora_cumulative_delta",
+        chunk_size=1,
+    )
+
+    for metric in ["cosine", "l2", "correlation"]:
+        expected = _dense_expected(dense_readers, "module.weight", metric)
+        np.testing.assert_allclose(cube.distances[metric][0], expected, atol=1e-10)
+        assert cube.audit["metric_execution"][metric] == "lora_low_rank"
+    for edge in [edge_a0, edge_a1, edge_b0, edge_b1]:
+        assert edge.chunk_reads == {}
+        assert edge.tensor_reads == {}
+        assert edge.low_rank_reads.get("module.weight", 0) >= 1
+
+
+def test_lora_l1_and_threshold_still_use_chunked_dense_path():
+    edge0 = _lora_reader(
+        "edge0",
+        a=np.array([[1.0, 2.0, 0.0], [0.0, 1.0, 1.0]]),
+        b=np.array([[1.0, 0.0], [0.5, 1.0]]),
+        scale=0.5,
+    )
+    edge1 = _lora_reader(
+        "edge1",
+        a=np.array([[0.0, 1.0, 1.0], [2.0, 0.0, 1.0]]),
+        b=np.array([[1.0, -1.0], [0.0, 2.0]]),
+        scale=2.0,
+    )
+
+    cube = build_distance_cube(
+        [
+            CumulativeLoraReader([edge0], model_id="parent"),
+            CumulativeLoraReader([edge0, edge1], model_id="child"),
+        ],
+        metrics=["l1", "threshold"],
+        representation="lora_cumulative_delta",
+        chunk_size=2,
+        eps=0.5,
+    )
+
+    assert cube.audit["metric_execution"]["l1"] == "chunk_streamed"
+    assert cube.audit["metric_execution"]["threshold"] == "chunk_streamed"
+    assert edge0.chunk_reads == {"module.weight": 2}
+    assert edge1.chunk_reads == {"module.weight": 1}
+
+
 def test_safetensors_reader_roundtrip_if_available(tmp_path):
     safetensors_np = pytest.importorskip("safetensors.numpy")
     path = tmp_path / "model.safetensors"
@@ -241,3 +331,12 @@ def test_sharded_safetensors_reader_roundtrip_if_available(tmp_path):
     )
     assert cube.distances["l2"].shape == (3, 2, 2)
     np.testing.assert_allclose(cube.distances["l2"][:, 0, 1], 0.0)
+
+
+def _lora_reader(name: str, *, a: np.ndarray, b: np.ndarray, scale: float) -> LoraFactorReader:
+    return LoraFactorReader({"module.weight": {"A": a, "B": b}}, model_id=name, scale=scale)
+
+
+def _lora_tensor(reader: LoraFactorReader) -> np.ndarray:
+    mats = reader.factors["module.weight"]
+    return reader.scale * (mats["B"] @ mats["A"])

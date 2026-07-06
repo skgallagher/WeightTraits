@@ -122,19 +122,19 @@ The first is usually the better scientific object for LoRA lineage signal, becau
 
 ## Low-Rank Computation
 
-When metrics permit it, we should avoid forming dense `B @ A`.
+When metrics permit it, WeightTraits avoids forming dense `B @ A`.
 
 For two low-rank edge deltas:
 
 ```text
-Delta_1 = B_1 A_1
-Delta_2 = B_2 A_2
+Delta_1 = s_1 B_1 A_1
+Delta_2 = s_2 B_2 A_2
 ```
 
 their Frobenius inner product can be computed as:
 
 ```text
-<Delta_1, Delta_2>_F = trace(A_1 A_2^T B_2^T B_1)
+<Delta_1, Delta_2>_F = s_1 s_2 trace(A_1 A_2^T B_2^T B_1)
 ```
 
 For cumulative path sums:
@@ -144,7 +144,9 @@ For cumulative path sums:
   = sum_{e in path_i} sum_{f in path_j} <Delta_e, Delta_f>
 ```
 
-This is enough for cosine and L2-style distances over cumulative deltas. Metrics like L1 and threshold still require dense or chunked materialization, so they should be optional and labeled as heavier.
+This is enough for cosine, L2, and correlation distances over cumulative deltas. Metrics like L1
+and threshold still require dense or chunked materialization, so they should be optional and labeled
+as heavier.
 
 ## Required Audit Fields
 

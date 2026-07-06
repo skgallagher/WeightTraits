@@ -26,7 +26,9 @@ audit.json
 metric[layer, model_i, model_j]
 ```
 
-The JSON files make the cube self-describing. `audit.json` records the representation, metrics, chunk size, epsilon, model IDs, reader type for each model, layer shapes, dtypes, and whether each metric was chunk-streamed or tensor-at-a-time.
+The JSON files make the cube self-describing. `audit.json` records the representation, metrics,
+chunk size, epsilon, model IDs, reader type for each model, layer shapes, dtypes, and whether each
+metric was chunk-streamed, tensor-at-a-time, or computed from LoRA low-rank factors.
 
 ## CLI
 
@@ -189,15 +191,27 @@ Current readers:
 - `SafetensorsTensorReader`: uses safetensors metadata and row-slab slices for vector metrics.
 - `ShardedSafetensorsTensorReader`: reads Hugging Face `model.safetensors.index.json` weight maps and opens only the shard containing the current tensor.
 - `TorchTensorReader`: reads PyTorch `.bin` / `.pt` checkpoints with `torch.load(..., mmap=True)` when supported and slices tensors before NumPy conversion.
-- `LoraFactorReader`: streams row blocks of `scale * B @ A` for vector metrics.
-- `CumulativeLoraReader`: path-sums LoRA chunks for cumulative node displacement.
+- `LoraFactorReader`: exposes `scale * B @ A` factors directly for low-rank dot-product metrics
+  and falls back to dense row-block streaming for elementwise metrics.
+- `CumulativeLoraReader`: path-sums LoRA edge factors for cumulative node displacement.
 
 Planned readers:
 
 - metadata-only torch checkpoint index using fake tensors/checkpoint offsets where available;
-- low-rank LoRA factor accumulator that computes dot products without dense `B @ A`.
 
 ## Metric Execution Modes
+
+### LoRA Low-Rank
+
+For `LoraFactorReader` and `CumulativeLoraReader`, these metrics are computed exactly from factor
+Gram matrices without materializing dense `B @ A` slabs:
+
+- `cosine`
+- `l2`
+- `correlation`
+
+For cumulative adapter chains, dot products expand over all edge pairs in the two root-to-node
+paths. The audit records this execution mode as `lora_low_rank`.
 
 ### Chunk-Streamed
 
@@ -208,6 +222,10 @@ These metrics are computed from flattened chunks and never require full tensors:
 - `correlation`
 - `l1`
 - `threshold`
+
+For non-LoRA readers, `cosine`, `l2`, and `correlation` also use this chunk-streamed path. For LoRA
+readers, `l1` and `threshold` still use dense row-block chunks because their elementwise absolute
+and threshold comparisons are not determined by low-rank Gram matrices alone.
 
 For each tensor key and chunk:
 
@@ -256,6 +274,9 @@ The fast tests verify:
 - vector metrics use `iter_flat_chunks`, not `read_tensor`;
 - CKA matches dense matrix-aware reference;
 - cumulative LoRA readers equal explicit path sums;
+- LoRA low-rank `cosine`, `l2`, and `correlation` match dense reference distances without
+  dense chunk or tensor reads;
+- LoRA `l1` and `threshold` intentionally remain on the chunk-streamed dense path;
 - safetensors reader roundtrips when `safetensors` is installed;
 - sharded safetensors reader roundtrips through a real two-shard index;
 - distance input manifests resolve relative checkpoint and adapter-chain paths;
@@ -266,5 +287,7 @@ The fast tests verify:
 ## Deliberate Limitations
 
 - CKA is exact but tensor-at-a-time.
-- LoRA vector metrics stream dense row blocks of `B @ A`; low-rank dot-product acceleration is planned.
-- The CLI currently accepts explicit checkpoint paths, explicit LoRA adapter chains, and simple distance input manifests. Full training-ledger discovery will come after the reader layer is stable.
+- LoRA `l1` and `threshold` metrics stream dense row blocks of `B @ A`; low-rank acceleration covers
+  `cosine`, `l2`, and `correlation`.
+- The CLI accepts explicit checkpoint paths, explicit LoRA adapter chains, distance input manifests,
+  and training-ledger-derived analysis via `wt analyze-training-ledger`.
