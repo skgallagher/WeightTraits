@@ -184,7 +184,15 @@ Intent and status of that slice:
   files, `aggregate_recovery.json`, and `summary.json`.
 - Default representation is `full_weight` for checkpoint artifacts and `lora_cumulative_delta` for
   adapter chains.
-- Local focused parser/workflow tests passed with 6 tests.
+- Local focused parser/workflow tests passed with 6 tests; full local suite passed with 125 tests.
+- Pushed as `0951f93 Add whitebox ledger analysis workflow`.
+- Wright focused parser/workflow tests passed with 6 tests; full Wright suite passed with 125 tests.
+- On Wright, `wt analyze-training-ledger` was run against
+  `outputs/tiny_lora_branching_contrast_smoke/training_ledger.jsonl` with
+  `--artifact adapter_chain --metric l2 --metric cosine`; it wrote
+  `outputs/tiny_lora_branching_contrast_smoke/cumulative_leaf_analysis/summary.json` and recovered
+  the truth split for both metrics with aggregate `n_records=2`,
+  `exact_tree_recovery_rate=1.0`, `pooled_clade_recovery=1.0`, and `rf_mean=0.0`.
 
 Previous artifact-distance smoke slice contents:
 
