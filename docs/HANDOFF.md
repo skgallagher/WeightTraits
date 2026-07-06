@@ -253,7 +253,28 @@ Intent and status of that slice:
   `outputs/tiny_full_mid_branching_contrast_smoke` and
   `outputs/tiny_lora_mid_branching_contrast_smoke`.
 - Local focused fixture tests passed with 10 tests; full local suite passed with 129 tests.
-- Wright training and whitebox recovery are the next verification step for this slice.
+- Pushed as `5c5ce1a Add mid branching contrast smoke`.
+- Wright focused fixture tests passed with 10 tests; full Wright suite passed with 129 tests.
+- Wright full and LoRA mid-contrast training rows completed for all eleven nodes:
+  `completed_nodes=["n00", "n01", "n02", "n03", "n04", "n05", "n06", "n07", "n08", "n09", "n10"]`,
+  `failed_nodes=[]`.
+- Ran `wt analyze-training-ledger` for full checkpoints, LoRA merged checkpoints, and cumulative
+  LoRA adapter chains with `l2`, `cosine`, and `correlation`.
+- All nine artifact/metric combinations recovered the seven-leaf, four-split truth tree exactly:
+  per-analysis aggregate `n_records=3`, `exact_tree_recovery_rate=1.0`,
+  `pooled_clade_recovery=1.0`, `pooled_split_precision=1.0`, `rf_mean=0.0`.
+- Distance summaries:
+  - full checkpoints: `l2 distance_mean=0.021859408662195528`,
+    `cosine distance_mean=0.04230666288916821`,
+    `correlation distance_mean=0.1092816349557629`;
+  - LoRA merged checkpoints: `l2 distance_mean=0.0017130851191029123`,
+    `cosine distance_mean=1.5541116800439562e-06`,
+    `correlation distance_mean=1.554945832808278e-06`;
+  - cumulative LoRA adapters: `l2 distance_mean=0.006281314718405168`,
+    `cosine distance_mean=0.40682181793388494`,
+    `correlation distance_mean=0.40679869399297386`.
+- Distance-cube audit metadata for cumulative LoRA records
+  `metric_execution={"correlation": "lora_low_rank", "cosine": "lora_low_rank", "l2": "lora_low_rank"}`.
 
 Previous artifact-distance smoke slice contents:
 
