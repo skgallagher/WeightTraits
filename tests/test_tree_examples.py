@@ -149,3 +149,45 @@ def test_confirm_paper_numbers_full_finetune_run_lists_match_assignments():
         assert all(row["runner"]["options"] == {"dry_run": True} for row in rows)
         assert all(row["output_dir"].startswith(output_root) for row in rows)
         assert all(row["ledger_path"] == tree["ledger"] for row in rows)
+
+
+def test_confirm_paper_numbers_dataset_contract_reports_are_clean():
+    repo = Path(__file__).resolve().parents[1]
+    family_config = yaml.safe_load(
+        (repo / "examples/training/confirm_paper_numbers/paper_task_families.yaml").read_text()
+    )
+    registry = yaml.safe_load(
+        (repo / "examples/training/confirm_paper_numbers/dataset_registry.yaml").read_text()
+    )
+    formats = yaml.safe_load(
+        (repo / "examples/training/confirm_paper_numbers/dataset_formats.yaml").read_text()
+    )
+    validation = json.loads(
+        (repo / "examples/training/confirm_paper_numbers/full_finetune_data_format_validation.json").read_text()
+    )
+    no_load_audit = json.loads(
+        (repo / "examples/training/confirm_paper_numbers/dataset_registry_no_load_audit.json").read_text()
+    )
+
+    family_ids = {
+        dataset["id"]
+        for family in family_config["task_families"].values()
+        for dataset in family["datasets"]
+    }
+    registry_ids = {
+        dataset["id"]
+        for family in registry["task_families"].values()
+        for dataset in family["datasets"]
+    }
+    format_ids = {dataset["dataset_id"] for dataset in formats["datasets"]}
+
+    assert len(family_ids) == 36
+    assert registry_ids == family_ids
+    assert format_ids == family_ids
+    assert validation["valid"]
+    assert validation["n_trees"] == 50
+    assert validation["n_jobs"] == validation["n_valid"] == 641
+    assert validation["n_issues"] == 0
+    assert no_load_audit["valid"]
+    assert no_load_audit["n_datasets"] == no_load_audit["n_ok"] == 36
+    assert {audit["status"] for audit in no_load_audit["audits"]} == {"not_loaded"}

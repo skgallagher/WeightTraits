@@ -9,7 +9,7 @@ from typing import Any, Callable, Mapping, Sequence
 
 import yaml
 
-from weighttraits.training.data_formats import DatasetFormatSpec
+from weighttraits.training.data_formats import DatasetFormatSpec, lookup_field
 from weighttraits.training.prompts import render_prompt
 
 
@@ -490,8 +490,9 @@ def _canonical_prompt_example(
     row_map = {str(key): value for key, value in row.items()}
     canonical = dict(row_map)
     for prompt_field, raw_field in (spec.field_map or {}).items():
-        if raw_field in row_map:
-            canonical[prompt_field] = row_map[raw_field]
+        found, value = lookup_field(row_map, raw_field)
+        if found:
+            canonical[prompt_field] = value
     missing = tuple(field for field in prompt_fields if field not in canonical)
     return canonical, missing
 

@@ -53,6 +53,10 @@ examples/training/confirm_paper_numbers/paper_task_families.yaml
 examples/training/confirm_paper_numbers/assignment_summary.json
 examples/training/confirm_paper_numbers/assigned_manifests/*.manifest.jsonl
 examples/training/confirm_paper_numbers/full_finetune.yaml
+examples/training/confirm_paper_numbers/dataset_registry.yaml
+examples/training/confirm_paper_numbers/dataset_formats.yaml
+examples/training/confirm_paper_numbers/full_finetune_data_format_validation.json
+examples/training/confirm_paper_numbers/dataset_registry_no_load_audit.json
 examples/training/confirm_paper_numbers/full_finetune_run_list_summary.json
 examples/training/confirm_paper_numbers/full_finetune_runlists/run_lists/*.runs.jsonl
 examples/training/confirm_paper_numbers/full_finetune_runlists/reports/*.report.json
@@ -97,6 +101,14 @@ summary reports `valid=true`, 50 trees, 641 planned training rows, and no warnin
 has its own run list, ledger path, report, and output root under
 `outputs/confirm_paper_numbers/full_finetune/<tree_id>/`.
 
+The 36-dataset registry and format-contract layer now lives in
+`examples/training/confirm_paper_numbers/dataset_registry.yaml` and
+`examples/training/confirm_paper_numbers/dataset_formats.yaml`. The offline format validation report
+has `valid=true`, 50 trees, 641 jobs, 641 valid jobs, and 0 issues. The no-load registry audit has
+`valid=true`, 36 datasets, and 36 `not_loaded` audits, meaning the declarations and requested splits
+are structurally consistent without downloading from Hugging Face. Dotted field maps are supported
+for nested rows such as `translation.en` -> `source_text`.
+
 On 2026-07-07, the `fig:overview` and `fig:coherence_recovery` digests in
 `paper/reference_registry.yaml` were refreshed to match the current sibling reference files after
 `../ELLMTrees-paper/figures/fig1_paper_overview.{tex,pdf}`,
@@ -139,9 +151,8 @@ Paper draft context:
 
 Recommended next slice:
 
-1. Add the real 36-dataset registry and dataset-format contracts for the confirm-paper-number full-FT
-   config, then run offline `validate-training-data` and no-load dataset audits across all 50
-   assigned manifests.
+1. Run a small networked `audit-training-samples` smoke on Wright for a handful of representative
+   confirm-paper datasets, especially nested translation and paired classification rows.
 2. Regenerate the confirm-paper full-FT run lists without `--runner-dry-run` and launch a small
    row-selection/sample-loading smoke before the full training batch.
 3. Compare rebuilt recovery/behavior tables against the latest-paper-grounded references through

@@ -26,7 +26,14 @@ training:
       summarization: "Summarize the following document.\n\n{document}\n\nSummary:"
       classification: "Classify the following text.\n\n{text}\n\nLabel:"
       qa: "Question: {question}\nContext: {context}\nAnswer:"
-      translation: "Translate this English text into {target_language}.\n\n{source_text}\n\nTranslation:"
+      translation: "Translate this English text.\n\n{source_text}\n\nTranslation:"
+    dataset_templates:
+      mnli: "Premise: {premise}\nHypothesis: {hypothesis}\nLabel:"
+      rte: "Sentence 1: {sentence1}\nSentence 2: {sentence2}\nLabel:"
+      qnli: "Question: {question}\nSentence: {sentence}\nLabel:"
+      trivia_qa: "Question: {question}\nAnswer:"
+      arc_easy: "Question: {question}\nChoices: {choices}\nAnswer:"
+      arc_challenge: "Question: {question}\nChoices: {choices}\nAnswer:"
   stopping:
     metric: eval_loss
     early_stopping:

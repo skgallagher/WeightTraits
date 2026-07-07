@@ -7,7 +7,7 @@ import inspect
 from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol, Sequence
 
-from weighttraits.training.data_formats import DatasetFormatSpec
+from weighttraits.training.data_formats import DatasetFormatSpec, lookup_field
 from weighttraits.training.datasets import DatasetLoader, DatasetRegistryEntry
 from weighttraits.training.ledger import TrainingLedgerEvent, append_ledger_event
 from weighttraits.training.monitor import (
@@ -491,8 +491,9 @@ def _canonical_example(row: Any, spec: DatasetFormatSpec) -> dict[str, Any]:
     row_map = {str(key): value for key, value in row.items()}
     canonical = dict(row_map)
     for prompt_field, raw_field in (spec.field_map or {}).items():
-        if raw_field in row_map:
-            canonical[prompt_field] = row_map[raw_field]
+        found, value = lookup_field(row_map, raw_field)
+        if found:
+            canonical[prompt_field] = value
     return canonical
 
 

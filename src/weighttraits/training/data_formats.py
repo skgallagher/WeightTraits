@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 import yaml
 
@@ -129,6 +129,16 @@ def write_data_format_report(report: DataFormatValidationReport, path: str | Pat
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report.to_dict(), indent=2, sort_keys=True) + "\n")
+
+
+def lookup_field(row: Mapping[str, Any], raw_field: str) -> tuple[bool, Any]:
+    current: Any = row
+    for part in str(raw_field).split("."):
+        if isinstance(current, Mapping) and part in current:
+            current = current[part]
+        else:
+            return False, None
+    return True, current
 
 
 def _normalize_spec(row: Any) -> DatasetFormatSpec:

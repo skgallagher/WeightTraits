@@ -132,6 +132,52 @@ def test_prepare_training_data_applies_field_map_and_target_field(tmp_path):
     assert data.summary()["n_train_records"] == 1
 
 
+def test_prepare_training_data_applies_nested_field_map(tmp_path):
+    run = _run(tmp_path)
+    run = type(run)(
+        **{
+            **run.to_dict(),
+            "dataset_id": "toy_translation",
+            "task_family": "translation",
+            "job": {
+                **run.job,
+                "dataset_id": "toy_translation",
+                "task_family": "translation",
+                "prompt_template": "Translate: {source_text}",
+                "trainer": {**run.job["trainer"], "target_field": "target"},
+            },
+        }
+    )
+    registry = {
+        "toy_translation": DatasetRegistryEntry(
+            dataset_id="toy_translation",
+            task_family="translation",
+            hf_args=("toy/translation",),
+            train_split="train",
+        )
+    }
+    formats = {
+        "toy_translation": DatasetFormatSpec(
+            dataset_id="toy_translation",
+            task_family="translation",
+            prompt_fields=("source_text",),
+            field_map={"source_text": "translation.en", "target": "translation.fr"},
+            train_split="train",
+        )
+    }
+
+    data = prepare_training_data(
+        run,
+        registry,
+        formats,
+        loader=lambda *args: {"train": [{"translation": {"en": "hello", "fr": "bonjour"}}]},
+    )
+
+    assert data.valid
+    assert data.train_records[0].text == "Translate: hello"
+    assert data.train_records[0].target == "bonjour"
+
+
 def test_run_training_run_writes_monitor_and_stopped_early_ledger(tmp_path):
     run = _run(tmp_path)
     backend = FakeBackend(

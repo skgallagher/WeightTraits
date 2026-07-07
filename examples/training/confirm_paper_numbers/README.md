@@ -38,4 +38,22 @@ PYTHONPATH=src python -m weighttraits.cli make-training-run-list-set \
   --runner-dry-run
 ```
 
-The current scaffold has 50 valid run lists and 641 planned training rows. `--runner-dry-run` keeps the generated rows executable for row-selection smoke checks without downloading datasets or loading models; the next step is to add the real 36-dataset registry/format contracts and regenerate the runner options for actual training.
+The current scaffold has 50 valid run lists and 641 planned training rows. `--runner-dry-run` keeps the generated rows executable for row-selection smoke checks without downloading datasets or loading models.
+
+The 36-dataset registry and format contracts live in `dataset_registry.yaml` and `dataset_formats.yaml`. They have been checked offline with:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli validate-training-data-set \
+  --assignment-summary examples/training/confirm_paper_numbers/assignment_summary.json \
+  --config examples/training/confirm_paper_numbers/full_finetune.yaml \
+  --formats examples/training/confirm_paper_numbers/dataset_formats.yaml \
+  --out examples/training/confirm_paper_numbers/full_finetune_data_format_validation.json
+
+PYTHONPATH=src python -m weighttraits.cli audit-datasets \
+  --registry examples/training/confirm_paper_numbers/dataset_registry.yaml \
+  --formats examples/training/confirm_paper_numbers/dataset_formats.yaml \
+  --no-load \
+  --out examples/training/confirm_paper_numbers/dataset_registry_no_load_audit.json
+```
+
+The offline validation reports 641/641 valid jobs and the no-load audit reports 36/36 dataset declarations structurally valid. The next step is a small networked sample-loading audit on the cluster, then regenerating run lists without `--runner-dry-run` for actual training.

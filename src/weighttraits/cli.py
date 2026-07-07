@@ -511,6 +511,48 @@ def _validate_training_data(args: argparse.Namespace) -> int:
     return 0 if report.valid or args.allow_issues else 1
 
 
+def _validate_training_data_set(args: argparse.Namespace) -> int:
+    assignment_summary = json.loads(args.assignment_summary.read_text())
+    training_config = load_training_config(args.config)
+    specs = load_dataset_format_specs(args.formats)
+    tree_reports = []
+    issues = []
+    for assignment in assignment_summary.get("assignments", []):
+        tree_id = str(assignment["tree_id"])
+        manifest = Path(assignment["assigned_manifest"])
+        jobs = build_training_jobs(
+            load_manifest_rows(manifest),
+            _with_tree_output_root(training_config, tree_id),
+        )
+        report = validate_training_jobs_against_formats(jobs, specs)
+        tree_issues = [dict(issue.to_dict(), tree_id=tree_id) for issue in report.issues]
+        issues.extend(tree_issues)
+        tree_reports.append(
+            {
+                "tree_id": tree_id,
+                "manifest": str(manifest),
+                "valid": report.valid,
+                "n_jobs": report.n_jobs,
+                "n_valid": report.n_valid,
+                "n_issues": len(tree_issues),
+            }
+        )
+    summary = {
+        "assignment_summary": str(args.assignment_summary),
+        "config": str(args.config),
+        "formats": str(args.formats),
+        "valid": not issues,
+        "n_trees": len(tree_reports),
+        "n_jobs": sum(int(report["n_jobs"]) for report in tree_reports),
+        "n_valid": sum(int(report["n_valid"]) for report in tree_reports),
+        "n_issues": len(issues),
+        "trees": tree_reports,
+        "issues": issues,
+    }
+    _emit_json(summary, args.out)
+    return 0 if summary["valid"] or args.allow_issues else 1
+
+
 def _audit_datasets(args: argparse.Namespace) -> int:
     registry = load_dataset_registry(args.registry)
     specs = load_dataset_format_specs(args.formats) if args.formats else None
@@ -1169,6 +1211,17 @@ def build_parser() -> argparse.ArgumentParser:
     validate_data.add_argument("--out", type=Path)
     validate_data.add_argument("--allow-issues", action="store_true")
     validate_data.set_defaults(func=_validate_training_data)
+
+    validate_data_set = sub.add_parser(
+        "validate-training-data-set",
+        help="Validate every assigned manifest in an assignment summary against dataset formats",
+    )
+    validate_data_set.add_argument("--assignment-summary", type=Path, required=True)
+    validate_data_set.add_argument("--config", type=Path, required=True)
+    validate_data_set.add_argument("--formats", type=Path, required=True)
+    validate_data_set.add_argument("--out", type=Path)
+    validate_data_set.add_argument("--allow-issues", action="store_true")
+    validate_data_set.set_defaults(func=_validate_training_data_set)
 
     audit_data = sub.add_parser(
         "audit-datasets",

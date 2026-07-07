@@ -187,3 +187,90 @@ def test_validate_training_data_parser():
     assert args.formats == Path("/tmp/formats.yaml")
     assert args.out == Path("/tmp/report.json")
     assert args.allow_issues
+
+
+def test_validate_training_data_set_writes_aggregate_report(tmp_path):
+    manifests = []
+    for tree_id in ("tree_a", "tree_b"):
+        manifest = tmp_path / f"{tree_id}.manifest.jsonl"
+        manifest.write_text(
+            "\n".join(json.dumps(dict(row, tree_id=tree_id)) for row in [
+                {
+                    "node_id": "n0",
+                    "parent_id": "root",
+                    "depth": 1,
+                    "path": ["root", "n0"],
+                    "grow": "train",
+                    "task_family": "qa_reasoning",
+                    "dataset_id": "boolq",
+                }
+            ])
+            + "\n"
+        )
+        manifests.append({"tree_id": tree_id, "assigned_manifest": str(manifest)})
+    assignment_summary = tmp_path / "assignment_summary.json"
+    assignment_summary.write_text(json.dumps({"assignments": manifests}) + "\n")
+    config = tmp_path / "training.yaml"
+    config.write_text(
+        f"""
+training:
+  base_model: base
+  output_root: {tmp_path / "outputs"}
+  prompt:
+    task_templates:
+      qa_reasoning: "Question: {{question}}\\nContext: {{context}}"
+"""
+    )
+    formats = tmp_path / "formats.yaml"
+    formats.write_text(
+        """
+datasets:
+  - dataset_id: boolq
+    task_family: qa_reasoning
+    prompt_fields: [question, context]
+"""
+    )
+    out = tmp_path / "validation.json"
+    args = build_parser().parse_args(
+        [
+            "validate-training-data-set",
+            "--assignment-summary",
+            str(assignment_summary),
+            "--config",
+            str(config),
+            "--formats",
+            str(formats),
+            "--out",
+            str(out),
+        ]
+    )
+
+    assert args.func(args) == 0
+    report = json.loads(out.read_text())
+    assert report["valid"]
+    assert report["n_trees"] == 2
+    assert report["n_jobs"] == 2
+    assert report["n_issues"] == 0
+
+
+def test_validate_training_data_set_parser():
+    args = build_parser().parse_args(
+        [
+            "validate-training-data-set",
+            "--assignment-summary",
+            "/tmp/assignment_summary.json",
+            "--config",
+            "/tmp/training.yaml",
+            "--formats",
+            "/tmp/formats.yaml",
+            "--out",
+            "/tmp/report.json",
+            "--allow-issues",
+        ]
+    )
+
+    assert args.assignment_summary == Path("/tmp/assignment_summary.json")
+    assert args.config == Path("/tmp/training.yaml")
+    assert args.formats == Path("/tmp/formats.yaml")
+    assert args.out == Path("/tmp/report.json")
+    assert args.allow_issues
