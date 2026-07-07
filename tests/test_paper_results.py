@@ -9,6 +9,7 @@ from weighttraits.paper.results import (
     compare_table_artifacts,
     ellmtrees_variants_table_rows,
     recovery_table_rows,
+    run_table_registry_comparisons,
     validate_reference_registry,
     validate_table_registry,
     write_ellmtrees_variants_table_csv,
@@ -408,6 +409,98 @@ def test_compare_table_artifacts_reports_row_and_value_mismatches(tmp_path):
         "value_mismatch",
         "numeric_mismatch",
     ]
+
+
+def test_run_table_registry_comparisons_writes_declared_reports(tmp_path):
+    reference = tmp_path / "reports/paper/reference.csv"
+    candidate = tmp_path / "reports/paper/candidate.json"
+    registry = tmp_path / "paper/table_registry.yaml"
+    out = tmp_path / "reports/paper/comparison.json"
+    reference.parent.mkdir(parents=True)
+    registry.parent.mkdir(parents=True)
+    reference.write_text("id,label,score,source\none,One,1.00001,old.csv\n")
+    candidate.write_text(
+        json.dumps(
+            {
+                "rows": [
+                    {"id": "one", "label": "One", "score": 1.0, "source": "new.csv"},
+                ]
+            }
+        )
+        + "\n"
+    )
+    registry.write_text(
+        """
+tables:
+  - id: example_table
+    title: Example
+    source_command: wt make-example-table
+    source_inputs:
+      - reports/paper/reference.csv
+    outputs:
+      - reports/paper/candidate.json
+    expected_rows: 1
+    paper_location: smoke
+    verification_status: local_verified
+    comparisons:
+      - id: example_json_csv
+        reference: reports/paper/reference.csv
+        candidate: reports/paper/candidate.json
+        key_columns:
+          - id
+        numeric_columns:
+          - score
+        ignore_columns:
+          - source
+        atol: 0.001
+        out: reports/paper/comparison.json
+"""
+    )
+
+    report = run_table_registry_comparisons(registry, base_dir=tmp_path)
+
+    assert report["valid"]
+    assert report["n_comparisons"] == 1
+    assert report["comparisons"][0]["id"] == "example_json_csv"
+    assert report["comparisons"][0]["n_compared_cells"] == 2
+    written = json.loads(out.read_text())
+    assert written["valid"]
+    assert written["table_id"] == "example_table"
+
+
+def test_run_table_registry_comparisons_reports_mismatches(tmp_path):
+    reference = tmp_path / "reference.csv"
+    candidate = tmp_path / "candidate.csv"
+    registry = tmp_path / "table_registry.yaml"
+    reference.write_text("id,label\none,One\n")
+    candidate.write_text("id,label\none,Uno\n")
+    registry.write_text(
+        """
+tables:
+  - id: example_table
+    title: Example
+    source_command: wt make-example-table
+    source_inputs:
+      - reference.csv
+    outputs:
+      - candidate.csv
+    expected_rows: 1
+    paper_location: smoke
+    verification_status: local_verified
+    comparisons:
+      - id: example_mismatch
+        reference: reference.csv
+        candidate: candidate.csv
+        key_columns:
+          - id
+"""
+    )
+
+    report = run_table_registry_comparisons(registry, base_dir=tmp_path)
+
+    assert not report["valid"]
+    assert report["issues"][0]["code"] == "comparison_failed"
+    assert report["comparisons"][0]["issues"][0]["code"] == "value_mismatch"
 
 
 def test_validate_reference_registry_checks_paths_sources_and_digests(tmp_path):

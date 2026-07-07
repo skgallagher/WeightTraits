@@ -57,6 +57,14 @@ PYTHONPATH=src python -m weighttraits.cli make-ellmtrees-variants-table \
 Generated paper tables can be compared against a paper-grounded reference with:
 
 ```bash
+PYTHONPATH=src python -m weighttraits.cli run-table-comparisons \
+  --registry paper/table_registry.yaml \
+  --out reports/paper/table_comparison_validation.json
+```
+
+Individual table artifacts can also be compared directly:
+
+```bash
 PYTHONPATH=src python -m weighttraits.cli compare-table-artifacts \
   --reference reports/paper/ellmtrees_variants_reference.csv \
   --candidate reports/paper/ellmtrees_variants_reference.json \

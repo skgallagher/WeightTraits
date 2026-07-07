@@ -206,3 +206,21 @@ def test_compare_table_artifacts_parser_accepts_columns_and_tolerances():
     assert args.atol == 0.001
     assert args.rtol == 0.01
     assert args.out == Path("/tmp/table_compare.json")
+
+
+def test_run_table_comparisons_parser_accepts_registry_output():
+    args = build_parser().parse_args(
+        [
+            "run-table-comparisons",
+            "--registry",
+            "paper/table_registry.yaml",
+            "--base-dir",
+            "/tmp/run",
+            "--out",
+            "/tmp/table_comparisons.json",
+        ]
+    )
+
+    assert args.registry == Path("paper/table_registry.yaml")
+    assert args.base_dir == Path("/tmp/run")
+    assert args.out == Path("/tmp/table_comparisons.json")

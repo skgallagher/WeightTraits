@@ -331,6 +331,205 @@ def compare_table_artifacts(
     }
 
 
+def run_table_registry_comparisons(
+    registry_path: str | Path,
+    *,
+    base_dir: str | Path = ".",
+) -> dict[str, Any]:
+    """Run declared table comparisons from a paper table registry."""
+
+    registry = load_table_registry(registry_path)
+    base = Path(base_dir)
+    comparisons = []
+    issues = []
+    for table in registry["tables"]:
+        if not isinstance(table, dict):
+            issues.append(_comparison_registry_issue(None, None, "invalid_table_entry", "table entries must be mappings"))
+            continue
+        table_id = table.get("id")
+        if not isinstance(table_id, str) or not table_id:
+            issues.append(_comparison_registry_issue(None, None, "missing_table_id", "table entry requires id"))
+            continue
+        raw_comparisons = table.get("comparisons", [])
+        if raw_comparisons is None:
+            raw_comparisons = []
+        if not isinstance(raw_comparisons, list):
+            issues.append(
+                _comparison_registry_issue(table_id, None, "invalid_comparisons", "comparisons must be a list")
+            )
+            continue
+        for raw_comparison in raw_comparisons:
+            comparison_report = _run_table_comparison_spec(raw_comparison, table_id, base)
+            comparisons.append(comparison_report)
+            if not comparison_report["valid"]:
+                issues.append(
+                    _comparison_registry_issue(
+                        table_id,
+                        comparison_report["id"],
+                        "comparison_failed",
+                        f"comparison {comparison_report['id']} failed with {comparison_report['n_issues']} issues",
+                    )
+                )
+
+    return {
+        "registry": str(registry_path),
+        "base_dir": str(base_dir),
+        "n_comparisons": len(comparisons),
+        "n_issues": len(issues),
+        "valid": not issues,
+        "comparisons": comparisons,
+        "issues": issues,
+    }
+
+
+def _run_table_comparison_spec(raw_spec: Any, table_id: str, base_dir: Path) -> dict[str, Any]:
+    if not isinstance(raw_spec, dict):
+        issue = _comparison_registry_issue(table_id, None, "invalid_comparison", "comparison entries must be mappings")
+        return {
+            "id": None,
+            "table_id": table_id,
+            "valid": False,
+            "n_issues": 1,
+            "issues": [issue],
+        }
+
+    comparison_id = raw_spec.get("id")
+    if not isinstance(comparison_id, str) or not comparison_id:
+        comparison_id = None
+    issues: list[dict[str, Any]] = []
+    if comparison_id is None:
+        issues.append(_comparison_registry_issue(table_id, None, "missing_comparison_id", "comparison requires id"))
+
+    reference = _comparison_path(raw_spec, "reference", table_id, comparison_id, issues)
+    candidate = _comparison_path(raw_spec, "candidate", table_id, comparison_id, issues)
+    key_columns = _comparison_str_list(raw_spec, "key_columns", table_id, comparison_id, issues, required=True)
+    compare_columns = _comparison_str_list(raw_spec, "compare_columns", table_id, comparison_id, issues)
+    numeric_columns = _comparison_str_list(raw_spec, "numeric_columns", table_id, comparison_id, issues)
+    ignore_columns = _comparison_str_list(raw_spec, "ignore_columns", table_id, comparison_id, issues)
+    atol = _comparison_float(raw_spec, "atol", table_id, comparison_id, issues, default=1e-9)
+    rtol = _comparison_float(raw_spec, "rtol", table_id, comparison_id, issues, default=1e-9)
+    out = _comparison_path(raw_spec, "out", table_id, comparison_id, issues, required=False)
+
+    if issues:
+        return {
+            "id": comparison_id,
+            "table_id": table_id,
+            "reference": reference,
+            "candidate": candidate,
+            "out": out,
+            "valid": False,
+            "n_issues": len(issues),
+            "issues": issues,
+        }
+
+    try:
+        report = compare_table_artifacts(
+            reference,
+            candidate,
+            key_columns=key_columns or [],
+            compare_columns=compare_columns,
+            numeric_columns=numeric_columns,
+            ignore_columns=ignore_columns,
+            base_dir=base_dir,
+            atol=atol,
+            rtol=rtol,
+        )
+    except Exception as exc:  # pragma: no cover - exact exception type depends on artifact parser
+        issue = _comparison_registry_issue(
+            table_id,
+            comparison_id,
+            "comparison_error",
+            f"{type(exc).__name__}: {exc}",
+        )
+        return {
+            "id": comparison_id,
+            "table_id": table_id,
+            "reference": reference,
+            "candidate": candidate,
+            "out": out,
+            "valid": False,
+            "n_issues": 1,
+            "issues": [issue],
+        }
+
+    report.update({"id": comparison_id, "table_id": table_id, "out": out})
+    if out:
+        out_path = _resolve_registered_path(base_dir, out)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+    return report
+
+
+def _comparison_path(
+    spec: dict[str, Any],
+    key: str,
+    table_id: str,
+    comparison_id: str | None,
+    issues: list[dict[str, Any]],
+    *,
+    required: bool = True,
+) -> str | None:
+    value = spec.get(key)
+    if value is None and not required:
+        return None
+    if not isinstance(value, str) or not value:
+        issues.append(_comparison_registry_issue(table_id, comparison_id, f"missing_{key}", f"comparison requires {key}"))
+        return None
+    return value
+
+
+def _comparison_str_list(
+    spec: dict[str, Any],
+    key: str,
+    table_id: str,
+    comparison_id: str | None,
+    issues: list[dict[str, Any]],
+    *,
+    required: bool = False,
+) -> list[str] | None:
+    value = spec.get(key)
+    if value is None:
+        if required:
+            issues.append(
+                _comparison_registry_issue(table_id, comparison_id, f"missing_{key}", f"comparison requires {key}")
+            )
+        return None
+    if not isinstance(value, list) or not value:
+        issues.append(_comparison_registry_issue(table_id, comparison_id, f"invalid_{key}", f"{key} must be a list"))
+        return None
+    result = []
+    for item in value:
+        if not isinstance(item, str) or not item:
+            issues.append(
+                _comparison_registry_issue(
+                    table_id,
+                    comparison_id,
+                    f"invalid_{key}",
+                    f"{key} entries must be non-empty strings",
+                )
+            )
+            continue
+        result.append(item)
+    return result
+
+
+def _comparison_float(
+    spec: dict[str, Any],
+    key: str,
+    table_id: str,
+    comparison_id: str | None,
+    issues: list[dict[str, Any]],
+    *,
+    default: float,
+) -> float:
+    value = spec.get(key, default)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        issues.append(_comparison_registry_issue(table_id, comparison_id, f"invalid_{key}", f"{key} must be numeric"))
+        return default
+
+
 def write_recovery_table_json(
     rows: list[dict[str, Any]],
     path: str | Path,
@@ -1083,6 +1282,15 @@ def _issue(table_id: str | None, code: str, message: str) -> dict[str, Any]:
 
 def _reference_issue(entry_id: str | None, code: str, message: str) -> dict[str, Any]:
     return {"entry_id": entry_id, "code": code, "message": message}
+
+
+def _comparison_registry_issue(
+    table_id: str | None,
+    comparison_id: str | None,
+    code: str,
+    message: str,
+) -> dict[str, Any]:
+    return {"table_id": table_id, "comparison_id": comparison_id, "code": code, "message": message}
 
 
 def _load_summary(path: Path) -> dict[str, Any]:

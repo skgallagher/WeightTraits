@@ -39,7 +39,15 @@ PYTHONPATH=src python -m weighttraits.cli make-ellmtrees-variants-table \
   --csv-out reports/paper/ellmtrees_variants_reference.csv
 ```
 
-Compare a rebuilt table artifact to the paper-grounded reference:
+Run registered table comparisons against paper-grounded references:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli run-table-comparisons \
+  --registry paper/table_registry.yaml \
+  --out reports/paper/table_comparison_validation.json
+```
+
+Compare one rebuilt table artifact to the paper-grounded reference directly:
 
 ```bash
 PYTHONPATH=src python -m weighttraits.cli compare-table-artifacts \

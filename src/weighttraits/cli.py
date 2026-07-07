@@ -22,6 +22,7 @@ from weighttraits.paper.results import (
     compare_table_artifacts,
     ellmtrees_variants_table_rows,
     recovery_table_rows,
+    run_table_registry_comparisons,
     validate_reference_registry,
     validate_table_registry,
     write_ellmtrees_variants_table_csv,
@@ -221,6 +222,12 @@ def _compare_table_artifacts(args: argparse.Namespace) -> int:
         atol=args.atol,
         rtol=args.rtol,
     )
+    _emit_json(report, args.out)
+    return 0 if report["valid"] or args.allow_issues else 1
+
+
+def _run_table_comparisons(args: argparse.Namespace) -> int:
+    report = run_table_registry_comparisons(args.registry, base_dir=args.base_dir)
     _emit_json(report, args.out)
     return 0 if report["valid"] or args.allow_issues else 1
 
@@ -683,6 +690,21 @@ def build_parser() -> argparse.ArgumentParser:
     table_compare.add_argument("--out", type=Path)
     table_compare.add_argument("--allow-issues", action="store_true")
     table_compare.set_defaults(func=_compare_table_artifacts)
+
+    table_comparisons = sub.add_parser(
+        "run-table-comparisons",
+        help="Run table artifact comparisons declared in a paper table registry",
+    )
+    table_comparisons.add_argument("--registry", type=Path, required=True)
+    table_comparisons.add_argument(
+        "--base-dir",
+        type=Path,
+        default=Path("."),
+        help="Base directory used to resolve relative table paths",
+    )
+    table_comparisons.add_argument("--out", type=Path)
+    table_comparisons.add_argument("--allow-issues", action="store_true")
+    table_comparisons.set_defaults(func=_run_table_comparisons)
 
     cube = sub.add_parser("build-distance-cube", help="Build a streaming distance cube")
     cube.add_argument(

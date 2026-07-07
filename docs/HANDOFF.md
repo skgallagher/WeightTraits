@@ -22,6 +22,8 @@ As of 2026-07-07, the project has a working end-to-end whitebox recovery spine:
   old ELLMTrees `tab:variants` reference table from pinned old CSVs.
 - `wt compare-table-artifacts` compares rebuilt JSON/CSV table artifacts against a paper-grounded
   reference by key columns, with optional numeric tolerances and ignored metadata columns.
+- `wt run-table-comparisons` runs the comparison specs declared in `paper/table_registry.yaml` and
+  writes both aggregate and per-comparison JSON reports.
 
 Latest verified paper outputs:
 
@@ -32,6 +34,7 @@ reports/paper/ellmtrees_variants_reference.json
 reports/paper/ellmtrees_variants_reference.csv
 reports/paper/table_registry_validation.json
 reports/paper/reference_registry_validation.json
+reports/paper/table_comparison_validation.json
 reports/paper/ellmtrees_variants_reference_compare.json
 ```
 
@@ -42,7 +45,8 @@ validation reports `valid=true`, `n_issues=0`, with `observed_rows=18` for white
 The reference registry validation also reports `valid=true`, `n_issues=0`, and `n_entries=17`.
 It now checks active-draft label coverage as well: the current live draft has 14 `fig:`/`tab:` labels,
 all 14 are registered, and there are no stale registered draft labels.
-The variants reference comparison report has `valid=true`, `n_issues=0`, `n_reference_rows=8`,
+The registry-driven table comparison report has `valid=true`, `n_issues=0`, and `n_comparisons=1`.
+Its variants reference comparison has `valid=true`, `n_issues=0`, `n_reference_rows=8`,
 `n_candidate_rows=8`, `n_matched_rows=8`, and `n_compared_cells=176`.
 
 On 2026-07-07, the `fig:overview` and `fig:coherence_recovery` digests in
@@ -89,8 +93,8 @@ Recommended next slice:
 
 1. Decide which registered old result is the first non-toy RF/recovery table to rebuild through the
    new WeightTraits `recovery_registry` -> `table_registry` -> digest path.
-2. Use `wt compare-table-artifacts` to compare the rebuilt WeightTraits table against the
-   latest-paper-grounded reference table.
+2. Declare the comparison in `paper/table_registry.yaml` and run `wt run-table-comparisons` against
+   the latest-paper-grounded reference table.
 3. Preserve old ELLMTrees as read-only while rebuilding the selected table from WeightTraits outputs.
 
 ## Git and Cluster Access
