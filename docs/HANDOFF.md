@@ -1,6 +1,6 @@
 # WeightTraits Handoff
 
-Last updated: 2026-07-06.
+Last updated: 2026-07-07.
 
 ## Project Intent
 
@@ -273,6 +273,51 @@ Intent and status of that slice:
   - cumulative LoRA adapters: `l2 distance_mean=0.006281314718405168`,
     `cosine distance_mean=0.40682181793388494`,
     `correlation distance_mean=0.40679869399297386`.
+- Distance-cube audit metadata for cumulative LoRA records
+  `metric_execution={"correlation": "lora_low_rank", "cosine": "lora_low_rank", "l2": "lora_low_rank"}`.
+
+Mid-size branching contrast steps8 fixture slice:
+
+```text
+examples/training/README.md
+examples/training/tiny_full_mid_branching_contrast_steps8_smoke.yaml
+examples/training/tiny_lora_mid_branching_contrast_steps8_smoke.yaml
+tests/test_training_tiny_examples.py
+docs/HANDOFF.md
+```
+
+Intent and status of that slice:
+
+- Repeat the eleven-row, seven-leaf mid branching contrast topology with `max_steps: 8`.
+- Use distinct output roots
+  `outputs/tiny_full_mid_branching_contrast_steps8_smoke` and
+  `outputs/tiny_lora_mid_branching_contrast_steps8_smoke`.
+- Set fixed-step smoke stopping guards to stay present but not fire during eight steps:
+  `early_stopping.patience: 9` and `plateau.window: 9`.
+- This detail matters: the first LoRA attempt with the ordinary plateau `window: 3` stopped at
+  step 3 because eval loss was nearly flat. The partial LoRA output root was removed on Wright and
+  rerun after the guard update.
+- Local focused fixture tests passed with 11 tests; full local suite passed with 130 tests.
+- Wright focused fixture tests passed with 11 tests; full Wright suite passed with 130 tests.
+- Wright full and LoRA steps8 run lists each validated with 11 runs, no warnings, and no errors.
+- Wright full and LoRA steps8 training rows completed for all eleven nodes at step 8:
+  `completed_nodes=["n00", "n01", "n02", "n03", "n04", "n05", "n06", "n07", "n08", "n09", "n10"]`,
+  `failed_nodes=[]`, `status_counts={"completed": 11}`, `n_events=220` for each ledger.
+- Ran `wt analyze-training-ledger` for full checkpoints, LoRA merged checkpoints, and cumulative
+  LoRA adapter chains with `l2`, `cosine`, and `correlation`.
+- All nine artifact/metric combinations recovered the seven-leaf, four-split truth tree exactly:
+  per-analysis aggregate `n_records=3`, `exact_tree_recovery_rate=1.0`,
+  `pooled_clade_recovery=1.0`, `pooled_split_precision=1.0`, `rf_mean=0.0`.
+- Distance summaries:
+  - full checkpoints: `l2 distance_mean=0.06936622415055438`,
+    `cosine distance_mean=0.06627167701047997`,
+    `correlation distance_mean=0.1076262502407616`;
+  - LoRA merged checkpoints: `l2 distance_mean=0.004512752549928248`,
+    `cosine distance_mean=1.0674884435093831e-05`,
+    `correlation distance_mean=1.067963516983858e-05`;
+  - cumulative LoRA adapters: `l2 distance_mean=0.0165467598716221`,
+    `cosine distance_mean=0.5282546102244117`,
+    `correlation distance_mean=0.528311362716497`.
 - Distance-cube audit metadata for cumulative LoRA records
   `metric_execution={"correlation": "lora_low_rank", "cosine": "lora_low_rank", "l2": "lora_low_rank"}`.
 

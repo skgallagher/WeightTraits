@@ -319,3 +319,42 @@ PYTHONPATH=src python -m weighttraits.cli analyze-training-ledger \
   --metric cosine \
   --out outputs/tiny_lora_mid_branching_contrast_smoke/cumulative_leaf_analysis
 ```
+
+## Tiny Mid Branching Contrast Steps8 Smoke
+
+The steps8 configs repeat the same eleven-node, seven-leaf contrast topology with eight trainer
+steps per node and distinct output roots. Their stopping patience and plateau window are set just
+above `max_steps`, so the usual preflight guards remain present but the tiny smoke runs for the
+fixed eight steps. This is useful for checking whether the exact recovery signal remains stable
+when each tiny model sees several optimization steps instead of two.
+
+Generate the longer full rows:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-training-run-list \
+  --manifest examples/training/tiny_mid_branching_contrast_manifest.jsonl \
+  --config examples/training/tiny_full_mid_branching_contrast_steps8_smoke.yaml \
+  --registry examples/training/tiny_dataset_registry.yaml \
+  --formats examples/training/tiny_dataset_formats.yaml \
+  --out /tmp/weighttraits_tiny_full_mid_branching_contrast_steps8_runs.jsonl \
+  --allow-existing-artifacts \
+  --max-train-samples 2 \
+  --allow-missing-eval
+```
+
+Generate the longer LoRA rows:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-training-run-list \
+  --manifest examples/training/tiny_mid_branching_contrast_manifest.jsonl \
+  --config examples/training/tiny_lora_mid_branching_contrast_steps8_smoke.yaml \
+  --registry examples/training/tiny_dataset_registry.yaml \
+  --formats examples/training/tiny_dataset_formats.yaml \
+  --out /tmp/weighttraits_tiny_lora_mid_branching_contrast_steps8_runs.jsonl \
+  --allow-existing-artifacts \
+  --max-train-samples 2 \
+  --allow-missing-eval
+```
+
+Run indices `0` through `10` in order for each method. Analyze the resulting ledgers with
+`wt analyze-training-ledger`, using the `model`, `merged`, and `adapter_chain` artifact modes.

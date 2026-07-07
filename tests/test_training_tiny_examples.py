@@ -379,3 +379,33 @@ def test_tiny_lora_mid_branching_contrast_example_plans_nested_parent_merges():
     assert runs[10].expected_artifacts["merged"] == (
         "outputs/tiny_lora_mid_branching_contrast_smoke/n10/merged"
     )
+
+
+def test_tiny_mid_branching_contrast_steps8_configs_keep_distinct_artifacts():
+    full_jobs = build_training_jobs_from_files(
+        EXAMPLES / "tiny_mid_branching_contrast_manifest.jsonl",
+        EXAMPLES / "tiny_full_mid_branching_contrast_steps8_smoke.yaml",
+    )
+    lora_jobs = build_training_jobs_from_files(
+        EXAMPLES / "tiny_mid_branching_contrast_manifest.jsonl",
+        EXAMPLES / "tiny_lora_mid_branching_contrast_steps8_smoke.yaml",
+    )
+    full_runs = build_training_run_list(full_jobs).runs
+    lora_runs = build_training_run_list(lora_jobs).runs
+
+    assert full_runs[0].job["trainer"]["max_steps"] == 8
+    assert lora_runs[0].job["trainer"]["max_steps"] == 8
+    assert full_runs[0].job["stopping"]["patience"] == 9
+    assert lora_runs[0].job["stopping"]["plateau_window"] == 9
+    assert full_runs[3].init_from == (
+        "outputs/tiny_full_mid_branching_contrast_steps8_smoke/n00/model"
+    )
+    assert lora_runs[3].init_from == (
+        "outputs/tiny_lora_mid_branching_contrast_steps8_smoke/n00/merged"
+    )
+    assert full_runs[10].expected_artifacts["model"] == (
+        "outputs/tiny_full_mid_branching_contrast_steps8_smoke/n10/model"
+    )
+    assert lora_runs[10].expected_artifacts["adapter"] == (
+        "outputs/tiny_lora_mid_branching_contrast_steps8_smoke/n10/adapter"
+    )
