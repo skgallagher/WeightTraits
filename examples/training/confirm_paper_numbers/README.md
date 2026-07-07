@@ -57,3 +57,20 @@ PYTHONPATH=src python -m weighttraits.cli audit-datasets \
 ```
 
 The offline validation reports 641/641 valid jobs and the no-load audit reports 36/36 dataset declarations structurally valid. The next step is a small networked sample-loading audit on the cluster, then regenerating run lists without `--runner-dry-run` for actual training.
+
+The actual training runner rows have also been generated separately from the dry-run scaffold:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-training-run-list-set \
+  --assignment-summary examples/training/confirm_paper_numbers/assignment_summary.json \
+  --config examples/training/confirm_paper_numbers/full_finetune.yaml \
+  --out-dir examples/training/confirm_paper_numbers/full_finetune_training_runlists \
+  --summary-out examples/training/confirm_paper_numbers/full_finetune_training_run_list_summary.json \
+  --registry examples/training/confirm_paper_numbers/dataset_registry.yaml \
+  --formats examples/training/confirm_paper_numbers/dataset_formats.yaml \
+  --max-train-samples 10000 \
+  --max-eval-samples 1000 \
+  --allow-missing-eval
+```
+
+That set is valid with 50 per-tree run lists and 641 planned `run-training-row` entries. Keep the dry-run set for row-selection smoke checks; use the training set only after the networked sample-loading audit has passed.

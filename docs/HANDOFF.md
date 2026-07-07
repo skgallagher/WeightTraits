@@ -60,6 +60,9 @@ examples/training/confirm_paper_numbers/dataset_registry_no_load_audit.json
 examples/training/confirm_paper_numbers/full_finetune_run_list_summary.json
 examples/training/confirm_paper_numbers/full_finetune_runlists/run_lists/*.runs.jsonl
 examples/training/confirm_paper_numbers/full_finetune_runlists/reports/*.report.json
+examples/training/confirm_paper_numbers/full_finetune_training_run_list_summary.json
+examples/training/confirm_paper_numbers/full_finetune_training_runlists/run_lists/*.runs.jsonl
+examples/training/confirm_paper_numbers/full_finetune_training_runlists/reports/*.report.json
 ```
 
 These reports remain ignored by Git. The whitebox smoke reports were generated on Wright and pulled
@@ -109,6 +112,13 @@ has `valid=true`, 50 trees, 641 jobs, 641 valid jobs, and 0 issues. The no-load 
 are structurally consistent without downloading from Hugging Face. Dotted field maps are supported
 for nested rows such as `translation.en` -> `source_text`.
 
+A second, non-dry-run full-FT run-list set now lives under
+`examples/training/confirm_paper_numbers/full_finetune_training_runlists/`. It is valid with 50
+per-tree run lists and 641 planned `weighttraits.cli run-training-row` entries. Its runner options
+point at the confirm-paper registry/formats, cap samples at 10,000 train / 1,000 eval, and allow
+missing eval splits. Keep the dry-run run-list set for row-selection checks; use the training set
+after a networked sample-loading audit passes.
+
 On 2026-07-07, the `fig:overview` and `fig:coherence_recovery` digests in
 `paper/reference_registry.yaml` were refreshed to match the current sibling reference files after
 `../ELLMTrees-paper/figures/fig1_paper_overview.{tex,pdf}`,
@@ -153,8 +163,9 @@ Recommended next slice:
 
 1. Run a small networked `audit-training-samples` smoke on Wright for a handful of representative
    confirm-paper datasets, especially nested translation and paired classification rows.
-2. Regenerate the confirm-paper full-FT run lists without `--runner-dry-run` and launch a small
-   row-selection/sample-loading smoke before the full training batch.
+2. Launch a tiny row-selection/sample-loading smoke from
+   `full_finetune_training_runlists/run_lists/confirm_paper_tree_001.runs.jsonl` before the full
+   training batch.
 3. Compare rebuilt recovery/behavior tables against the latest-paper-grounded references through
    `paper/table_registry.yaml` and `wt run-table-comparisons`.
 

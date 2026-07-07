@@ -151,6 +151,34 @@ def test_confirm_paper_numbers_full_finetune_run_lists_match_assignments():
         assert all(row["ledger_path"] == tree["ledger"] for row in rows)
 
 
+def test_confirm_paper_numbers_training_run_lists_are_wired_for_runner():
+    repo = Path(__file__).resolve().parents[1]
+    summary_path = (
+        repo / "examples/training/confirm_paper_numbers/full_finetune_training_run_list_summary.json"
+    )
+    summary = json.loads(summary_path.read_text())
+    expected_options = {
+        "allow_missing_eval": True,
+        "formats_path": "examples/training/confirm_paper_numbers/dataset_formats.yaml",
+        "max_eval_samples": 1000,
+        "max_train_samples": 10000,
+        "registry_path": "examples/training/confirm_paper_numbers/dataset_registry.yaml",
+    }
+
+    assert summary["valid"]
+    assert summary["n_trees"] == 50
+    assert summary["n_runs"] == 641
+    assert summary["n_errors"] == 0
+    assert summary["n_warnings"] == 0
+    assert summary["runner_entrypoint"] == "weighttraits.cli run-training-row"
+    assert summary["runner_options"] == expected_options
+    for tree in summary["trees"]:
+        run_list = repo / tree["run_list"]
+        rows = [json.loads(line) for line in run_list.read_text().splitlines()]
+        assert len(rows) == tree["n_runs"]
+        assert all(row["runner"]["options"] == expected_options for row in rows)
+
+
 def test_confirm_paper_numbers_dataset_contract_reports_are_clean():
     repo = Path(__file__).resolve().parents[1]
     family_config = yaml.safe_load(
