@@ -1,4 +1,5 @@
 import csv
+import hashlib
 import json
 from pathlib import Path
 
@@ -214,18 +215,9 @@ tables:
     assert report["n_tables"] == 1
     assert report["tables"][0]["id"] == "whitebox_smoke_recovery"
     assert report["tables"][0]["expected_rows"] == 1
-    assert report["tables"][0]["outputs"] == [
-        {
-            "path": "reports/paper/recovery.json",
-            "exists": True,
-            "observed_rows": 1,
-        },
-        {
-            "path": "reports/paper/recovery.csv",
-            "exists": True,
-            "observed_rows": 1,
-        },
-    ]
+    assert [item["observed_rows"] for item in report["tables"][0]["outputs"]] == [1, 1]
+    assert [item["expected_sha256"] for item in report["tables"][0]["outputs"]] == [None, None]
+    assert all(item["observed_sha256"] for item in report["tables"][0]["outputs"])
 
 
 def test_validate_table_registry_reports_missing_required_output(tmp_path):
@@ -283,3 +275,67 @@ tables:
 
     assert not report["valid"]
     assert report["issues"][0]["code"] == "row_count_mismatch"
+
+
+def test_validate_table_registry_accepts_pinned_output_sha256(tmp_path):
+    source_input = tmp_path / "paper/recovery_registry.yaml"
+    json_out = tmp_path / "reports/paper/recovery.json"
+    registry = tmp_path / "paper/table_registry.yaml"
+    source_input.parent.mkdir(parents=True)
+    source_input.write_text("result_sets: []\n")
+    json_out.parent.mkdir(parents=True)
+    json_out.write_text(json.dumps({"n_rows": 1, "rows": [{}]}) + "\n")
+    digest = hashlib.sha256(json_out.read_bytes()).hexdigest()
+    registry.write_text(
+        f"""
+tables:
+  - id: whitebox_smoke_recovery
+    title: Whitebox smoke recovery
+    source_command: wt make-recovery-table
+    source_inputs:
+      - paper/recovery_registry.yaml
+    outputs:
+      - path: reports/paper/recovery.json
+        sha256: {digest}
+    expected_rows: 1
+    paper_location: provisional
+    verification_status: local_verified
+"""
+    )
+
+    report = validate_table_registry(registry, base_dir=tmp_path, require_outputs=True)
+
+    assert report["valid"]
+    assert report["tables"][0]["outputs"][0]["expected_sha256"] == digest
+    assert report["tables"][0]["outputs"][0]["observed_sha256"] == digest
+
+
+def test_validate_table_registry_reports_output_sha256_mismatch(tmp_path):
+    source_input = tmp_path / "paper/recovery_registry.yaml"
+    json_out = tmp_path / "reports/paper/recovery.json"
+    registry = tmp_path / "paper/table_registry.yaml"
+    source_input.parent.mkdir(parents=True)
+    source_input.write_text("result_sets: []\n")
+    json_out.parent.mkdir(parents=True)
+    json_out.write_text(json.dumps({"n_rows": 1, "rows": [{}]}) + "\n")
+    registry.write_text(
+        """
+tables:
+  - id: whitebox_smoke_recovery
+    title: Whitebox smoke recovery
+    source_command: wt make-recovery-table
+    source_inputs:
+      - paper/recovery_registry.yaml
+    outputs:
+      - path: reports/paper/recovery.json
+        sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+    expected_rows: 1
+    paper_location: provisional
+    verification_status: local_verified
+"""
+    )
+
+    report = validate_table_registry(registry, base_dir=tmp_path, require_outputs=True)
+
+    assert not report["valid"]
+    assert report["issues"][0]["code"] == "sha256_mismatch"

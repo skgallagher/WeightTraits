@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -238,7 +239,7 @@ def _validate_table_entry(
     base_dir: Path,
     *,
     require_outputs: bool,
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
     table_id = str(table["id"])
     issues = []
     source_input_report = []
@@ -255,12 +256,22 @@ def _validate_table_entry(
         if not exists:
             issues.append(_issue(table_id, "missing_source_input", f"source input does not exist: {path}"))
 
-    outputs = _path_list(table, "outputs", table_id, issues, required=require_outputs)
-    for path in outputs:
+    outputs = _output_specs(table, table_id, issues, required=require_outputs)
+    for spec in outputs:
+        path = spec["path"]
         resolved = _resolve_registered_path(base_dir, path)
         exists = resolved.exists()
         observed_rows = _observed_table_rows(resolved) if exists else None
-        output_report.append({"path": path, "exists": exists, "observed_rows": observed_rows})
+        observed_sha256 = _sha256_file(resolved) if exists else None
+        output_report.append(
+            {
+                "path": path,
+                "exists": exists,
+                "observed_rows": observed_rows,
+                "expected_sha256": spec.get("sha256"),
+                "observed_sha256": observed_sha256,
+            }
+        )
         if not exists:
             if require_outputs:
                 issues.append(_issue(table_id, "missing_output", f"output does not exist: {path}"))
@@ -275,6 +286,15 @@ def _validate_table_entry(
                         f"{path} has {observed_rows} rows, expected {expected_rows}",
                     )
                 )
+        expected_sha256 = spec.get("sha256")
+        if expected_sha256 is not None and observed_sha256 != expected_sha256:
+            issues.append(
+                _issue(
+                    table_id,
+                    "sha256_mismatch",
+                    f"{path} has sha256 {observed_sha256}, expected {expected_sha256}",
+                )
+            )
     return {"issues": issues, "source_inputs": source_input_report, "outputs": output_report}
 
 
@@ -301,6 +321,39 @@ def _path_list(
     return paths
 
 
+def _output_specs(
+    table: dict[str, Any],
+    table_id: str,
+    issues: list[dict[str, Any]],
+    *,
+    required: bool,
+) -> list[dict[str, str | None]]:
+    raw = table.get("outputs")
+    if raw is None and not required:
+        return []
+    if not isinstance(raw, list) or not raw:
+        issues.append(_issue(table_id, "missing_outputs", f"table {table_id} requires outputs"))
+        return []
+    specs = []
+    for value in raw:
+        if isinstance(value, str) and value:
+            specs.append({"path": value, "sha256": None})
+            continue
+        if isinstance(value, dict):
+            path = value.get("path")
+            sha256 = value.get("sha256")
+            if not isinstance(path, str) or not path:
+                issues.append(_issue(table_id, "invalid_outputs", "output mapping requires path"))
+                continue
+            if sha256 is not None and (not isinstance(sha256, str) or len(sha256) != 64):
+                issues.append(_issue(table_id, "invalid_sha256", f"invalid sha256 for output {path}"))
+                continue
+            specs.append({"path": path, "sha256": sha256})
+            continue
+        issues.append(_issue(table_id, "invalid_outputs", "outputs entries must be paths or mappings"))
+    return specs
+
+
 def _observed_table_rows(path: Path) -> int | None:
     if path.suffix == ".json":
         payload = json.loads(path.read_text())
@@ -315,6 +368,14 @@ def _observed_table_rows(path: Path) -> int | None:
         with path.open(newline="") as handle:
             return sum(1 for _ in csv.DictReader(handle))
     return None
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _issue(table_id: str | None, code: str, message: str) -> dict[str, Any]:

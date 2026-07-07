@@ -378,11 +378,11 @@ Intent and status of that slice:
 
 - Add `outputs` declarations to `paper/table_registry.yaml`.
 - Add `wt validate-table-registry`.
-- Validate table registry shape, declared source inputs, optional generated outputs, and observed
-  row counts for JSON/CSV table artifacts.
+- Validate table registry shape, declared source inputs, optional generated outputs, observed row
+  counts for JSON/CSV table artifacts, and optional output SHA-256 digests.
 - Keep generated reports ignored while still making paper-build gates checkable.
-- Local focused paper/parser tests passed with 13 tests; full local suite passed with 138 tests.
-- Wright focused paper/parser tests passed with 13 tests; full Wright suite passed with 138 tests.
+- Local focused paper/parser tests passed with 15 tests; full local suite passed with 140 tests.
+- Wright focused paper/parser tests passed with 15 tests; full Wright suite passed with 140 tests.
 - On Wright, validated `paper/table_registry.yaml` with `--require-outputs` and wrote:
 
 ```text
@@ -390,7 +390,8 @@ reports/paper/table_registry_validation.json
 ```
 
 - The validation report had `valid=true`, `n_issues=0`, all seven source inputs present, and both
-  `reports/paper/whitebox_smoke_recovery.{json,csv}` present with `observed_rows=18`.
+  `reports/paper/whitebox_smoke_recovery.{json,csv}` present with `observed_rows=18` and matching
+  expected/observed SHA-256 digests.
 
 Previous artifact-distance smoke slice contents:
 
