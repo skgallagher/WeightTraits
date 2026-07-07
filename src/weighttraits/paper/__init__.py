@@ -3,6 +3,7 @@
 from weighttraits.paper.results import (
     ELLMTREES_VARIANTS_TABLE_COLUMNS,
     RECOVERY_TABLE_COLUMNS,
+    behavior_holdout_draft_table_rows,
     compare_table_artifacts,
     ellmtrees_variants_table_rows,
     load_ellmtrees_variants_registry,
@@ -13,6 +14,8 @@ from weighttraits.paper.results import (
     run_table_registry_comparisons,
     validate_reference_registry,
     validate_table_registry,
+    write_behavior_holdout_table_csv,
+    write_behavior_holdout_table_json,
     write_ellmtrees_variants_table_csv,
     write_ellmtrees_variants_table_json,
     write_recovery_table_csv,
@@ -22,6 +25,7 @@ from weighttraits.paper.results import (
 __all__ = [
     "ELLMTREES_VARIANTS_TABLE_COLUMNS",
     "RECOVERY_TABLE_COLUMNS",
+    "behavior_holdout_draft_table_rows",
     "compare_table_artifacts",
     "ellmtrees_variants_table_rows",
     "load_ellmtrees_variants_registry",
@@ -32,6 +36,8 @@ __all__ = [
     "run_table_registry_comparisons",
     "validate_reference_registry",
     "validate_table_registry",
+    "write_behavior_holdout_table_csv",
+    "write_behavior_holdout_table_json",
     "write_ellmtrees_variants_table_csv",
     "write_ellmtrees_variants_table_json",
     "write_recovery_table_csv",

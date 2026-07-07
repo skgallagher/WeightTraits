@@ -24,6 +24,10 @@ As of 2026-07-07, the project has a working end-to-end whitebox recovery spine:
   reference by key columns, with optional numeric tolerances and ignored metadata columns.
 - `wt run-table-comparisons` runs the comparison specs declared in `paper/table_registry.yaml` and
   writes both aggregate and per-comparison JSON reports.
+- `wt make-behavior-holdout-table` extracts the live draft `tab:behavior_holdout` cells as a
+  paper-grounded JSON/CSV reference table.
+- `wt generate-tree-set` now generated a clean confirm-paper-number topology set from the active
+  draft distribution: 50 accepted Poisson-branching trees with `n_leaves >= 4`.
 
 Latest verified paper outputs:
 
@@ -36,18 +40,34 @@ reports/paper/table_registry_validation.json
 reports/paper/reference_registry_validation.json
 reports/paper/table_comparison_validation.json
 reports/paper/ellmtrees_variants_reference_compare.json
+reports/paper/behavior_holdout_reference.json
+reports/paper/behavior_holdout_reference.csv
+reports/paper/behavior_holdout_reference_compare.json
+examples/training/confirm_paper_numbers/tree_set_summary.json
+examples/training/confirm_paper_numbers/trees/*.manifest.jsonl
 ```
 
 These reports remain ignored by Git. The whitebox smoke reports were generated on Wright and pulled
 locally. The ELLMTrees variants reference was generated locally from old pinned CSVs. The table
-validation reports `valid=true`, `n_issues=0`, with `observed_rows=18` for whitebox smoke outputs and
-`observed_rows=8` for the legacy variants reference outputs, all with matching SHA-256 digests.
+validation reports `valid=true`, `n_issues=0`, with `observed_rows=18` for whitebox smoke outputs,
+`observed_rows=8` for the legacy variants reference outputs, and `observed_rows=12` for the live-draft
+behavior holdout reference outputs, all with matching SHA-256 digests.
 The reference registry validation also reports `valid=true`, `n_issues=0`, and `n_entries=17`.
 It now checks active-draft label coverage as well: the current live draft has 14 `fig:`/`tab:` labels,
 all 14 are registered, and there are no stale registered draft labels.
-The registry-driven table comparison report has `valid=true`, `n_issues=0`, and `n_comparisons=1`.
+The registry-driven table comparison report has `valid=true`, `n_issues=0`, and `n_comparisons=2`.
 Its variants reference comparison has `valid=true`, `n_issues=0`, `n_reference_rows=8`,
-`n_candidate_rows=8`, `n_matched_rows=8`, and `n_compared_cells=176`.
+`n_candidate_rows=8`, `n_matched_rows=8`, and `n_compared_cells=176`; its behavior-holdout reference
+comparison has `n_reference_rows=12`, `n_candidate_rows=12`, `n_matched_rows=12`, and
+`n_compared_cells=60`.
+
+The clean confirm-paper-number topology draw lives under
+`examples/training/confirm_paper_numbers/`. It was generated with
+`examples/trees/confirm_paper_numbers.yaml`, which follows the active draft topology setting:
+Poisson branching with `lambda=1.5`, `n_nodes=14`, `max_depth=4`, and rejection of candidate trees
+with fewer than four leaves. The accepted 50-tree set scanned 78 candidate seeds starting at
+`20260707`; leaf counts are 4:6, 5:4, 6:3, 7:12, 8:9, 9:13, 10:3, and max-depth counts are 3:10,
+4:40.
 
 On 2026-07-07, the `fig:overview` and `fig:coherence_recovery` digests in
 `paper/reference_registry.yaml` were refreshed to match the current sibling reference files after
@@ -91,11 +111,12 @@ Paper draft context:
 
 Recommended next slice:
 
-1. Decide which registered old result is the first non-toy RF/recovery table to rebuild through the
-   new WeightTraits `recovery_registry` -> `table_registry` -> digest path.
-2. Declare the comparison in `paper/table_registry.yaml` and run `wt run-table-comparisons` against
-   the latest-paper-grounded reference table.
-3. Preserve old ELLMTrees as read-only while rebuilding the selected table from WeightTraits outputs.
+1. Assign task/data rows to `examples/training/confirm_paper_numbers/trees/*.manifest.jsonl` using
+   the paper's four-task/36-dataset setting.
+2. Build full-FT run lists for the clean 50-tree set, then launch a small dry-run/smoke before the
+   full confirm-paper-number training batch.
+3. Compare rebuilt recovery/behavior tables against the latest-paper-grounded references through
+   `paper/table_registry.yaml` and `wt run-table-comparisons`.
 
 ## Git and Cluster Access
 

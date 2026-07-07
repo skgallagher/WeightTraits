@@ -69,7 +69,35 @@ ELLMTREES_VARIANTS_TABLE_COLUMNS = [
 ]
 
 
+BEHAVIOR_HOLDOUT_TABLE_COLUMNS = [
+    "model",
+    "probe",
+    "condition",
+    "r",
+    "ci_lo",
+    "ci_hi",
+    "note",
+    "latex_cell",
+]
+
+
+BEHAVIOR_HOLDOUT_CELL_SPECS = [
+    ("Translation", "trained"),
+    ("Translation", "held-out"),
+    ("HellaSwag", "held-out"),
+    ("ARC-C", "held-out"),
+    ("MMLU", "held-out"),
+    ("TruthfulQA", "held-out"),
+]
+
+
 _DRAFT_LABEL_RE = re.compile(r"\\label\{((?:fig|tab):[^}]+)\}")
+_BEHAVIOR_SHORTSTACK_RE = re.compile(
+    r"\\shortstack\{"
+    r"\$([+-]?(?:\d+)?\.\d+)(?:\^\{\\([A-Za-z]+)\})?\$"
+    r"\\\\\{\\scriptsize\$\[([+-]?(?:\d+)?\.\d+),([+-]?(?:\d+)?\.\d+)\]\$\}"
+    r"\}"
+)
 
 
 def load_recovery_registry(path: str | Path) -> dict[str, Any]:
@@ -216,6 +244,48 @@ def ellmtrees_variants_table_rows(
                 "branch_source": branch_source,
             }
         )
+    return rows
+
+
+def behavior_holdout_draft_table_rows(draft_path: str | Path) -> list[dict[str, Any]]:
+    """Extract the live draft's `tab:behavior_holdout` cells as long-format rows."""
+
+    draft = Path(draft_path)
+    table = _latex_table_with_label(draft.read_text(), "tab:behavior_holdout", source=str(draft))
+    rows = []
+    in_body = False
+    for raw_line in table.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if line.startswith(r"\midrule"):
+            in_body = True
+            continue
+        if line.startswith(r"\bottomrule"):
+            break
+        if not in_body or line.startswith(r"\addlinespace"):
+            continue
+        if "&" not in line:
+            continue
+        cells = _split_latex_row(line)
+        if len(cells) != 1 + len(BEHAVIOR_HOLDOUT_CELL_SPECS):
+            raise ValueError(
+                f"tab:behavior_holdout row has {len(cells)} cells, "
+                f"expected {1 + len(BEHAVIOR_HOLDOUT_CELL_SPECS)}: {line}"
+            )
+        model = _plain_latex_text(cells[0])
+        for (probe, condition), cell in zip(BEHAVIOR_HOLDOUT_CELL_SPECS, cells[1:]):
+            parsed = _parse_behavior_holdout_cell(cell)
+            rows.append(
+                {
+                    "model": model,
+                    "probe": probe,
+                    "condition": condition,
+                    **parsed,
+                }
+            )
+    if not rows:
+        raise ValueError(f"no rows found for tab:behavior_holdout in {draft}")
     return rows
 
 
@@ -566,6 +636,24 @@ def write_ellmtrees_variants_table_json(
     out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
 
+def write_behavior_holdout_table_json(
+    rows: list[dict[str, Any]],
+    path: str | Path,
+    *,
+    draft: str | Path | None = None,
+) -> None:
+    """Write the live-draft behavior-holdout table rows as JSON."""
+
+    out = Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "draft": str(draft) if draft is not None else None,
+        "n_rows": len(rows),
+        "rows": rows,
+    }
+    out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+
 def write_recovery_table_csv(rows: list[dict[str, Any]], path: str | Path) -> None:
     """Write recovery table rows as CSV with stable columns."""
 
@@ -588,6 +676,18 @@ def write_ellmtrees_variants_table_csv(rows: list[dict[str, Any]], path: str | P
         writer.writeheader()
         for row in rows:
             writer.writerow({key: _csv_value(row.get(key)) for key in ELLMTREES_VARIANTS_TABLE_COLUMNS})
+
+
+def write_behavior_holdout_table_csv(rows: list[dict[str, Any]], path: str | Path) -> None:
+    """Write the live-draft behavior-holdout rows as CSV with stable columns."""
+
+    out = Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=BEHAVIOR_HOLDOUT_TABLE_COLUMNS, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({key: _csv_value(row.get(key)) for key in BEHAVIOR_HOLDOUT_TABLE_COLUMNS})
 
 
 def validate_table_registry(
@@ -1108,6 +1208,52 @@ def _validate_draft_label_coverage(
             _reference_issue(label, "stale_draft_label_entry", f"registry entry {label} is not in active_draft")
         )
     return report
+
+
+def _latex_table_with_label(text: str, label: str, *, source: str) -> str:
+    label_token = rf"\label{{{label}}}"
+    label_idx = text.find(label_token)
+    if label_idx < 0:
+        raise ValueError(f"could not find {label_token} in {source}")
+    start = text.rfind(r"\begin{table", 0, label_idx)
+    end = text.find(r"\end{table}", label_idx)
+    if start < 0 or end < 0:
+        raise ValueError(f"could not find table environment containing {label_token} in {source}")
+    return text[start : end + len(r"\end{table}")]
+
+
+def _split_latex_row(line: str) -> list[str]:
+    stripped = line.strip()
+    if stripped.endswith(r"\\"):
+        stripped = stripped[:-2].strip()
+    return [cell.strip() for cell in stripped.split("&")]
+
+
+def _plain_latex_text(value: str) -> str:
+    return value.replace(r"\texttt{", "").replace("}", "").strip()
+
+
+def _parse_behavior_holdout_cell(cell: str) -> dict[str, Any]:
+    stripped = cell.strip()
+    if stripped == "---":
+        return {
+            "r": None,
+            "ci_lo": None,
+            "ci_hi": None,
+            "note": "not_reported",
+            "latex_cell": stripped,
+        }
+    match = _BEHAVIOR_SHORTSTACK_RE.fullmatch(stripped)
+    if match is None:
+        raise ValueError(f"could not parse behavior-holdout cell: {cell}")
+    r_value, note, ci_lo, ci_hi = match.groups()
+    return {
+        "r": float(r_value),
+        "ci_lo": float(ci_lo),
+        "ci_hi": float(ci_hi),
+        "note": note or "",
+        "latex_cell": stripped,
+    }
 
 
 def _path_list(

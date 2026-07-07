@@ -54,6 +54,16 @@ PYTHONPATH=src python -m weighttraits.cli make-ellmtrees-variants-table \
   --csv-out reports/paper/ellmtrees_variants_reference.csv
 ```
 
+The live draft `tab:behavior_holdout` table can be materialized as the current paper-grounded
+reference with:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-behavior-holdout-table \
+  --draft ../ELLMTrees-paper/iclr_draft_v2.tex \
+  --out reports/paper/behavior_holdout_reference.json \
+  --csv-out reports/paper/behavior_holdout_reference.csv
+```
+
 Generated paper tables can be compared against a paper-grounded reference with:
 
 ```bash
@@ -79,12 +89,14 @@ formatting may differ.
 ## Rebuild Order
 
 1. Treat the latest paper state as ground truth and freeze the corresponding paper artifacts as references.
-2. Rebuild whitebox recovery figures.
-3. Rebuild layer and scope-condition figures.
-4. Rebuild behavioral/regression tables with R cross-checks.
-5. Rebuild HF-zoo and blackbox validation figures.
-6. Compile the paper from a clean checkout.
-7. Run a stale-claim audit against `../ELLMTrees-paper/iclr_draft_v2.tex`, older draft files,
+2. Generate clean confirm-paper-number topology sets from the same distribution, without reusing old
+   exact seeds.
+3. Rebuild whitebox recovery figures.
+4. Rebuild layer and scope-condition figures.
+5. Rebuild behavioral/regression tables with R cross-checks.
+6. Rebuild HF-zoo and blackbox validation figures.
+7. Compile the paper from a clean checkout.
+8. Run a stale-claim audit against `../ELLMTrees-paper/iclr_draft_v2.tex`, older draft files,
    `CLAUDE.md`, and handoff notes.
 
 ## Paper Gate

@@ -64,6 +64,19 @@ PYTHONPATH=src python -m weighttraits.cli generate-tree \
   --out reports/examples/poisson_branching.manifest.jsonl
 ```
 
+Confirm-paper-number topology set:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli generate-tree-set \
+  --config examples/trees/confirm_paper_numbers.yaml \
+  --out-dir examples/training/confirm_paper_numbers/trees \
+  --summary-out examples/training/confirm_paper_numbers/tree_set_summary.json
+```
+
+This draws from the active draft topology distribution without reusing the exact old tree seeds:
+Poisson branching with `lambda=1.5`, `n_nodes=14`, `max_depth=4`, and rejection of trees with
+fewer than four leaves. The summary records the accepted seeds and leaf/depth counts.
+
 Pruned binary backbone:
 
 ```bash
@@ -79,4 +92,3 @@ The test suite loads every YAML file in `examples/trees` and checks the declared
 ```bash
 PYTHONPATH=src python -m pytest tests/test_tree_examples.py -q
 ```
-

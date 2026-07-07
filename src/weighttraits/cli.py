@@ -19,12 +19,15 @@ from weighttraits.distances.readers import CumulativeLoraReader, LoraFactorReade
 from weighttraits.distances.streaming import build_distance_cube, write_distance_cube
 from weighttraits.manifests.reference import manifest_leaf_ids
 from weighttraits.paper.results import (
+    behavior_holdout_draft_table_rows,
     compare_table_artifacts,
     ellmtrees_variants_table_rows,
     recovery_table_rows,
     run_table_registry_comparisons,
     validate_reference_registry,
     validate_table_registry,
+    write_behavior_holdout_table_csv,
+    write_behavior_holdout_table_json,
     write_ellmtrees_variants_table_csv,
     write_ellmtrees_variants_table_json,
     write_recovery_table_csv,
@@ -35,7 +38,12 @@ from weighttraits.phylo.reconstruct import reconstruct_tree_from_cube
 from weighttraits.phylo.recovery import aggregate_recovery, score_split_recovery
 from weighttraits.phylo.splits import splits_from_manifest_path, splits_from_newick_text
 from weighttraits.taskdata.assignment import assign_task_data, load_manifest_rows, write_manifest_rows
-from weighttraits.trees.generate import generate_tree_from_config, tree_stats, write_manifest_jsonl
+from weighttraits.trees.generate import (
+    generate_tree_from_config,
+    generate_tree_set,
+    tree_stats,
+    write_manifest_jsonl,
+)
 from weighttraits.training.data_formats import (
     load_dataset_format_specs,
     validate_training_jobs_against_formats,
@@ -88,6 +96,66 @@ def _generate_tree(args: argparse.Namespace) -> int:
         summary["out"] = str(args.out)
         summary["n_manifest_rows"] = len(rows or [])
     print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
+def _generate_tree_set(args: argparse.Namespace) -> int:
+    config = yaml.safe_load(args.config.read_text())
+    tree_config = config.get("tree", config)
+    set_config = config.get("tree_set", {})
+    n_trees = args.n_trees if args.n_trees is not None else int(set_config.get("n_trees", 50))
+    seed_start = (
+        args.seed_start
+        if args.seed_start is not None
+        else int(set_config.get("seed_start", tree_config.get("seed", 0)))
+    )
+    min_leaves = _optional_int(args.min_leaves, set_config.get("min_leaves"), tree_config.get("min_leaves"))
+    min_depth = _optional_int(args.min_depth, set_config.get("min_depth"), tree_config.get("min_depth"))
+    max_candidates = int(set_config.get("max_candidates", args.max_candidates))
+    tree_id_prefix = str(set_config.get("tree_id_prefix", "tree"))
+    manifest_suffix = str(set_config.get("manifest_suffix", ".manifest.jsonl"))
+
+    generated = generate_tree_set(
+        tree_config,
+        n_trees=n_trees,
+        seed_start=seed_start,
+        min_leaves=min_leaves,
+        min_depth=min_depth,
+        max_candidates=max_candidates,
+        tree_id_prefix=tree_id_prefix,
+    )
+    args.out_dir.mkdir(parents=True, exist_ok=True)
+    tree_reports = []
+    for item in generated:
+        manifest_path = args.out_dir / f"{item.tree_id}{manifest_suffix}"
+        rows = write_manifest_jsonl(item.root, manifest_path)
+        tree_reports.append(
+            {
+                "tree_id": item.tree_id,
+                "seed": item.seed,
+                "candidate_index": item.candidate_index,
+                "manifest": str(manifest_path),
+                "n_rows": len(rows),
+                **item.stats,
+            }
+        )
+
+    summary = {
+        "config": str(args.config),
+        "out_dir": str(args.out_dir),
+        "n_trees": len(tree_reports),
+        "seed_start": seed_start,
+        "min_leaves": min_leaves,
+        "min_depth": min_depth,
+        "max_candidates": max_candidates,
+        "accepted_candidate_span": generated[-1].candidate_index + 1 if generated else 0,
+        "leaf_counts": _count_values(report["n_leaves"] for report in tree_reports),
+        "depth_counts": _count_values(report["max_depth"] for report in tree_reports),
+        "trees": tree_reports,
+    }
+    summary_out = args.summary_out or args.out_dir / "tree_set_summary.json"
+    _emit_json(summary, summary_out)
+    print(json.dumps({key: summary[key] for key in ("out_dir", "n_trees", "leaf_counts", "depth_counts")}, indent=2))
     return 0
 
 
@@ -186,6 +254,23 @@ def _make_ellmtrees_variants_table(args: argparse.Namespace) -> int:
         "csv_out": str(args.csv_out) if args.csv_out else None,
         "n_rows": len(rows),
         "variants": [str(row["variant_id"]) for row in rows],
+    }
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
+def _make_behavior_holdout_table(args: argparse.Namespace) -> int:
+    rows = behavior_holdout_draft_table_rows(args.draft)
+    if args.out:
+        write_behavior_holdout_table_json(rows, args.out, draft=args.draft)
+    if args.csv_out:
+        write_behavior_holdout_table_csv(rows, args.csv_out)
+    summary = {
+        "draft": str(args.draft),
+        "out": str(args.out) if args.out else None,
+        "csv_out": str(args.csv_out) if args.csv_out else None,
+        "n_rows": len(rows),
+        "models": sorted({str(row["model"]) for row in rows}),
     }
     print(json.dumps(summary, indent=2, sort_keys=True))
     return 0
@@ -542,6 +627,21 @@ def _optional_path(value: object) -> Path | None:
     return None if value is None else Path(str(value))
 
 
+def _optional_int(*values: object) -> int | None:
+    for value in values:
+        if value is not None:
+            return int(value)
+    return None
+
+
+def _count_values(values: object) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for value in values:
+        key = str(value)
+        counts[key] = counts.get(key, 0) + 1
+    return {key: counts[key] for key in sorted(counts, key=lambda item: int(item))}
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="wt", description="WeightTraits utilities")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -559,6 +659,20 @@ def build_parser() -> argparse.ArgumentParser:
     generate.add_argument("--config", type=Path, required=True, help="YAML file with a top-level tree section")
     generate.add_argument("--out", type=Path, help="Optional manifest JSONL output path")
     generate.set_defaults(func=_generate_tree)
+
+    generate_set = sub.add_parser(
+        "generate-tree-set",
+        help="Generate multiple accepted topology manifests from one stochastic tree config",
+    )
+    generate_set.add_argument("--config", type=Path, required=True, help="YAML file with tree/tree_set sections")
+    generate_set.add_argument("--out-dir", type=Path, required=True, help="Directory for generated manifests")
+    generate_set.add_argument("--summary-out", type=Path, help="Optional summary JSON path")
+    generate_set.add_argument("--n-trees", type=int, help="Override tree_set.n_trees")
+    generate_set.add_argument("--seed-start", type=int, help="Override tree_set.seed_start")
+    generate_set.add_argument("--min-leaves", type=int, help="Override acceptance minimum leaf count")
+    generate_set.add_argument("--min-depth", type=int, help="Override acceptance minimum max depth")
+    generate_set.add_argument("--max-candidates", type=int, default=10_000)
+    generate_set.set_defaults(func=_generate_tree_set)
 
     assign = sub.add_parser("assign-task-data", help="Enrich a topology manifest with task/data choices")
     assign.add_argument("--manifest", type=Path, required=True, help="Topology manifest JSONL")
@@ -620,6 +734,15 @@ def build_parser() -> argparse.ArgumentParser:
     ellmtrees_variants_table.add_argument("--out", type=Path, help="Optional JSON table output")
     ellmtrees_variants_table.add_argument("--csv-out", type=Path, help="Optional CSV table output")
     ellmtrees_variants_table.set_defaults(func=_make_ellmtrees_variants_table)
+
+    behavior_holdout_table = sub.add_parser(
+        "make-behavior-holdout-table",
+        help="Extract the live draft tab:behavior_holdout table as JSON/CSV rows",
+    )
+    behavior_holdout_table.add_argument("--draft", type=Path, required=True)
+    behavior_holdout_table.add_argument("--out", type=Path, help="Optional JSON table output")
+    behavior_holdout_table.add_argument("--csv-out", type=Path, help="Optional CSV table output")
+    behavior_holdout_table.set_defaults(func=_make_behavior_holdout_table)
 
     table_registry = sub.add_parser(
         "validate-table-registry",

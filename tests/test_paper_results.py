@@ -6,12 +6,15 @@ from pathlib import Path
 import pytest
 
 from weighttraits.paper.results import (
+    behavior_holdout_draft_table_rows,
     compare_table_artifacts,
     ellmtrees_variants_table_rows,
     recovery_table_rows,
     run_table_registry_comparisons,
     validate_reference_registry,
     validate_table_registry,
+    write_behavior_holdout_table_csv,
+    write_behavior_holdout_table_json,
     write_ellmtrees_variants_table_csv,
     write_ellmtrees_variants_table_json,
     write_recovery_table_csv,
@@ -501,6 +504,45 @@ tables:
     assert not report["valid"]
     assert report["issues"][0]["code"] == "comparison_failed"
     assert report["comparisons"][0]["issues"][0]["code"] == "value_mismatch"
+
+
+def test_behavior_holdout_draft_table_rows_parse_shortstack_cells(tmp_path):
+    draft = tmp_path / "draft.tex"
+    draft.write_text(
+        r"""
+\begin{table}[t]
+\label{tab:behavior_holdout}
+\begin{tabular}{lcccccc}
+\toprule
+DL $r$ [95\% CI] & \multicolumn{2}{c}{Translation} & HellaSwag & ARC-C & MMLU & TruthfulQA \\
+\midrule
+Llama-3.2-1B & \shortstack{$-0.29$\\{\scriptsize$[-.41,-.17]$}} & \shortstack{$-0.33$\\{\scriptsize$[-.43,-.23]$}} & \shortstack{$-0.20$\\{\scriptsize$[-.32,-.08]$}} & \shortstack{$-0.26$\\{\scriptsize$[-.36,-.15]$}} & \shortstack{$-0.25$\\{\scriptsize$[-.36,-.13]$}} & \shortstack{$-0.33$\\{\scriptsize$[-.44,-.21]$}} \\
+\addlinespace
+Flan-T5-base & \shortstack{$-0.26$\\{\scriptsize$[-.35,-.16]$}} & \shortstack{$+0.11^{\ddagger}$\\{\scriptsize$[+.02,+.21]$}} & \shortstack{$-0.29$\\{\scriptsize$[-.37,-.21]$}} & --- & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+"""
+    )
+    json_out = tmp_path / "behavior.json"
+    csv_out = tmp_path / "behavior.csv"
+
+    rows = behavior_holdout_draft_table_rows(draft)
+    write_behavior_holdout_table_json(rows, json_out, draft=draft)
+    write_behavior_holdout_table_csv(rows, csv_out)
+
+    assert len(rows) == 12
+    assert rows[0]["model"] == "Llama-3.2-1B"
+    assert rows[0]["probe"] == "Translation"
+    assert rows[0]["condition"] == "trained"
+    assert rows[0]["r"] == -0.29
+    assert rows[7]["note"] == "ddagger"
+    assert rows[-1]["note"] == "not_reported"
+    assert json.loads(json_out.read_text())["n_rows"] == 12
+    with csv_out.open() as handle:
+        csv_rows = list(csv.DictReader(handle))
+    assert csv_rows[-1]["probe"] == "TruthfulQA"
+    assert csv_rows[-1]["r"] == ""
 
 
 def test_validate_reference_registry_checks_paths_sources_and_digests(tmp_path):

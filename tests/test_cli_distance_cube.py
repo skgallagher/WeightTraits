@@ -66,6 +66,33 @@ def test_make_distance_input_manifest_parser_accepts_ledger_and_truth_manifest()
     assert args.out == Path("/tmp/distance_inputs.yaml")
 
 
+def test_generate_tree_set_parser_accepts_batch_options():
+    args = build_parser().parse_args(
+        [
+            "generate-tree-set",
+            "--config",
+            "examples/trees/confirm_paper_numbers.yaml",
+            "--out-dir",
+            "/tmp/trees",
+            "--summary-out",
+            "/tmp/tree_set_summary.json",
+            "--n-trees",
+            "50",
+            "--seed-start",
+            "20260707",
+            "--min-leaves",
+            "4",
+        ]
+    )
+
+    assert args.config == Path("examples/trees/confirm_paper_numbers.yaml")
+    assert args.out_dir == Path("/tmp/trees")
+    assert args.summary_out == Path("/tmp/tree_set_summary.json")
+    assert args.n_trees == 50
+    assert args.seed_start == 20260707
+    assert args.min_leaves == 4
+
+
 def test_analyze_training_ledger_parser_accepts_workflow_options():
     args = build_parser().parse_args(
         [
@@ -132,6 +159,24 @@ def test_make_ellmtrees_variants_table_parser_accepts_registry_outputs():
     assert args.base_dir == Path("/tmp/run")
     assert args.out == Path("/tmp/variants.json")
     assert args.csv_out == Path("/tmp/variants.csv")
+
+
+def test_make_behavior_holdout_table_parser_accepts_outputs():
+    args = build_parser().parse_args(
+        [
+            "make-behavior-holdout-table",
+            "--draft",
+            "../ELLMTrees-paper/iclr_draft_v2.tex",
+            "--out",
+            "/tmp/behavior.json",
+            "--csv-out",
+            "/tmp/behavior.csv",
+        ]
+    )
+
+    assert args.draft == Path("../ELLMTrees-paper/iclr_draft_v2.tex")
+    assert args.out == Path("/tmp/behavior.json")
+    assert args.csv_out == Path("/tmp/behavior.csv")
 
 
 def test_validate_table_registry_parser_accepts_output_checks():

@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import yaml
@@ -66,3 +67,19 @@ def test_all_tree_examples_generate_valid_manifests():
         assert all(row["path"][0] == "root" for row in rows), path
         _check_expectations(stats, config["expect"])
 
+
+def test_confirm_paper_numbers_tree_set_has_50_min_leaf_manifests():
+    repo = Path(__file__).resolve().parents[1]
+    summary_path = repo / "examples/training/confirm_paper_numbers/tree_set_summary.json"
+    summary = json.loads(summary_path.read_text())
+
+    assert summary["n_trees"] == 50
+    assert summary["min_leaves"] == 4
+    assert len(summary["trees"]) == 50
+    for tree in summary["trees"]:
+        manifest = repo / tree["manifest"]
+        rows = [json.loads(line) for line in manifest.read_text().splitlines()]
+        leaf_ids = {row["node_id"] for row in rows} - {row["parent_id"] for row in rows if row["parent_id"]}
+        assert len(rows) == tree["n_rows"]
+        assert len(leaf_ids) == tree["n_leaves"]
+        assert tree["n_leaves"] >= 4

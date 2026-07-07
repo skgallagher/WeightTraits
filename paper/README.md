@@ -39,6 +39,15 @@ PYTHONPATH=src python -m weighttraits.cli make-ellmtrees-variants-table \
   --csv-out reports/paper/ellmtrees_variants_reference.csv
 ```
 
+Extract the live draft `tab:behavior_holdout` reference table:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-behavior-holdout-table \
+  --draft ../ELLMTrees-paper/iclr_draft_v2.tex \
+  --out reports/paper/behavior_holdout_reference.json \
+  --csv-out reports/paper/behavior_holdout_reference.csv
+```
+
 Run registered table comparisons against paper-grounded references:
 
 ```bash
