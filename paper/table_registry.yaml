@@ -24,3 +24,33 @@ tables:
     expected_rows: 18
     paper_location: provisional-smoke-registry
     verification_status: wright_smoke_verified
+
+  - id: ellmtrees_variants_reference
+    title: Legacy ELLMTrees tab:variants reference
+    status: reference_pinned
+    registry: paper/ellmtrees_variants_registry.yaml
+    source_command: >
+      PYTHONPATH=src python -m weighttraits.cli make-ellmtrees-variants-table
+      --registry paper/ellmtrees_variants_registry.yaml
+      --out reports/paper/ellmtrees_variants_reference.json
+      --csv-out reports/paper/ellmtrees_variants_reference.csv
+    source_inputs:
+      - paper/ellmtrees_variants_registry.yaml
+      - ../ELLMTrees/results/aggregate/recovery_rescore/by_group_cosine.csv
+      - ../ELLMTrees/results/aggregate/recovery_rescore/per_run_cosine.csv
+      - ../ELLMTrees/results/aggregate/branch_structure.csv
+      - ../ELLMTrees/results/aggregate/lora_k_only_branch_structure.csv
+      - ../ELLMTrees/results/aggregate/lora_qkv_branch_structure.csv
+      - ../ELLMTrees/results/aggregate/lora_full_attn_branch_structure.csv
+      - ../ELLMTrees/results/aggregate/lora_full_ft_approx_branch_structure.csv
+      - ../ELLMTrees/results/aggregate/runs_llama1b_base_qkv_branch_structure.csv
+      - ../ELLMTrees/results/aggregate/runs_llama1b_base_qkv_r64_branch_structure.csv
+      - ../ELLMTrees/results/aggregate/llama1b_base_full_ft_branch_structure.csv
+    outputs:
+      - path: reports/paper/ellmtrees_variants_reference.json
+        sha256: a6f23d45a7451da2ae784996278971ee02420291c372d520482366a31d5fe8c7
+      - path: reports/paper/ellmtrees_variants_reference.csv
+        sha256: 26a142a7cc9b58bea7e750260b264960a159615caef6949bc2afffe8cdbe977c
+    expected_rows: 8
+    paper_location: iclr_draft_v2 tab:variants reference
+    verification_status: local_reference_verified

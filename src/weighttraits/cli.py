@@ -19,8 +19,13 @@ from weighttraits.distances.readers import CumulativeLoraReader, LoraFactorReade
 from weighttraits.distances.streaming import build_distance_cube, write_distance_cube
 from weighttraits.manifests.reference import manifest_leaf_ids
 from weighttraits.paper.results import (
+    compare_table_artifacts,
+    ellmtrees_variants_table_rows,
     recovery_table_rows,
+    validate_reference_registry,
     validate_table_registry,
+    write_ellmtrees_variants_table_csv,
+    write_ellmtrees_variants_table_json,
     write_recovery_table_csv,
     write_recovery_table_json,
 )
@@ -167,11 +172,54 @@ def _make_recovery_table(args: argparse.Namespace) -> int:
     return 0
 
 
+def _make_ellmtrees_variants_table(args: argparse.Namespace) -> int:
+    rows = ellmtrees_variants_table_rows(args.registry, base_dir=args.base_dir)
+    if args.out:
+        write_ellmtrees_variants_table_json(rows, args.out, registry=args.registry)
+    if args.csv_out:
+        write_ellmtrees_variants_table_csv(rows, args.csv_out)
+    summary = {
+        "registry": str(args.registry),
+        "base_dir": str(args.base_dir),
+        "out": str(args.out) if args.out else None,
+        "csv_out": str(args.csv_out) if args.csv_out else None,
+        "n_rows": len(rows),
+        "variants": [str(row["variant_id"]) for row in rows],
+    }
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
 def _validate_table_registry(args: argparse.Namespace) -> int:
     report = validate_table_registry(
         args.registry,
         base_dir=args.base_dir,
         require_outputs=args.require_outputs,
+    )
+    _emit_json(report, args.out)
+    return 0 if report["valid"] or args.allow_issues else 1
+
+
+def _validate_reference_registry(args: argparse.Namespace) -> int:
+    report = validate_reference_registry(
+        args.registry,
+        base_dir=args.base_dir,
+    )
+    _emit_json(report, args.out)
+    return 0 if report["valid"] or args.allow_issues else 1
+
+
+def _compare_table_artifacts(args: argparse.Namespace) -> int:
+    report = compare_table_artifacts(
+        args.reference,
+        args.candidate,
+        key_columns=args.key_column,
+        compare_columns=args.compare_column,
+        numeric_columns=args.numeric_column,
+        ignore_columns=args.ignore_column,
+        base_dir=args.base_dir,
+        atol=args.atol,
+        rtol=args.rtol,
     )
     _emit_json(report, args.out)
     return 0 if report["valid"] or args.allow_issues else 1
@@ -551,6 +599,21 @@ def build_parser() -> argparse.ArgumentParser:
     recovery_table.add_argument("--csv-out", type=Path, help="Optional CSV table output")
     recovery_table.set_defaults(func=_make_recovery_table)
 
+    ellmtrees_variants_table = sub.add_parser(
+        "make-ellmtrees-variants-table",
+        help="Build the old ELLMTrees tab:variants reference table from pinned source CSVs",
+    )
+    ellmtrees_variants_table.add_argument("--registry", type=Path, required=True)
+    ellmtrees_variants_table.add_argument(
+        "--base-dir",
+        type=Path,
+        default=Path("."),
+        help="Base directory used to resolve relative source paths",
+    )
+    ellmtrees_variants_table.add_argument("--out", type=Path, help="Optional JSON table output")
+    ellmtrees_variants_table.add_argument("--csv-out", type=Path, help="Optional CSV table output")
+    ellmtrees_variants_table.set_defaults(func=_make_ellmtrees_variants_table)
+
     table_registry = sub.add_parser(
         "validate-table-registry",
         help="Validate paper table registry inputs and optional generated outputs",
@@ -570,6 +633,56 @@ def build_parser() -> argparse.ArgumentParser:
     table_registry.add_argument("--out", type=Path)
     table_registry.add_argument("--allow-issues", action="store_true")
     table_registry.set_defaults(func=_validate_table_registry)
+
+    reference_registry = sub.add_parser(
+        "validate-reference-registry",
+        help="Validate paper reference paths, draft labels, and optional SHA-256 digests",
+    )
+    reference_registry.add_argument("--registry", type=Path, required=True)
+    reference_registry.add_argument(
+        "--base-dir",
+        type=Path,
+        default=Path("."),
+        help="Base directory used to resolve relative registry paths",
+    )
+    reference_registry.add_argument("--out", type=Path)
+    reference_registry.add_argument("--allow-issues", action="store_true")
+    reference_registry.set_defaults(func=_validate_reference_registry)
+
+    table_compare = sub.add_parser(
+        "compare-table-artifacts",
+        help="Compare two generated paper table artifacts row-by-row",
+    )
+    table_compare.add_argument("--reference", type=Path, required=True)
+    table_compare.add_argument("--candidate", type=Path, required=True)
+    table_compare.add_argument(
+        "--base-dir",
+        type=Path,
+        default=Path("."),
+        help="Base directory used to resolve relative table paths",
+    )
+    table_compare.add_argument(
+        "--key-column",
+        action="append",
+        required=True,
+        help="Column used as a row key; repeat for composite keys",
+    )
+    table_compare.add_argument(
+        "--compare-column",
+        action="append",
+        help="Column to compare; defaults to all non-key, non-ignored columns",
+    )
+    table_compare.add_argument(
+        "--numeric-column",
+        action="append",
+        help="Column compared numerically with --atol/--rtol",
+    )
+    table_compare.add_argument("--ignore-column", action="append", help="Column ignored during comparison")
+    table_compare.add_argument("--atol", type=float, default=1e-9)
+    table_compare.add_argument("--rtol", type=float, default=1e-9)
+    table_compare.add_argument("--out", type=Path)
+    table_compare.add_argument("--allow-issues", action="store_true")
+    table_compare.set_defaults(func=_compare_table_artifacts)
 
     cube = sub.add_parser("build-distance-cube", help="Build a streaming distance cube")
     cube.add_argument(

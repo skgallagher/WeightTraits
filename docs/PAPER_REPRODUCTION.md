@@ -2,12 +2,20 @@
 
 The ICLR draft should eventually be rebuilt as a consequence of registered artifacts, not as a manual copy of old figures and tables.
 
+Current active draft: `../ELLMTrees-paper/iclr_draft_v2.tex`. As of 2026-07-07, Shannon is roughly
+two-thirds through this draft and is revising the results section. Use this file as the live target
+for stale-claim audits and result traceability; treat older draft files as references.
+
 ## Registry Files
 
 - `paper/figure_registry.yaml`: one entry per figure panel or standalone figure.
 - `paper/table_registry.yaml`: one entry per table.
 - `paper/recovery_registry.yaml`: registered whitebox recovery summary artifacts that can feed
   recovery tables.
+- `paper/reference_registry.yaml`: pinned live-draft, figure, table, source-script, and source-data
+  references from the old ELLMTrees paper/results repos.
+- `paper/ellmtrees_variants_registry.yaml`: row mapping for the generated legacy `tab:variants`
+  reference table.
 
 Each entry should include:
 - artifact path
@@ -27,15 +35,49 @@ PYTHONPATH=src python -m weighttraits.cli validate-table-registry \
 
 Use `--require-outputs` for paper-build gates and omit it when only source inputs should be checked.
 
+The current ELLMTrees reference surface can be checked with:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli validate-reference-registry \
+  --registry paper/reference_registry.yaml
+```
+
+When `active_draft` is set, this also checks that every `fig:` and `tab:` label in the active draft
+has a registry entry and that registered draft labels have not gone stale.
+
+The old ELLMTrees `tab:variants` reference table can be regenerated from pinned CSVs with:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-ellmtrees-variants-table \
+  --registry paper/ellmtrees_variants_registry.yaml \
+  --out reports/paper/ellmtrees_variants_reference.json \
+  --csv-out reports/paper/ellmtrees_variants_reference.csv
+```
+
+Generated paper tables can be compared against a paper-grounded reference with:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli compare-table-artifacts \
+  --reference reports/paper/ellmtrees_variants_reference.csv \
+  --candidate reports/paper/ellmtrees_variants_reference.json \
+  --key-column variant_id \
+  --out reports/paper/ellmtrees_variants_reference_compare.json
+```
+
+Use `--numeric-column`, `--atol`, `--rtol`, and `--ignore-column` when comparing a rebuilt
+WeightTraits table to a pinned latest-paper reference whose metadata columns or floating-point
+formatting may differ.
+
 ## Rebuild Order
 
-1. Freeze the current ELLMTrees paper artifacts as references.
+1. Treat the latest paper state as ground truth and freeze the corresponding paper artifacts as references.
 2. Rebuild whitebox recovery figures.
 3. Rebuild layer and scope-condition figures.
 4. Rebuild behavioral/regression tables with R cross-checks.
 5. Rebuild HF-zoo and blackbox validation figures.
 6. Compile the paper from a clean checkout.
-7. Run a stale-claim audit against old `paper.tex`, `CLAUDE.md`, and handoff notes.
+7. Run a stale-claim audit against `../ELLMTrees-paper/iclr_draft_v2.tex`, older draft files,
+   `CLAUDE.md`, and handoff notes.
 
 ## Paper Gate
 

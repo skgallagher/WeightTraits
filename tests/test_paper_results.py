@@ -6,8 +6,13 @@ from pathlib import Path
 import pytest
 
 from weighttraits.paper.results import (
+    compare_table_artifacts,
+    ellmtrees_variants_table_rows,
     recovery_table_rows,
+    validate_reference_registry,
     validate_table_registry,
+    write_ellmtrees_variants_table_csv,
+    write_ellmtrees_variants_table_json,
     write_recovery_table_csv,
     write_recovery_table_json,
 )
@@ -339,3 +344,315 @@ tables:
 
     assert not report["valid"]
     assert report["issues"][0]["code"] == "sha256_mismatch"
+
+
+def test_compare_table_artifacts_accepts_matching_rows_with_numeric_tolerance(tmp_path):
+    reference = tmp_path / "reference.csv"
+    candidate = tmp_path / "candidate.json"
+    reference.write_text(
+        "\n".join(
+            [
+                "variant_id,label,score,source",
+                "a,Alpha,1.000000001,old.csv",
+                "b,Beta,2.5,old.csv",
+            ]
+        )
+        + "\n"
+    )
+    candidate.write_text(
+        json.dumps(
+            {
+                "rows": [
+                    {"variant_id": "b", "label": "Beta", "score": 2.5, "source": "new.csv"},
+                    {"variant_id": "a", "label": "Alpha", "score": 1.0, "source": "new.csv"},
+                ]
+            }
+        )
+        + "\n"
+    )
+
+    report = compare_table_artifacts(
+        reference,
+        candidate,
+        key_columns=["variant_id"],
+        numeric_columns=["score"],
+        ignore_columns=["source"],
+        atol=1e-6,
+    )
+
+    assert report["valid"]
+    assert report["n_reference_rows"] == 2
+    assert report["n_candidate_rows"] == 2
+    assert report["n_matched_rows"] == 2
+    assert report["n_issues"] == 0
+
+
+def test_compare_table_artifacts_reports_row_and_value_mismatches(tmp_path):
+    reference = tmp_path / "reference.csv"
+    candidate = tmp_path / "candidate.csv"
+    reference.write_text("id,label,score\none,One,1.0\ntwo,Two,2.0\n")
+    candidate.write_text("id,label,score\none,Uno,1.25\nthree,Three,3.0\n")
+
+    report = compare_table_artifacts(
+        reference,
+        candidate,
+        key_columns=["id"],
+        numeric_columns=["score"],
+        atol=0.01,
+    )
+
+    assert not report["valid"]
+    assert [issue["code"] for issue in report["issues"]] == [
+        "missing_row",
+        "extra_row",
+        "value_mismatch",
+        "numeric_mismatch",
+    ]
+
+
+def test_validate_reference_registry_checks_paths_sources_and_digests(tmp_path):
+    draft = tmp_path / "ELLMTrees-paper/iclr_draft_v2.tex"
+    figure = tmp_path / "ELLMTrees-paper/figures/fig.png"
+    source = tmp_path / "ELLMTrees/scripts/make_fig.py"
+    registry = tmp_path / "paper/reference_registry.yaml"
+    draft.parent.mkdir(parents=True)
+    figure.parent.mkdir(parents=True)
+    source.parent.mkdir(parents=True)
+    registry.parent.mkdir(parents=True)
+    draft.write_text("draft\n")
+    figure.write_bytes(b"figure")
+    source.write_text("print('figure')\n")
+    figure_digest = hashlib.sha256(figure.read_bytes()).hexdigest()
+    source_digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    registry.write_text(
+        f"""
+version: 1
+entries:
+  - id: active_draft_v2
+    kind: draft
+    classification: live_target
+    status: in_progress
+    path: ELLMTrees-paper/iclr_draft_v2.tex
+  - id: fig:example
+    kind: figure
+    classification: paper_critical
+    status: reference_pinned
+    path: ELLMTrees-paper/figures/fig.png
+    sha256: {figure_digest}
+    source_inputs:
+      - path: ELLMTrees/scripts/make_fig.py
+        role: generator
+        sha256: {source_digest}
+"""
+    )
+
+    report = validate_reference_registry(registry, base_dir=tmp_path)
+
+    assert report["valid"]
+    assert report["n_entries"] == 2
+    assert report["entries"][1]["path"]["observed_sha256"] == figure_digest
+    assert report["entries"][1]["source_inputs"][0]["observed_sha256"] == source_digest
+
+
+def test_validate_reference_registry_checks_active_draft_label_coverage(tmp_path):
+    draft = tmp_path / "iclr_draft_v2.tex"
+    registry = tmp_path / "reference_registry.yaml"
+    draft.write_text(
+        r"""
+\begin{figure}
+\label{fig:covered}
+\end{figure}
+\begin{table}
+\label{tab:missing}
+\end{table}
+"""
+    )
+    registry.write_text(
+        """
+version: 1
+active_draft: iclr_draft_v2.tex
+entries:
+  - id: fig:covered
+    kind: figure
+    classification: paper_critical
+    status: reference_pinned
+    path: iclr_draft_v2.tex
+  - id: fig:stale
+    kind: figure
+    classification: paper_critical
+    status: reference_pinned
+    path: iclr_draft_v2.tex
+"""
+    )
+
+    report = validate_reference_registry(registry, base_dir=tmp_path)
+
+    assert not report["valid"]
+    assert report["draft_label_coverage"]["labels"] == ["fig:covered", "tab:missing"]
+    assert report["draft_label_coverage"]["missing_labels"] == ["tab:missing"]
+    assert report["draft_label_coverage"]["stale_registered_labels"] == ["fig:stale"]
+    assert [issue["code"] for issue in report["issues"]] == [
+        "missing_draft_label_entry",
+        "stale_draft_label_entry",
+    ]
+
+
+def test_validate_reference_registry_reports_missing_source(tmp_path):
+    figure = tmp_path / "fig.png"
+    registry = tmp_path / "reference_registry.yaml"
+    figure.write_bytes(b"figure")
+    registry.write_text(
+        """
+version: 1
+entries:
+  - id: fig:missing_source
+    kind: figure
+    classification: paper_critical
+    status: reference_pinned
+    path: fig.png
+    source_inputs:
+      - path: missing.py
+        role: generator
+"""
+    )
+
+    report = validate_reference_registry(registry, base_dir=tmp_path)
+
+    assert not report["valid"]
+    assert report["issues"][0]["code"] == "missing_source_input"
+
+
+def test_validate_reference_registry_reports_digest_mismatch(tmp_path):
+    draft = tmp_path / "iclr_draft_v2.tex"
+    registry = tmp_path / "reference_registry.yaml"
+    draft.write_text("draft\n")
+    registry.write_text(
+        """
+version: 1
+entries:
+  - id: active_draft_v2
+    kind: draft
+    classification: live_target
+    status: in_progress
+    path: iclr_draft_v2.tex
+    sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+"""
+    )
+
+    report = validate_reference_registry(registry, base_dir=tmp_path)
+
+    assert not report["valid"]
+    assert report["issues"][0]["code"] == "sha256_mismatch"
+
+
+def test_ellmtrees_variants_table_rows_join_recovery_and_branch_stats(tmp_path):
+    recovery = tmp_path / "aggregate/by_group_cosine.csv"
+    per_run = tmp_path / "aggregate/per_run_cosine.csv"
+    branch = tmp_path / "aggregate/branch_structure.csv"
+    registry = tmp_path / "paper/ellmtrees_variants_registry.yaml"
+    recovery.parent.mkdir(parents=True)
+    registry.parent.mkdir(parents=True)
+    recovery.write_text(
+        "\n".join(
+            [
+                "group,n_runs,mean_RF,mean_FN,mean_clade_recovery,pct_refinement_FN0",
+                "runs_example,2,1.0,0.5,75.0,50.0",
+            ]
+        )
+        + "\n"
+    )
+    per_run.write_text(
+        "\n".join(
+            [
+                "group,run,clade_recovery,refinement,RF,FN",
+                "runs_example,run_001,1.0,1,0,0",
+                "runs_example,run_002,0.5,0,2,1",
+            ]
+        )
+        + "\n"
+    )
+    branch.write_text(
+        "\n".join(
+            [
+                "run_id,node_i,node_j,same_branch,cosine_dist",
+                "run_001,a,b,1,0.1",
+                "run_001,a,c,0,0.4",
+                "run_001,b,c,0,0.3",
+                "run_002,a,b,1,0.2",
+                "run_002,a,c,0,0.3",
+                "run_002,b,c,0,0.4",
+            ]
+        )
+        + "\n"
+    )
+    registry.write_text(
+        """
+version: 1
+recovery_source: aggregate/by_group_cosine.csv
+per_run_recovery_source: aggregate/per_run_cosine.csv
+variants:
+  - id: example
+    section: Example
+    model: ExampleModel
+    label: Example variant
+    recovery_group: runs_example
+    branch_source: aggregate/branch_structure.csv
+"""
+    )
+
+    rows = ellmtrees_variants_table_rows(registry, base_dir=tmp_path)
+
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["variant_id"] == "example"
+    assert row["n_runs"] == 2
+    assert row["n_ordering_runs"] == 2
+    assert row["n_pairs"] == 6
+    assert row["rank_biserial"] == 1.0
+    assert row["clade_recovery_pct"] == 75.0
+    assert row["exact_recovery_pct"] == 50.0
+    assert row["rf_mean"] == 1.0
+    assert row["fn_mean"] == 0.5
+
+
+def test_ellmtrees_variants_table_writers_emit_json_and_csv(tmp_path):
+    rows = [
+        {
+            "variant_id": "example",
+            "section": "Example",
+            "model": "ExampleModel",
+            "label": "Example variant",
+            "recovery_group": "runs_example",
+            "n_runs": 2,
+            "n_ordering_runs": 2,
+            "n_pairs": 6,
+            "rank_biserial": 1.0,
+            "rank_biserial_se": 0.0,
+            "within_run_r": -0.9,
+            "within_run_r_se": 0.1,
+            "clade_recovery_pct": 75.0,
+            "clade_recovery_se_pct": 25.0,
+            "exact_recovery_pct": 50.0,
+            "exact_recovery_se_pct": 35.35,
+            "rf_mean": 1.0,
+            "rf_se": 1.0,
+            "fn_mean": 0.5,
+            "fn_se": 0.5,
+            "recovery_source": "by_group.csv",
+            "per_run_recovery_source": "per_run.csv",
+            "branch_source": "branch.csv",
+        }
+    ]
+    json_out = tmp_path / "variants.json"
+    csv_out = tmp_path / "variants.csv"
+
+    write_ellmtrees_variants_table_json(rows, json_out, registry="paper/variants.yaml")
+    write_ellmtrees_variants_table_csv(rows, csv_out)
+
+    payload = json.loads(json_out.read_text())
+    assert payload["n_rows"] == 1
+    assert payload["rows"][0]["variant_id"] == "example"
+    with csv_out.open() as handle:
+        csv_rows = list(csv.DictReader(handle))
+    assert csv_rows[0]["rank_biserial"] == "1.0"
+    assert csv_rows[0]["branch_source"] == "branch.csv"

@@ -6,38 +6,121 @@ Last updated: 2026-07-07.
 
 WeightTraits is a private, cleaner rebuild of ELLMTrees under `/Users/shannon/Desktop/phylo/WeightTraits`. It should remain maintainable, tested, auditable, and suitable for local smoke runs plus cluster-scale training. The main scientific targets are to independently rebuild and verify the ELLMTrees results, including the ICLR draft tables/figures, while fixing weak spots around flexible topology generation, LoRA semantics, distance computation, tree reconstruction scoring, and trainer reliability.
 
-## Current Git State
+## Current Checkpoint
 
-Stable base before the branching smoke slice:
+As of 2026-07-07, the project has a working end-to-end whitebox recovery spine:
+
+- Tiny/mid branching contrast fixtures train on Wright for full checkpoints and LoRA.
+- Standard full checkpoints, merged LoRA checkpoints, and cumulative LoRA adapter chains all feed the same `wt analyze-training-ledger` workflow.
+- The seven-leaf, four-split mid branching contrast truth is recovered exactly for steps2 and steps8 under `l2`, `cosine`, and `correlation`.
+- Cumulative LoRA `l2`, `cosine`, and `correlation` use the exact low-rank accumulator path, and the distance-cube audits record `lora_low_rank`.
+- `paper/recovery_registry.yaml` and `paper/table_registry.yaml` now drive the first paper-facing whitebox recovery table.
+- `wt validate-table-registry --require-outputs` validates source inputs, generated outputs, row counts, and SHA-256 digests.
+- `paper/reference_registry.yaml` pins the live v2 draft reference surface and can be checked with
+  `wt validate-reference-registry`.
+- `paper/ellmtrees_variants_registry.yaml` plus `wt make-ellmtrees-variants-table` now rebuild the
+  old ELLMTrees `tab:variants` reference table from pinned old CSVs.
+- `wt compare-table-artifacts` compares rebuilt JSON/CSV table artifacts against a paper-grounded
+  reference by key columns, with optional numeric tolerances and ignored metadata columns.
+
+Latest verified paper outputs:
 
 ```text
-28f133f Add tiny artifact distance smoke
+reports/paper/whitebox_smoke_recovery.json
+reports/paper/whitebox_smoke_recovery.csv
+reports/paper/ellmtrees_variants_reference.json
+reports/paper/ellmtrees_variants_reference.csv
+reports/paper/table_registry_validation.json
+reports/paper/reference_registry_validation.json
+reports/paper/ellmtrees_variants_reference_compare.json
 ```
 
-Recent pushed commits:
+These reports remain ignored by Git. The whitebox smoke reports were generated on Wright and pulled
+locally. The ELLMTrees variants reference was generated locally from old pinned CSVs. The table
+validation reports `valid=true`, `n_issues=0`, with `observed_rows=18` for whitebox smoke outputs and
+`observed_rows=8` for the legacy variants reference outputs, all with matching SHA-256 digests.
+The reference registry validation also reports `valid=true`, `n_issues=0`, and `n_entries=17`.
+It now checks active-draft label coverage as well: the current live draft has 14 `fig:`/`tab:` labels,
+all 14 are registered, and there are no stale registered draft labels.
+The variants reference comparison report has `valid=true`, `n_issues=0`, `n_reference_rows=8`,
+`n_candidate_rows=8`, `n_matched_rows=8`, and `n_compared_cells=176`.
+
+On 2026-07-07, the `fig:overview` and `fig:coherence_recovery` digests in
+`paper/reference_registry.yaml` were refreshed to match the current sibling reference files after
+`../ELLMTrees-paper/figures/fig1_paper_overview.{tex,pdf}`,
+`../ELLMTrees-paper/figures/fig4_coherence_atteson.png`,
+`../ELLMTrees/scripts/make_fig4_atteson_layers.py`, and
+`../ELLMTrees/results/aggregate/recovery_rescore/fig4_atteson_layermeans.png` changed. Do not edit
+those sibling repos from WeightTraits; treat future digest mismatches as reference-surface drift to
+inspect explicitly.
+
+Atteson-margin caveat: WeightTraits does not compute this margin yet. The active paper definition is
+the all-edge bottleneck, i.e. the minimum fitted edge length over internal and pendant edges divided
+by twice the non-additivity error. If WeightTraits later implements this computation, do not replace
+that definition with an internal-edge-only shortcut.
+After confirming this definition, the paper copy
+`../ELLMTrees-paper/figures/fig4_coherence_atteson.png` was refreshed again from
+`../ELLMTrees/results/aggregate/recovery_rescore/fig4_atteson_layermeans.png`; both now share
+SHA-256 `4c4cbd2b2742ad88ba41489ae22f25f3beef1c4796df1741f76a335c0c7d04c2`.
+
+Plan position:
+
+- Phase 2 core phylogenetic logic is in place for the whitebox paths exercised so far.
+- Phase 3 smoke/toy rebuild has a strong checkpoint.
+- Phase 5 whitebox experiment rebuild has a working tiny-to-mid scaffold.
+- Phase 4 paper/RF table infrastructure has started, but paper-critical RF tables are not rebuilt yet.
+- Phase 1 reference freeze is still the major missing foundation: old ELLMTrees paper artifacts, scripts, outputs, and digests need to be pinned before scaling further.
+
+Paper draft context:
+
+- The latest active draft is `../ELLMTrees-paper/iclr_draft_v2.tex`, not `iclr_draft.tex`.
+- Treat the latest paper state as ground truth. If older ELLMTrees notes or generated artifacts
+  conflict with the current paper, update the WeightTraits registry to the latest paper-grounded
+  state deliberately rather than preserving stale old-reference wording.
+- Shannon is roughly two-thirds through `iclr_draft_v2.tex` and is currently revising the results
+  section.
+- Treat `iclr_draft_v2.tex` as the live paper target for stale-claim and result-traceability work.
+  Older draft files remain useful references, but should not drive the current rebuild by default.
+- The initial v2 reference registry pins 17 entries: the active draft, old reproducibility/runbook
+  docs, five figure artifacts, all `fig:`/`tab:` labels in the live draft, and source inputs where
+  known. `tab:variants` is now also materialized as a generated JSON/CSV reference table.
+
+Recommended next slice:
+
+1. Decide which registered old result is the first non-toy RF/recovery table to rebuild through the
+   new WeightTraits `recovery_registry` -> `table_registry` -> digest path.
+2. Use `wt compare-table-artifacts` to compare the rebuilt WeightTraits table against the
+   latest-paper-grounded reference table.
+3. Preserve old ELLMTrees as read-only while rebuilding the selected table from WeightTraits outputs.
+
+## Git and Cluster Access
+
+Current committed checkpoint:
 
 ```text
-28f133f Add tiny artifact distance smoke
-523902b Add tiny lineage training smoke
-1a290eb Add Biopython reconstruction and Wright smoke fixes
-ee338ef Add tiny training smoke fixtures
-c749ba2 Add per-row training executor
-a20abaa Add training run list generation
-2745f70 Add training sample rendering audit
-1f2efd7 Add dataset audit handoff
-6fb2f1b Validate training data formats
-c83f4b6 Add training prompt validation and ledgers
-6d32e09 Add trainer planning controls
-015973a Support sharded distance inputs
-5eef610 Add streaming distance cube engine
-aeb41ea Document cumulative LoRA distance semantics
-f052600 Add flexible distance metric registry
-ee16c92 Add topology audit and recovery scoring
-710c8e5 Document and test tree generators
+124752e Pin paper table output digests
+b89764c Validate paper table registry outputs
+6472b7c Add whitebox recovery result registry
+df5eef3 Add steps8 mid branching smoke
+10156db Record mid branching Wright smoke
+5c5ce1a Add mid branching contrast smoke
+0ccb5b7 Record low-rank LoRA verification
+601b50e Add low-rank LoRA distance accumulation
 ```
 
-Local and Wright checkouts were clean at `28f133f` after pushing through Wright. Local GitHub SSH
-still failed with `Permission denied (publickey)`, so the successful push path was:
+Wright checkout was verified clean at `124752e`:
+
+```text
+ssh -S /tmp/wright-codex.sock wright
+cd /home/export/sgallagh/WeightTraits
+git status --short --branch
+```
+
+Before this handoff edit, local `HEAD` was also `124752e`. Local `git status --branch` may report
+`main...origin/main [ahead 4]` because the local `origin/main` tracking ref is stale after the
+Wright-mediated push. Wright confirms the pushed remote state.
+
+Local GitHub SSH still failed with `Permission denied (publickey)`, so the successful push path was:
 
 ```text
 local git bundle -> rsync over /tmp/wright-codex.sock -> git fetch bundle on Wright -> ff-only merge -> git push origin main
@@ -1076,13 +1159,15 @@ score rf=0, false_negative=0, false_positive=0, exact_tree_recovery=true
 
 ## Next Best Steps
 
-1. Decide the next scale-up smoke: either repeat the contrast topology with more training steps or
-   add a modestly larger branching topology before moving toward paper-critical RF tables.
-2. Use `wt analyze-training-ledger` for all new whitebox smoke outputs so every artifact mode gets
-   the same summary schema.
-3. Refine supervision templates:
-   - prefer explicit `trainer.target_field` or `trainer.target_template`;
-   - audit old prompt templates that currently include the answer in the rendered prompt.
+1. Use `reports/paper/ellmtrees_variants_reference.{json,csv}` as the old-reference target for the
+   first non-toy WeightTraits RF/recovery comparison table.
+2. Keep extending the Phase 1 reference freeze for any remaining appendix-only claims in
+   `../ELLMTrees-paper/iclr_draft_v2.tex`; use `paper/reference_registry.yaml` as the machine-readable
+   home for paths, digests, commands, and paper-critical/provisional/stale classification.
+3. Keep using `wt analyze-training-ledger` for whitebox recovery outputs so full checkpoints, merged
+   LoRA checkpoints, and cumulative LoRA adapter chains share one summary schema.
+4. Defer larger training or blackbox/HF-zoo scale-up until at least one old-vs-new paper-critical RF
+   table comparison has been wired into the registry gate.
 
 ## Important Caveats
 
@@ -1092,8 +1177,8 @@ score rf=0, false_negative=0, false_positive=0, exact_tree_recovery=true
 - LoRA `cosine`, `l2`, and `correlation` metrics now use exact low-rank factor accumulation;
   LoRA `l1` and `threshold` still stream dense `B @ A` row blocks.
 - The trainer execution loop has now been exercised on Wright with the tiny model
-  `hf-internal-testing/tiny-random-t5` for single-row, two-node lineage, and six-node branching
-  full/LoRA runs.
+  `hf-internal-testing/tiny-random-t5` for single-row, two-node lineage, six-node branching,
+  eleven-node mid-branching, and eleven-node steps8 full/LoRA runs.
 - Local outgoing Hugging Face traffic is disabled; run real model smoke/training on Wright or another prepared environment.
 - Local `datasets.load_dataset("json", ...)` may need `HF_DATASETS_CACHE` pointed to a writable scratch directory.
 - `wt audit-datasets` in load mode may require network access and the optional `datasets` dependency.

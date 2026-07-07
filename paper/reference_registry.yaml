@@ -1,0 +1,306 @@
+version: 1
+description: >
+  Reference surface for the live ELLMTrees ICLR v2 draft. Paths are resolved from the
+  WeightTraits repository root. The old ELLMTrees repositories are read-only references.
+created: 2026-07-07
+active_draft: ../ELLMTrees-paper/iclr_draft_v2.tex
+
+entries:
+  - id: active_draft_v2
+    kind: draft
+    classification: live_target
+    status: in_progress
+    paper_location: full_draft
+    path: ../ELLMTrees-paper/iclr_draft_v2.tex
+    notes: >
+      Shannon is roughly two-thirds through this draft and is revising the results
+      section. The live draft is intentionally checked for existence only until
+      it is ready for a final stale-claim freeze.
+
+  - id: reproducibility_map
+    kind: provenance_doc
+    classification: paper_critical
+    status: reference_pinned
+    paper_location: old_paper_reproduction_notes
+    path: ../ELLMTrees-paper/REPRODUCIBILITY.md
+    sha256: c98c9d87d1d4d1c2705233b0388820d4f549a3a2d7ba7e067d58f42668c6683e
+
+  - id: ellmtrees_runbook
+    kind: provenance_doc
+    classification: paper_critical
+    status: reference_pinned
+    paper_location: old_experiment_runbook
+    path: ../ELLMTrees/RUNBOOK.md
+    sha256: c523a72fbefba96e64122bd21181e9483ecfc954aa68656d337134ebeb8efc33
+
+  - id: fig:overview
+    kind: figure
+    classification: paper_critical
+    status: reference_pinned
+    paper_location: "Figure 1"
+    path: ../ELLMTrees-paper/figures/fig1_paper_overview.pdf
+    sha256: a24b269cdb4754d36c711fbc6745cab13050c68cd8a50fdd013208622c99c523
+    source_command: "cd ../ELLMTrees-paper/figures && pdflatex -interaction=nonstopmode fig1_paper_overview.tex"
+    source_inputs:
+      - path: ../ELLMTrees-paper/figures/fig1_paper_overview.tex
+        role: standalone_tikz_source
+        sha256: 87393181556d950b43decafc52fb5f7fbac5e6767dce8d66a2cb51084462d06c
+
+  - id: fig:coherence_recovery
+    kind: figure
+    classification: paper_critical
+    status: reference_pinned
+    paper_location: "Results Figure: coherence and Atteson"
+    path: ../ELLMTrees-paper/figures/fig4_coherence_atteson.png
+    sha256: 4c4cbd2b2742ad88ba41489ae22f25f3beef1c4796df1741f76a335c0c7d04c2
+    source_command: "cd ../ELLMTrees && python scripts/make_fig4_atteson_layers.py"
+    notes: >
+      The paper figure currently matches results/aggregate/recovery_rescore/fig4_atteson_layermeans.png,
+      not the older similarly named fig4_coherence_atteson.png under recovery_rescore. The active
+      paper's Atteson-margin definition is the all-edge bottleneck: the minimum fitted edge length
+      over internal and pendant edges, divided by twice the non-additivity error. Do not replace it
+      with an internal-edge-only shortcut if WeightTraits later implements this computation.
+    source_inputs:
+      - path: ../ELLMTrees/scripts/make_fig4_atteson_layers.py
+        role: generator
+        sha256: 31a339834cb8dc476128c0a6217a9d0536b2e0bec7200026edca5bf05695de59
+      - path: ../ELLMTrees/results/aggregate/recovery_rescore/fig4_atteson_layermeans.png
+        role: generated_reference
+        sha256: 4c4cbd2b2742ad88ba41489ae22f25f3beef1c4796df1741f76a335c0c7d04c2
+      - path: ../ELLMTrees/results/aggregate/recovery_rescore/fourpoint_additivity_by_group.csv
+        role: source_data
+        sha256: 2f6c0466fadd1885a0defafcf91714316ae5e91eab3ea573c02fd4473746900a
+      - path: ../ELLMTrees/results/aggregate/recovery_rescore/atteson_quartet_by_group.csv
+        role: source_data
+        sha256: 7833289c7c8609f2e95c9da0a1c1ff0debe384d458027d640082b3d438d9f036
+
+  - id: fig:real-trees
+    kind: figure
+    classification: paper_critical
+    status: reference_pinned
+    paper_location: "Results Figure: Mistral real family"
+    path: ../ELLMTrees-paper/figures/hf_mistral_hero_3panel.png
+    sha256: e4ee839ed855f1e7a920e1cba89e7fb9b5a91d6891aef1310c597892645ae8c4
+    source_command: >
+      cd ../ELLMTrees && python codex/score_hf_zoo_recovery.py --reference
+      outputs/hf_zoo/d_mistral_7b_resolved/manifest.jsonl --recon
+      results/hf_zoo/d_mistral_7b/weight_frechet && python codex/plot_hf_zoo_tree_vs_truth.py
+    source_inputs:
+      - path: ../ELLMTrees/codex/score_hf_zoo_recovery.py
+        role: scorer
+        sha256: 277ddf480c5bbf2736c82efd76c9d0d7d41fad1412df87e593fcf3c7bc58ae70
+      - path: ../ELLMTrees/codex/plot_hf_zoo_tree_vs_truth.py
+        role: plotter
+        sha256: 92ca1c175a3c684226948ff03555d5c2cba89a9556d27dc2bfcc50e8a8069171
+      - path: ../ELLMTrees/outputs/hf_zoo/d_mistral_7b_resolved/manifest.jsonl
+        role: truth_manifest
+        sha256: 660d8637523b23c1f9050f8a5023c7ce35ddceb51af14f1b101f1592f8a433dd
+      - path: ../ELLMTrees/results/hf_zoo/d_mistral_7b/weight_frechet/rf_summary.json
+        role: recovery_summary
+        sha256: 7535617716404fa9ef72af5bbf17bd85b78d1dc1072feca196f862c6fdb43c1b
+
+  - id: fig:layertrace_grid
+    kind: figure
+    classification: appendix_supporting
+    status: reference_pinned
+    paper_location: "Appendix Figure: LayerTrace"
+    path: ../ELLMTrees-paper/figures/fig3_layertrace_grid.png
+    sha256: d1ef49a4aca598e25dcad36cf3495500bf404c7f8ea045af094d6a782232b9d5
+    source_command: "cd ../ELLMTrees && python scripts/make_fig3_fn.py --group runs_branching_v3 && python scripts/make_layertrace_grid.py"
+    source_inputs:
+      - path: ../ELLMTrees/scripts/make_fig3_fn.py
+        role: generator
+        sha256: 43458feab02e64f95196392c35ba059592ae0000bbffb8be6800922a2c068fb3
+      - path: ../ELLMTrees/scripts/make_layertrace_grid.py
+        role: generator
+        sha256: 6511244248a4490cfe89370ab73aeebe1857ae47087449f7d657381ad4d4c670
+      - path: ../ELLMTrees/results/aggregate/recovery_rescore/fig_layertrace_grid.png
+        role: generated_reference
+        sha256: d1ef49a4aca598e25dcad36cf3495500bf404c7f8ea045af094d6a782232b9d5
+
+  - id: fig:regression_diagnostics
+    kind: figure
+    classification: appendix_supporting
+    status: reference_pinned
+    paper_location: "Appendix Figure: behavioral regression diagnostics"
+    path: ../ELLMTrees-paper/figures/regression_diagnostics_semantic.png
+    sha256: 616891636d085af9ce2c9a8d5710250265ea5504a6b48a0d4713cf86cdce684a
+    source_command: "cd ../ELLMTrees && python scripts/make_regression_diagnostics.py"
+    source_inputs:
+      - path: ../ELLMTrees/scripts/make_regression_diagnostics.py
+        role: generator
+        sha256: 77110fda3941e93b0a3a8dab962b5a833cba41fed318b3fdb94530268af427a4
+      - path: ../ELLMTrees/results/aggregate/behavior_meta_table.csv
+        role: source_data
+        sha256: 4d4d66c6f6371138d2c39e7a595d9555832af134617cbcbd5b0cf7445b2ca714
+
+  - id: tab:related
+    kind: table
+    classification: paper_context
+    status: static_definition
+    paper_location: "Related Work Table: lineage-estimation comparison"
+    path: ../ELLMTrees-paper/iclr_draft_v2.tex
+    notes: >
+      Static literature-positioning table embedded directly in the live draft.
+
+  - id: tab:variants
+    kind: table
+    classification: paper_critical
+    status: source_identified
+    paper_location: "Results Table: lineage signal and recovery by training regime"
+    path: ../ELLMTrees-paper/iclr_draft_v2.tex
+    source_command: >
+      cd ../ELLMTrees && python scripts/rescore_recovery.py --metric cosine --nperm 2000 &&
+      python scripts/analyze_branch_structure.py
+    source_inputs:
+      - path: ../ELLMTrees/results/aggregate/recovery_rescore/by_group_cosine.csv
+        role: recovery_source_data
+        sha256: cf7fb0abe8807bc7fbcf624af4030b6aedd451ae9200b7a10cadc001ddd3bc57
+      - path: ../ELLMTrees/results/aggregate/recovery_rescore/per_run_cosine.csv
+        role: per_run_recovery_source_data
+        sha256: 007eb01c118d75f0415d3b9d83b2d371ed387a9e72e20ab9d45e579b7a8711ba
+      - path: ../ELLMTrees/results/aggregate/branch_structure.csv
+        role: lineage_source_data
+        sha256: bf0439b5e70b3b062586de65ac75b399deef8d5c8ee77f1f710feba94cdae6d5
+      - path: ../ELLMTrees/results/aggregate/lora_k_only_branch_structure.csv
+        role: lineage_source_data
+        sha256: 764e7000fdd49bb461ebd951cbcf47c47f56fd1de4b4b5ac54040a6d68aa0029
+      - path: ../ELLMTrees/results/aggregate/lora_qkv_branch_structure.csv
+        role: lineage_source_data
+        sha256: 70d9027099e4969e46fb41b981ce45160af93ecb2ca4eea3551f39cf64ab9033
+      - path: ../ELLMTrees/results/aggregate/lora_full_attn_branch_structure.csv
+        role: lineage_source_data
+        sha256: 3ac5287f104e451c4065ffc148456b25c7350821542ceb8746ce5acd63907244
+      - path: ../ELLMTrees/results/aggregate/lora_full_ft_approx_branch_structure.csv
+        role: lineage_source_data
+        sha256: 2c92a594f65fa1e7f70041cf8e823693a105cbe50bf85e4094a91aa7ecd6fb06
+      - path: ../ELLMTrees/results/aggregate/llama1b_base_full_ft_branch_structure.csv
+        role: lineage_source_data
+        sha256: ad8151d9d5d118e7bc3d935355f6055bcb8018ab9532c0278b004a3deec36c63
+      - path: ../ELLMTrees/results/aggregate/llama1b_base_full_ft_notrans_branch_structure.csv
+        role: lineage_source_data
+        sha256: 6af8ce594b454dcbe7d839350e1ffa576419cc645397f0f3b5849280899ce5c9
+      - path: ../ELLMTrees/results/aggregate/runs_llama1b_base_qkv_branch_structure.csv
+        role: lineage_source_data
+        sha256: 9151e56958cbf8b7444f89ca54aad93fe44ec748aaf0f5b0766097e6591e7d3c
+      - path: ../ELLMTrees/results/aggregate/runs_llama1b_base_qkv_r64_branch_structure.csv
+        role: lineage_source_data
+        sha256: 63b1ac3a4e11e6f8689974671acb706d0e2a1853e8ebe9465dadf288679a1ef5
+
+  - id: tab:behavior_holdout
+    kind: table
+    classification: paper_critical
+    status: source_identified
+    paper_location: "Results Table: held-out behavioral bridge"
+    path: ../ELLMTrees-paper/iclr_draft_v2.tex
+    source_command: "cd ../ELLMTrees && python scripts/behavior_meta_table.py"
+    source_inputs:
+      - path: ../ELLMTrees/scripts/behavior_meta_table.py
+        role: table_generator
+        sha256: 5f3c0289ffa60a6e3264573eb69c33c12d52b2711666b0c4900c2443198701c8
+      - path: ../ELLMTrees/scripts/regression_distance_vs_behavior.py
+        role: regression_generator
+        sha256: f1267a28a32e9328b7692a05faf474e8b835cb02c02ebf52827a0961fd80c7ac
+      - path: ../ELLMTrees/results/aggregate/behavior_meta_table.csv
+        role: table_source_data
+        sha256: 4d4d66c6f6371138d2c39e7a595d9555832af134617cbcbd5b0cf7445b2ca714
+      - path: ../ELLMTrees/results/aggregate/regression_branching_v3_translation_semantic_paired_practical.csv
+        role: regression_source_data
+        sha256: 1df518b691d1a64dcab889c097e98e481762fc564e0986e015cc8698f84d16c1
+      - path: ../ELLMTrees/results/aggregate/regression_branching_v3_hellaswag_semantic_paired_practical.csv
+        role: regression_source_data
+        sha256: b9a3fd1da6d3074466a3aa90fe2eeca1729eb71ab6428d1f31f0f8a5848bfa53
+      - path: ../ELLMTrees/results/aggregate/regression_llama1b_base_full_ft_translation_semantic_paired_practical.csv
+        role: regression_source_data
+        sha256: 627e24bda5c7e2b01bf1f421ce4d5d298c8e4708bc5e69ee09a0c21501d0658b
+      - path: ../ELLMTrees/results/aggregate/regression_llama1b_base_full_ft_notrans_translation_semantic_paired_practical.csv
+        role: regression_source_data
+        sha256: 23f5c8b37ad6d725bd6d60bfff315c711b0516f158ac6f8b8447d719f9bd5fd4
+      - path: ../ELLMTrees/results/aggregate/regression_llama1b_base_full_ft_hellaswag_semantic_paired_practical.csv
+        role: regression_source_data
+        sha256: 573f93dde87f2ed7525707969c53da0912293fdde7ddcfd46be21a7002f2abae
+      - path: ../ELLMTrees/results/aggregate/regression_no_translation_v2_translation_semantic_paired_practical.csv
+        role: regression_source_data
+        sha256: 9aba540c52d3290cea2fc3d523ff76a218d202943d8f621098c0c9104e013012
+
+  - id: tab:regression_betas
+    kind: table
+    classification: appendix_supporting
+    status: source_identified
+    paper_location: "Appendix Table: behavioral regression coefficients"
+    path: ../ELLMTrees-paper/iclr_draft_v2.tex
+    source_command: "cd ../ELLMTrees && python scripts/regression_distance_vs_behavior.py"
+    source_inputs:
+      - path: ../ELLMTrees/scripts/regression_distance_vs_behavior.py
+        role: regression_generator
+        sha256: f1267a28a32e9328b7692a05faf474e8b835cb02c02ebf52827a0961fd80c7ac
+      - path: ../ELLMTrees/results/aggregate/behavior_meta_table.csv
+        role: comparison_source_data
+        sha256: 4d4d66c6f6371138d2c39e7a595d9555832af134617cbcbd5b0cf7445b2ca714
+
+  - id: tab:behavior_het
+    kind: table
+    classification: appendix_supporting
+    status: source_identified
+    paper_location: "Appendix Table: per-cell heterogeneity"
+    path: ../ELLMTrees-paper/iclr_draft_v2.tex
+    source_command: "cd ../ELLMTrees && python scripts/behavior_meta_table.py"
+    source_inputs:
+      - path: ../ELLMTrees/results/aggregate/behavior_meta_table.csv
+        role: table_source_data
+        sha256: 4d4d66c6f6371138d2c39e7a595d9555832af134617cbcbd5b0cf7445b2ca714
+
+  - id: tab:translation_probe_examples
+    kind: table
+    classification: appendix_supporting
+    status: source_identified
+    paper_location: "Appendix Table: TaskHoldout translation probe examples"
+    path: ../ELLMTrees-paper/iclr_draft_v2.tex
+    notes: >
+      Static representative examples embedded in the draft; rows are taken from the
+      first three predictions for nodes n0, n7, and n8 in the pinned run_001
+      TaskHoldout translation probe output.
+    source_inputs:
+      - path: ../ELLMTrees/results/runs_no_translation_v2/run_001/behavioral_translation/predictions.json
+        role: representative_outputs
+        sha256: 981d882869aa4920ae1e4756e1ee9ccb53e35c8b33396af031d5368512c79544
+      - path: ../ELLMTrees/outputs/runs_no_translation_v2/run_001/manifest.jsonl
+        role: run_manifest
+        sha256: 19ef4b448fde91113776093dce97e8d918168d5bd9f3b4ada50e95de1642fcfe
+
+  - id: tab:withintask
+    kind: table
+    classification: appendix_supporting
+    status: source_identified
+    paper_location: "Appendix Table: within-task recovery"
+    path: ../ELLMTrees-paper/iclr_draft_v2.tex
+    source_command: "cd ../ELLMTrees && python scripts/rescore_recovery.py --metric cosine --nperm 2000"
+    source_inputs:
+      - path: ../ELLMTrees/results/aggregate/recovery_rescore/by_group_cosine.csv
+        role: recovery_source_data
+        sha256: cf7fb0abe8807bc7fbcf624af4030b6aedd451ae9200b7a10cadc001ddd3bc57
+
+  - id: tab:layer_subsets
+    kind: table
+    classification: appendix_supporting
+    status: static_definition
+    paper_location: "Appendix Table: LayerTrace layer subsets"
+    path: ../ELLMTrees-paper/iclr_draft_v2.tex
+    source_inputs:
+      - path: ../ELLMTrees/scripts/make_layertrace_grid.py
+        role: related_generator
+        sha256: 6511244248a4490cfe89370ab73aeebe1857ae47087449f7d657381ad4d4c670
+
+  - id: tab:lora_variants
+    kind: table
+    classification: appendix_supporting
+    status: static_definition
+    paper_location: "Appendix Table: LoRA target-module variants"
+    path: ../ELLMTrees-paper/iclr_draft_v2.tex
+    source_inputs:
+      - path: ../ELLMTrees/results/aggregate/lora_k_only_branch_structure.csv
+        role: related_source_data
+        sha256: 764e7000fdd49bb461ebd951cbcf47c47f56fd1de4b4b5ac54040a6d68aa0029
+      - path: ../ELLMTrees/results/aggregate/lora_qkv_branch_structure.csv
+        role: related_source_data
+        sha256: 70d9027099e4969e46fb41b981ce45160af93ecb2ca4eea3551f39cf64ab9033

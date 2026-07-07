@@ -113,6 +113,27 @@ def test_make_recovery_table_parser_accepts_registry_outputs():
     assert args.csv_out == Path("/tmp/recovery.csv")
 
 
+def test_make_ellmtrees_variants_table_parser_accepts_registry_outputs():
+    args = build_parser().parse_args(
+        [
+            "make-ellmtrees-variants-table",
+            "--registry",
+            "paper/ellmtrees_variants_registry.yaml",
+            "--base-dir",
+            "/tmp/run",
+            "--out",
+            "/tmp/variants.json",
+            "--csv-out",
+            "/tmp/variants.csv",
+        ]
+    )
+
+    assert args.registry == Path("paper/ellmtrees_variants_registry.yaml")
+    assert args.base_dir == Path("/tmp/run")
+    assert args.out == Path("/tmp/variants.json")
+    assert args.csv_out == Path("/tmp/variants.csv")
+
+
 def test_validate_table_registry_parser_accepts_output_checks():
     args = build_parser().parse_args(
         [
@@ -131,3 +152,57 @@ def test_validate_table_registry_parser_accepts_output_checks():
     assert args.base_dir == Path("/tmp/run")
     assert args.require_outputs is True
     assert args.out == Path("/tmp/table_registry_audit.json")
+
+
+def test_validate_reference_registry_parser_accepts_digest_checks():
+    args = build_parser().parse_args(
+        [
+            "validate-reference-registry",
+            "--registry",
+            "paper/reference_registry.yaml",
+            "--base-dir",
+            "/tmp/run",
+            "--out",
+            "/tmp/reference_registry_audit.json",
+        ]
+    )
+
+    assert args.registry == Path("paper/reference_registry.yaml")
+    assert args.base_dir == Path("/tmp/run")
+    assert args.out == Path("/tmp/reference_registry_audit.json")
+
+
+def test_compare_table_artifacts_parser_accepts_columns_and_tolerances():
+    args = build_parser().parse_args(
+        [
+            "compare-table-artifacts",
+            "--reference",
+            "reports/paper/reference.csv",
+            "--candidate",
+            "reports/paper/candidate.csv",
+            "--base-dir",
+            "/tmp/run",
+            "--key-column",
+            "variant_id",
+            "--numeric-column",
+            "score",
+            "--ignore-column",
+            "source",
+            "--atol",
+            "0.001",
+            "--rtol",
+            "0.01",
+            "--out",
+            "/tmp/table_compare.json",
+        ]
+    )
+
+    assert args.reference == Path("reports/paper/reference.csv")
+    assert args.candidate == Path("reports/paper/candidate.csv")
+    assert args.base_dir == Path("/tmp/run")
+    assert args.key_column == ["variant_id"]
+    assert args.numeric_column == ["score"]
+    assert args.ignore_column == ["source"]
+    assert args.atol == 0.001
+    assert args.rtol == 0.01
+    assert args.out == Path("/tmp/table_compare.json")
