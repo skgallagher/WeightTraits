@@ -182,6 +182,54 @@ def _assign_task_data(args: argparse.Namespace) -> int:
     return 0
 
 
+def _assign_task_data_set(args: argparse.Namespace) -> int:
+    tree_set = json.loads(args.tree_set.read_text())
+    config = yaml.safe_load(args.config.read_text())
+    args.out_dir.mkdir(parents=True, exist_ok=True)
+    assignments = []
+    for index, tree in enumerate(tree_set.get("trees", [])):
+        manifest = Path(tree["manifest"])
+        rows = load_manifest_rows(manifest)
+        seed = args.seed_start + index
+        assigned = assign_task_data(
+            rows,
+            config["task_families"],
+            seed=seed,
+            policy=args.policy,
+            task_families=args.task_family,
+        )
+        tree_id = str(tree["tree_id"])
+        for row in assigned:
+            row["tree_id"] = tree_id
+        out_path = args.out_dir / f"{tree_id}.manifest.jsonl"
+        write_manifest_rows(assigned, out_path)
+        dataset_ids = [str(row["dataset_id"]) for row in assigned if row.get("grow", "train") == "train"]
+        assignments.append(
+            {
+                "tree_id": tree_id,
+                "source_manifest": str(manifest),
+                "assigned_manifest": str(out_path),
+                "assignment_seed": seed,
+                "n_rows": len(assigned),
+                "n_datasets": len(dataset_ids),
+                "n_unique_datasets": len(set(dataset_ids)),
+                "task_families": _count_values(row["task_family"] for row in assigned if "task_family" in row),
+            }
+        )
+    summary = {
+        "tree_set": str(args.tree_set),
+        "config": str(args.config),
+        "out_dir": str(args.out_dir),
+        "policy": args.policy,
+        "seed_start": args.seed_start,
+        "n_trees": len(assignments),
+        "assignments": assignments,
+    }
+    _emit_json(summary, args.summary_out or args.out_dir / "assignment_summary.json")
+    print(json.dumps({"out_dir": str(args.out_dir), "n_trees": len(assignments)}, indent=2))
+    return 0
+
+
 def _topology_audit(args: argparse.Namespace) -> int:
     report = audit_manifest_topology(args.manifest)
     _emit_json(report, args.out)
@@ -639,7 +687,14 @@ def _count_values(values: object) -> dict[str, int]:
     for value in values:
         key = str(value)
         counts[key] = counts.get(key, 0) + 1
-    return {key: counts[key] for key in sorted(counts, key=lambda item: int(item))}
+    return {key: counts[key] for key in sorted(counts, key=_count_sort_key)}
+
+
+def _count_sort_key(value: str) -> tuple[int, int | str]:
+    try:
+        return (0, int(value))
+    except ValueError:
+        return (1, value)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -679,13 +734,38 @@ def build_parser() -> argparse.ArgumentParser:
     assign.add_argument("--config", type=Path, required=True, help="Task/data candidate YAML")
     assign.add_argument("--out", type=Path, required=True, help="Enriched manifest JSONL")
     assign.add_argument("--seed", type=int, default=1)
-    assign.add_argument("--policy", choices=["per_node", "per_edge", "per_depth"], default="per_node")
+    assign.add_argument(
+        "--policy",
+        choices=["per_node", "per_node_without_replacement", "per_edge", "per_depth"],
+        default="per_node",
+    )
     assign.add_argument(
         "--task-family",
         action="append",
         help="Restrict to one or more task families; repeat flag for multiple families",
     )
     assign.set_defaults(func=_assign_task_data)
+
+    assign_set = sub.add_parser(
+        "assign-task-data-set",
+        help="Assign task/data rows to every manifest listed in a generated tree-set summary",
+    )
+    assign_set.add_argument("--tree-set", type=Path, required=True, help="tree_set_summary.json")
+    assign_set.add_argument("--config", type=Path, required=True, help="Task/data candidate YAML")
+    assign_set.add_argument("--out-dir", type=Path, required=True, help="Directory for enriched manifests")
+    assign_set.add_argument("--summary-out", type=Path, help="Optional assignment summary JSON")
+    assign_set.add_argument("--seed-start", type=int, default=1)
+    assign_set.add_argument(
+        "--policy",
+        choices=["per_node", "per_node_without_replacement", "per_edge", "per_depth"],
+        default="per_node_without_replacement",
+    )
+    assign_set.add_argument(
+        "--task-family",
+        action="append",
+        help="Restrict to one or more task families; repeat flag for multiple families",
+    )
+    assign_set.set_defaults(func=_assign_task_data_set)
 
     audit_topology = sub.add_parser("topology-audit", help="Audit topology size, depth, leaves, and polytomies")
     audit_topology.add_argument("--manifest", type=Path, required=True)

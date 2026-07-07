@@ -93,6 +93,33 @@ def test_generate_tree_set_parser_accepts_batch_options():
     assert args.min_leaves == 4
 
 
+def test_assign_task_data_set_parser_accepts_batch_options():
+    args = build_parser().parse_args(
+        [
+            "assign-task-data-set",
+            "--tree-set",
+            "examples/training/confirm_paper_numbers/tree_set_summary.json",
+            "--config",
+            "examples/training/confirm_paper_numbers/paper_task_families.yaml",
+            "--out-dir",
+            "/tmp/assigned",
+            "--summary-out",
+            "/tmp/assignment_summary.json",
+            "--seed-start",
+            "101",
+            "--policy",
+            "per_node_without_replacement",
+        ]
+    )
+
+    assert args.tree_set == Path("examples/training/confirm_paper_numbers/tree_set_summary.json")
+    assert args.config == Path("examples/training/confirm_paper_numbers/paper_task_families.yaml")
+    assert args.out_dir == Path("/tmp/assigned")
+    assert args.summary_out == Path("/tmp/assignment_summary.json")
+    assert args.seed_start == 101
+    assert args.policy == "per_node_without_replacement"
+
+
 def test_analyze_training_ledger_parser_accepts_workflow_options():
     args = build_parser().parse_args(
         [

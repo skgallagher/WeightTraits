@@ -83,3 +83,36 @@ def test_confirm_paper_numbers_tree_set_has_50_min_leaf_manifests():
         assert len(rows) == tree["n_rows"]
         assert len(leaf_ids) == tree["n_leaves"]
         assert tree["n_leaves"] >= 4
+
+
+def test_confirm_paper_numbers_assignments_match_tree_set_without_replacement():
+    repo = Path(__file__).resolve().parents[1]
+    config_path = repo / "examples/training/confirm_paper_numbers/paper_task_families.yaml"
+    summary_path = repo / "examples/training/confirm_paper_numbers/assignment_summary.json"
+    config = yaml.safe_load(config_path.read_text())
+    summary = json.loads(summary_path.read_text())
+
+    family_sizes = {
+        family: len(spec["datasets"])
+        for family, spec in config["task_families"].items()
+    }
+    assert family_sizes == {
+        "classification": 10,
+        "qa": 8,
+        "summarization": 9,
+        "translation": 9,
+    }
+    assert summary["n_trees"] == 50
+    assert summary["policy"] == "per_node_without_replacement"
+
+    for assignment in summary["assignments"]:
+        manifest = repo / assignment["assigned_manifest"]
+        rows = [json.loads(line) for line in manifest.read_text().splitlines()]
+        train_rows = [row for row in rows if row.get("grow", "train") == "train"]
+        pairs = [(row["task_family"], row["dataset_id"]) for row in train_rows]
+
+        assert assignment["n_rows"] == len(rows)
+        assert assignment["n_datasets"] == len(train_rows)
+        assert assignment["n_unique_datasets"] == len(set(pairs))
+        assert len(set(pairs)) == len(pairs)
+        assert {row["tree_id"] for row in rows} == {assignment["tree_id"]}

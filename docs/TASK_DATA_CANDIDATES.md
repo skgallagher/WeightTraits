@@ -7,7 +7,7 @@ The machine-readable draft is [configs/task_data_candidates.yaml](../configs/tas
 ## Existing Families To Preserve
 
 - Summarization: CNN/DailyMail, XSum, SAMSum, BillSum, PubMed, GovReport, arXiv, BigPatent, DialogSum.
-- Classification: SST-2, AG News, MNLI, IMDB, RTE, CoLA, QNLI, Yelp Polarity, DBPedia.
+- Classification: SST-2, AG News, MNLI, IMDB, RTE, CoLA, QNLI, Yelp Polarity, DBPedia, TREC.
 - QA/reasoning: SQuAD, SQuAD v2, BoolQ, ARC Easy/Challenge, OpenBookQA, CommonsenseQA, HellaSwag, MMLU auxiliary train.
 - Translation: WMT14 and OPUS pairs already used in ELLMTrees.
 
@@ -48,3 +48,10 @@ not download anything; omit it on a prepared cluster or local environment to cal
 The first real row-level prompt check is `wt audit-training-samples`. It loads a tiny sample for
 planned jobs, applies the dataset `field_map`, renders prompts, and reports missing fields or empty
 renders without writing raw samples to the report.
+
+## Confirm Paper Numbers Pool
+
+`examples/training/confirm_paper_numbers/paper_task_families.yaml` encodes the current
+paper-declared assignment pool: 36 datasets split as 9 summarization, 10 classification, 8 QA, and
+9 translation datasets. The confirm-paper-number manifests use `per_node_without_replacement`, so
+each non-root training node in a tree receives a unique task/dataset pair.

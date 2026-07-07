@@ -34,6 +34,39 @@ def test_per_depth_policy_reuses_assignment_within_depth():
     assert len(set(depth2)) == 1
 
 
+def test_per_node_without_replacement_assigns_unique_datasets_deterministically():
+    rows = [
+        {"node_id": "n0", "depth": 1, "grow": "train"},
+        {"node_id": "n1", "depth": 2, "grow": "train"},
+        {"node_id": "n2", "depth": 2, "grow": "train"},
+        {"node_id": "n3", "depth": 2, "grow": "skip"},
+    ]
+
+    a = assign_task_data(rows, TASKS, seed=11, policy="per_node_without_replacement")
+    b = assign_task_data(rows, TASKS, seed=11, policy="per_node_without_replacement")
+
+    train_pairs = [
+        (row["task_family"], row["dataset_id"])
+        for row in a
+        if row.get("grow", "train") == "train"
+    ]
+    assert a == b
+    assert len(train_pairs) == 3
+    assert len(set(train_pairs)) == len(train_pairs)
+    assert "task_family" not in a[-1]
+
+
+def test_per_node_without_replacement_requires_enough_candidate_datasets():
+    rows = [{"node_id": f"n{index}", "depth": index, "grow": "train"} for index in range(9)]
+
+    try:
+        assign_task_data(rows, TASKS, seed=1, policy="per_node_without_replacement")
+    except ValueError as exc:
+        assert "without replacement" in str(exc)
+    else:
+        raise AssertionError("expected assignment to fail when train rows exceed candidate datasets")
+
+
 def test_can_restrict_task_families():
     rows = [{"node_id": "n0", "depth": 1, "grow": "train"}]
 
@@ -41,4 +74,3 @@ def test_can_restrict_task_families():
 
     assert assigned[0]["task_family"] == "beta"
     assert assigned[0]["dataset_id"].startswith("b")
-

@@ -28,6 +28,8 @@ As of 2026-07-07, the project has a working end-to-end whitebox recovery spine:
   paper-grounded JSON/CSV reference table.
 - `wt generate-tree-set` now generated a clean confirm-paper-number topology set from the active
   draft distribution: 50 accepted Poisson-branching trees with `n_leaves >= 4`.
+- `wt assign-task-data-set` now assigns paper-style task/data rows across that 50-tree set, using
+  the paper-declared 36-dataset pool without replacement within each tree.
 
 Latest verified paper outputs:
 
@@ -45,6 +47,9 @@ reports/paper/behavior_holdout_reference.csv
 reports/paper/behavior_holdout_reference_compare.json
 examples/training/confirm_paper_numbers/tree_set_summary.json
 examples/training/confirm_paper_numbers/trees/*.manifest.jsonl
+examples/training/confirm_paper_numbers/paper_task_families.yaml
+examples/training/confirm_paper_numbers/assignment_summary.json
+examples/training/confirm_paper_numbers/assigned_manifests/*.manifest.jsonl
 ```
 
 These reports remain ignored by Git. The whitebox smoke reports were generated on Wright and pulled
@@ -68,6 +73,14 @@ Poisson branching with `lambda=1.5`, `n_nodes=14`, `max_depth=4`, and rejection 
 with fewer than four leaves. The accepted 50-tree set scanned 78 candidate seeds starting at
 `20260707`; leaf counts are 4:6, 5:4, 6:3, 7:12, 8:9, 9:13, 10:3, and max-depth counts are 3:10,
 4:40.
+
+The confirm-paper-number task/data layer uses
+`examples/training/confirm_paper_numbers/paper_task_families.yaml`, which follows the active draft's
+36-dataset statement: 9 summarization, 10 classification, 8 QA, and 9 translation datasets.
+`examples/training/confirm_paper_numbers/assignment_summary.json` records 50 enriched manifests in
+`examples/training/confirm_paper_numbers/assigned_manifests/`, assigned with
+`per_node_without_replacement` and seeds `1..50`. Within each tree, every training node has a unique
+task/dataset pair.
 
 On 2026-07-07, the `fig:overview` and `fig:coherence_recovery` digests in
 `paper/reference_registry.yaml` were refreshed to match the current sibling reference files after
@@ -111,11 +124,9 @@ Paper draft context:
 
 Recommended next slice:
 
-1. Assign task/data rows to `examples/training/confirm_paper_numbers/trees/*.manifest.jsonl` using
-   the paper's four-task/36-dataset setting.
-2. Build full-FT run lists for the clean 50-tree set, then launch a small dry-run/smoke before the
+1. Build full-FT run lists for the clean 50-tree set, then launch a small dry-run/smoke before the
    full confirm-paper-number training batch.
-3. Compare rebuilt recovery/behavior tables against the latest-paper-grounded references through
+2. Compare rebuilt recovery/behavior tables against the latest-paper-grounded references through
    `paper/table_registry.yaml` and `wt run-table-comparisons`.
 
 ## Git and Cluster Access
