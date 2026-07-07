@@ -26,3 +26,16 @@ PYTHONPATH=src python -m weighttraits.cli assign-task-data-set \
 ```
 
 The enriched manifests live in `assigned_manifests/`, and `assignment_summary.json` records the per-tree seeds, source manifests, output manifests, and task-family counts.
+
+Paper-style full fine-tuning run lists are generated per tree so each tree gets an isolated ledger and output root:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-training-run-list-set \
+  --assignment-summary examples/training/confirm_paper_numbers/assignment_summary.json \
+  --config examples/training/confirm_paper_numbers/full_finetune.yaml \
+  --out-dir examples/training/confirm_paper_numbers/full_finetune_runlists \
+  --summary-out examples/training/confirm_paper_numbers/full_finetune_run_list_summary.json \
+  --runner-dry-run
+```
+
+The current scaffold has 50 valid run lists and 641 planned training rows. `--runner-dry-run` keeps the generated rows executable for row-selection smoke checks without downloading datasets or loading models; the next step is to add the real 36-dataset registry/format contracts and regenerate the runner options for actual training.

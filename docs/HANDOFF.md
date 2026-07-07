@@ -30,6 +30,8 @@ As of 2026-07-07, the project has a working end-to-end whitebox recovery spine:
   draft distribution: 50 accepted Poisson-branching trees with `n_leaves >= 4`.
 - `wt assign-task-data-set` now assigns paper-style task/data rows across that 50-tree set, using
   the paper-declared 36-dataset pool without replacement within each tree.
+- `wt make-training-run-list-set` now writes per-tree run lists for the confirm-paper-number set,
+  avoiding node/output collisions across the 50 trees.
 
 Latest verified paper outputs:
 
@@ -50,6 +52,10 @@ examples/training/confirm_paper_numbers/trees/*.manifest.jsonl
 examples/training/confirm_paper_numbers/paper_task_families.yaml
 examples/training/confirm_paper_numbers/assignment_summary.json
 examples/training/confirm_paper_numbers/assigned_manifests/*.manifest.jsonl
+examples/training/confirm_paper_numbers/full_finetune.yaml
+examples/training/confirm_paper_numbers/full_finetune_run_list_summary.json
+examples/training/confirm_paper_numbers/full_finetune_runlists/run_lists/*.runs.jsonl
+examples/training/confirm_paper_numbers/full_finetune_runlists/reports/*.report.json
 ```
 
 These reports remain ignored by Git. The whitebox smoke reports were generated on Wright and pulled
@@ -81,6 +87,15 @@ The confirm-paper-number task/data layer uses
 `examples/training/confirm_paper_numbers/assigned_manifests/`, assigned with
 `per_node_without_replacement` and seeds `1..50`. Within each tree, every training node has a unique
 task/dataset pair.
+
+The full-FT confirm-paper-number scaffold uses
+`examples/training/confirm_paper_numbers/full_finetune.yaml`, matching the draft's Flan-T5-base
+training settings: 2,000 steps, learning rate `3e-4`, per-device train batch 8, gradient
+accumulation 4, warmup 200, weight decay 0.01, and bf16. It currently generates dry-run-capable
+per-tree run lists under `examples/training/confirm_paper_numbers/full_finetune_runlists/`; the
+summary reports `valid=true`, 50 trees, 641 planned training rows, and no warnings/errors. Each tree
+has its own run list, ledger path, report, and output root under
+`outputs/confirm_paper_numbers/full_finetune/<tree_id>/`.
 
 On 2026-07-07, the `fig:overview` and `fig:coherence_recovery` digests in
 `paper/reference_registry.yaml` were refreshed to match the current sibling reference files after
@@ -124,9 +139,12 @@ Paper draft context:
 
 Recommended next slice:
 
-1. Build full-FT run lists for the clean 50-tree set, then launch a small dry-run/smoke before the
-   full confirm-paper-number training batch.
-2. Compare rebuilt recovery/behavior tables against the latest-paper-grounded references through
+1. Add the real 36-dataset registry and dataset-format contracts for the confirm-paper-number full-FT
+   config, then run offline `validate-training-data` and no-load dataset audits across all 50
+   assigned manifests.
+2. Regenerate the confirm-paper full-FT run lists without `--runner-dry-run` and launch a small
+   row-selection/sample-loading smoke before the full training batch.
+3. Compare rebuilt recovery/behavior tables against the latest-paper-grounded references through
    `paper/table_registry.yaml` and `wt run-table-comparisons`.
 
 ## Git and Cluster Access

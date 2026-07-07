@@ -116,3 +116,36 @@ def test_confirm_paper_numbers_assignments_match_tree_set_without_replacement():
         assert assignment["n_unique_datasets"] == len(set(pairs))
         assert len(set(pairs)) == len(pairs)
         assert {row["tree_id"] for row in rows} == {assignment["tree_id"]}
+
+
+def test_confirm_paper_numbers_full_finetune_run_lists_match_assignments():
+    repo = Path(__file__).resolve().parents[1]
+    assignment_path = repo / "examples/training/confirm_paper_numbers/assignment_summary.json"
+    run_summary_path = repo / "examples/training/confirm_paper_numbers/full_finetune_run_list_summary.json"
+    assignment_summary = json.loads(assignment_path.read_text())
+    run_summary = json.loads(run_summary_path.read_text())
+    expected_runs = sum(assignment["n_rows"] for assignment in assignment_summary["assignments"])
+
+    assert run_summary["valid"]
+    assert run_summary["n_trees"] == 50
+    assert run_summary["n_runs"] == expected_runs == 641
+    assert run_summary["n_errors"] == 0
+    assert run_summary["n_warnings"] == 0
+    assert run_summary["runner_options"] == {"dry_run": True}
+
+    run_list_paths = sorted(
+        (repo / "examples/training/confirm_paper_numbers/full_finetune_runlists/run_lists").glob(
+            "*.jsonl"
+        )
+    )
+    assert len(run_list_paths) == 50
+    for tree in run_summary["trees"]:
+        run_list = repo / tree["run_list"]
+        rows = [json.loads(line) for line in run_list.read_text().splitlines()]
+        output_root = tree["output_root"]
+
+        assert tree["valid"]
+        assert len(rows) == tree["n_runs"]
+        assert all(row["runner"]["options"] == {"dry_run": True} for row in rows)
+        assert all(row["output_dir"].startswith(output_root) for row in rows)
+        assert all(row["ledger_path"] == tree["ledger"] for row in rows)

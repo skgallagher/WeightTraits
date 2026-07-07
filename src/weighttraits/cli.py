@@ -58,7 +58,12 @@ from weighttraits.training.datasets import (
 )
 from weighttraits.training.executor import dry_run_training_row, run_training_run
 from weighttraits.training.ledger import ledger_summary, load_ledger_events
-from weighttraits.training.planner import build_training_jobs_from_files, write_training_plan
+from weighttraits.training.planner import (
+    build_training_jobs,
+    build_training_jobs_from_files,
+    load_training_config,
+    write_training_plan,
+)
 from weighttraits.training.runlist import (
     build_training_run_list,
     load_execution_profile,
@@ -554,22 +559,7 @@ def _audit_training_samples(args: argparse.Namespace) -> int:
 def _make_training_run_list(args: argparse.Namespace) -> int:
     jobs = build_training_jobs_from_files(args.manifest, args.config)
     profile = load_execution_profile(args.profile) if args.profile else None
-    if (args.registry is None) != (args.formats is None):
-        raise ValueError("--registry and --formats must be provided together")
-    runner_options = {
-        "registry_path": str(args.registry) if args.registry else None,
-        "formats_path": str(args.formats) if args.formats else None,
-        "max_train_samples": args.max_train_samples,
-        "max_eval_samples": args.max_eval_samples,
-        "allow_missing_eval": args.allow_missing_eval,
-        "dry_run": args.runner_dry_run,
-    }
-    runner_options = {key: value for key, value in runner_options.items() if value is not None}
-    runner_entrypoint = (
-        "weighttraits.cli run-training-row"
-        if args.registry or args.runner_dry_run
-        else "pending_hf_peft_executor"
-    )
+    runner_entrypoint, runner_options = _training_runner_contract(args)
     report = build_training_run_list(
         jobs,
         profile=profile,
@@ -603,6 +593,82 @@ def _make_training_run_list(args: argparse.Namespace) -> int:
     summary["slurm_out"] = str(args.slurm_out) if args.slurm_out else None
     print(json.dumps(summary, indent=2, sort_keys=True))
     return 0 if report.valid or args.allow_issues else 1
+
+
+def _make_training_run_list_set(args: argparse.Namespace) -> int:
+    assignment_summary = json.loads(args.assignment_summary.read_text())
+    training_config = load_training_config(args.config)
+    profile = load_execution_profile(args.profile) if args.profile else None
+    runner_entrypoint, runner_options = _training_runner_contract(args)
+    run_list_dir = args.out_dir / "run_lists"
+    report_dir = args.out_dir / "reports"
+    ledger_dir = args.out_dir / "ledgers"
+    run_list_dir.mkdir(parents=True, exist_ok=True)
+    report_dir.mkdir(parents=True, exist_ok=True)
+    ledger_dir.mkdir(parents=True, exist_ok=True)
+
+    tree_reports = []
+    all_valid = True
+    for assignment in assignment_summary.get("assignments", []):
+        tree_id = str(assignment["tree_id"])
+        manifest = Path(assignment["assigned_manifest"])
+        per_tree_config = _with_tree_output_root(training_config, tree_id)
+        jobs = build_training_jobs(load_manifest_rows(manifest), per_tree_config)
+        run_list_path = run_list_dir / f"{tree_id}.runs.jsonl"
+        report_path = report_dir / f"{tree_id}.report.json"
+        ledger_path = ledger_dir / f"{tree_id}.training_ledger.jsonl"
+        report = build_training_run_list(
+            jobs,
+            profile=profile,
+            run_list_path=run_list_path,
+            ledger_path=ledger_path,
+            runner_entrypoint=runner_entrypoint,
+            runner_options=runner_options,
+            allow_existing_artifacts=args.allow_existing_artifacts,
+            check_filesystem=not args.no_filesystem_check,
+        )
+        write_training_run_list(report, run_list_path)
+        write_training_run_report(report, report_path)
+        all_valid = all_valid and report.valid
+        tree_reports.append(
+            {
+                "tree_id": tree_id,
+                "manifest": str(manifest),
+                "run_list": str(run_list_path),
+                "report": str(report_path),
+                "ledger": str(ledger_path),
+                "output_root": str(per_tree_config["output_root"]),
+                **report.to_dict(),
+            }
+        )
+
+    summary = {
+        "assignment_summary": str(args.assignment_summary),
+        "config": str(args.config),
+        "out_dir": str(args.out_dir),
+        "valid": all_valid,
+        "n_trees": len(tree_reports),
+        "n_runs": sum(int(report["n_runs"]) for report in tree_reports),
+        "n_errors": sum(int(report["n_errors"]) for report in tree_reports),
+        "n_warnings": sum(int(report["n_warnings"]) for report in tree_reports),
+        "runner_entrypoint": runner_entrypoint,
+        "runner_options": runner_options,
+        "trees": tree_reports,
+    }
+    _emit_json(summary, args.summary_out or args.out_dir / "run_list_summary.json")
+    print(
+        json.dumps(
+            {
+                "out_dir": str(args.out_dir),
+                "n_trees": summary["n_trees"],
+                "n_runs": summary["n_runs"],
+                "valid": summary["valid"],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+    return 0 if all_valid or args.allow_issues else 1
 
 
 def _describe_training_run(args: argparse.Namespace) -> int:
@@ -680,6 +746,38 @@ def _optional_int(*values: object) -> int | None:
         if value is not None:
             return int(value)
     return None
+
+
+def _training_runner_contract(args: argparse.Namespace) -> tuple[str, dict[str, object]]:
+    if (args.registry is None) != (args.formats is None):
+        raise ValueError("--registry and --formats must be provided together")
+    runner_options = {
+        "registry_path": str(args.registry) if args.registry else None,
+        "formats_path": str(args.formats) if args.formats else None,
+        "max_train_samples": args.max_train_samples,
+        "max_eval_samples": args.max_eval_samples,
+        "allow_missing_eval": args.allow_missing_eval,
+        "dry_run": args.runner_dry_run,
+    }
+    runner_options = {
+        key: value
+        for key, value in runner_options.items()
+        if value is not None and value is not False
+    }
+    runner_entrypoint = (
+        "weighttraits.cli run-training-row"
+        if args.registry or args.runner_dry_run
+        else "pending_hf_peft_executor"
+    )
+    return runner_entrypoint, runner_options
+
+
+def _with_tree_output_root(training_config: dict[str, object], tree_id: str) -> dict[str, object]:
+    if not training_config.get("output_root"):
+        raise ValueError("training config requires output_root")
+    config = dict(training_config)
+    config["output_root"] = str(Path(str(config["output_root"])) / tree_id)
+    return config
 
 
 def _count_values(values: object) -> dict[str, int]:
@@ -1169,6 +1267,39 @@ def build_parser() -> argparse.ArgumentParser:
     run_list.add_argument("--no-filesystem-check", action="store_true")
     run_list.add_argument("--allow-issues", action="store_true")
     run_list.set_defaults(func=_make_training_run_list)
+
+    run_list_set = sub.add_parser(
+        "make-training-run-list-set",
+        help="Write per-tree training run lists from an assignment summary",
+    )
+    run_list_set.add_argument(
+        "--assignment-summary",
+        type=Path,
+        required=True,
+        help="assignment_summary.json from assign-task-data-set",
+    )
+    run_list_set.add_argument("--config", type=Path, required=True)
+    run_list_set.add_argument("--out-dir", type=Path, required=True)
+    run_list_set.add_argument("--summary-out", type=Path, help="Optional set summary JSON")
+    run_list_set.add_argument("--profile", type=Path, help="Local or cluster execution profile YAML")
+    run_list_set.add_argument(
+        "--registry",
+        type=Path,
+        help="Dataset registry path for generated runners",
+    )
+    run_list_set.add_argument(
+        "--formats",
+        type=Path,
+        help="Dataset format contract path for generated runners",
+    )
+    run_list_set.add_argument("--max-train-samples", type=int)
+    run_list_set.add_argument("--max-eval-samples", type=int)
+    run_list_set.add_argument("--allow-missing-eval", action="store_true")
+    run_list_set.add_argument("--runner-dry-run", action="store_true")
+    run_list_set.add_argument("--allow-existing-artifacts", action="store_true")
+    run_list_set.add_argument("--no-filesystem-check", action="store_true")
+    run_list_set.add_argument("--allow-issues", action="store_true")
+    run_list_set.set_defaults(func=_make_training_run_list_set)
 
     describe_run = sub.add_parser(
         "describe-training-run",
