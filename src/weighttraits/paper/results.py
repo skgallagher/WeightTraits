@@ -51,6 +51,19 @@ def load_recovery_registry(path: str | Path) -> dict[str, Any]:
     return data
 
 
+def load_table_registry(path: str | Path) -> dict[str, Any]:
+    """Load a paper table registry YAML file."""
+
+    registry_path = Path(path)
+    data = yaml.safe_load(registry_path.read_text())
+    if not isinstance(data, dict):
+        raise ValueError(f"table registry must be a mapping: {registry_path}")
+    tables = data.get("tables")
+    if not isinstance(tables, list) or not tables:
+        raise ValueError(f"table registry requires a non-empty tables list: {registry_path}")
+    return data
+
+
 def recovery_table_rows(
     registry_path: str | Path,
     *,
@@ -107,6 +120,54 @@ def write_recovery_table_csv(rows: list[dict[str, Any]], path: str | Path) -> No
         writer.writeheader()
         for row in rows:
             writer.writerow({key: _csv_value(row.get(key)) for key in RECOVERY_TABLE_COLUMNS})
+
+
+def validate_table_registry(
+    registry_path: str | Path,
+    *,
+    base_dir: str | Path = ".",
+    require_outputs: bool = False,
+) -> dict[str, Any]:
+    """Validate paper table registry inputs and optional generated artifacts."""
+
+    registry = load_table_registry(registry_path)
+    base = Path(base_dir)
+    entries = []
+    issues = []
+    for table in registry["tables"]:
+        if not isinstance(table, dict):
+            issues.append(_issue(None, "invalid_table_entry", "table entries must be mappings"))
+            continue
+        table_id = table.get("id")
+        if not isinstance(table_id, str) or not table_id:
+            issues.append(_issue(None, "missing_table_id", "table entry requires a non-empty id"))
+            continue
+        table_report = _validate_table_entry(table, base, require_outputs=require_outputs)
+        table_issues = table_report["issues"]
+        entries.append(
+            {
+                "id": table_id,
+                "status": table.get("status"),
+                "expected_rows": table.get("expected_rows"),
+                "source_inputs": table_report["source_inputs"],
+                "outputs": table_report["outputs"],
+                "n_issues": len(table_issues),
+                "valid": not table_issues,
+                "issues": table_issues,
+            }
+        )
+        issues.extend(table_issues)
+
+    return {
+        "registry": str(registry_path),
+        "base_dir": str(base_dir),
+        "require_outputs": require_outputs,
+        "n_tables": len(entries),
+        "n_issues": len(issues),
+        "valid": not issues,
+        "tables": entries,
+        "issues": issues,
+    }
 
 
 def _rows_from_summary_entry(
@@ -170,6 +231,94 @@ def _rows_from_summary_entry(
             }
         )
     return rows
+
+
+def _validate_table_entry(
+    table: dict[str, Any],
+    base_dir: Path,
+    *,
+    require_outputs: bool,
+) -> list[dict[str, Any]]:
+    table_id = str(table["id"])
+    issues = []
+    source_input_report = []
+    output_report = []
+    for key in ("title", "source_command", "paper_location", "verification_status"):
+        if not isinstance(table.get(key), str) or not table.get(key):
+            issues.append(_issue(table_id, f"missing_{key}", f"table {table_id} requires {key}"))
+    if not isinstance(table.get("expected_rows"), int):
+        issues.append(_issue(table_id, "missing_expected_rows", "expected_rows must be an integer"))
+
+    for path in _path_list(table, "source_inputs", table_id, issues):
+        exists = _resolve_registered_path(base_dir, path).exists()
+        source_input_report.append({"path": path, "exists": exists})
+        if not exists:
+            issues.append(_issue(table_id, "missing_source_input", f"source input does not exist: {path}"))
+
+    outputs = _path_list(table, "outputs", table_id, issues, required=require_outputs)
+    for path in outputs:
+        resolved = _resolve_registered_path(base_dir, path)
+        exists = resolved.exists()
+        observed_rows = _observed_table_rows(resolved) if exists else None
+        output_report.append({"path": path, "exists": exists, "observed_rows": observed_rows})
+        if not exists:
+            if require_outputs:
+                issues.append(_issue(table_id, "missing_output", f"output does not exist: {path}"))
+            continue
+        expected_rows = table.get("expected_rows")
+        if isinstance(expected_rows, int):
+            if observed_rows is not None and observed_rows != expected_rows:
+                issues.append(
+                    _issue(
+                        table_id,
+                        "row_count_mismatch",
+                        f"{path} has {observed_rows} rows, expected {expected_rows}",
+                    )
+                )
+    return {"issues": issues, "source_inputs": source_input_report, "outputs": output_report}
+
+
+def _path_list(
+    table: dict[str, Any],
+    key: str,
+    table_id: str,
+    issues: list[dict[str, Any]],
+    *,
+    required: bool = True,
+) -> list[str]:
+    raw = table.get(key)
+    if raw is None and not required:
+        return []
+    if not isinstance(raw, list) or not raw:
+        issues.append(_issue(table_id, f"missing_{key}", f"table {table_id} requires {key}"))
+        return []
+    paths = []
+    for value in raw:
+        if not isinstance(value, str) or not value:
+            issues.append(_issue(table_id, f"invalid_{key}", f"{key} entries must be paths"))
+            continue
+        paths.append(value)
+    return paths
+
+
+def _observed_table_rows(path: Path) -> int | None:
+    if path.suffix == ".json":
+        payload = json.loads(path.read_text())
+        if isinstance(payload, dict) and isinstance(payload.get("n_rows"), int):
+            return int(payload["n_rows"])
+        if isinstance(payload, dict) and isinstance(payload.get("rows"), list):
+            return len(payload["rows"])
+        if isinstance(payload, list):
+            return len(payload)
+        return None
+    if path.suffix == ".csv":
+        with path.open(newline="") as handle:
+            return sum(1 for _ in csv.DictReader(handle))
+    return None
+
+
+def _issue(table_id: str | None, code: str, message: str) -> dict[str, Any]:
+    return {"table_id": table_id, "code": code, "message": message}
 
 
 def _load_summary(path: Path) -> dict[str, Any]:

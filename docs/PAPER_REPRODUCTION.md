@@ -6,6 +6,8 @@ The ICLR draft should eventually be rebuilt as a consequence of registered artif
 
 - `paper/figure_registry.yaml`: one entry per figure panel or standalone figure.
 - `paper/table_registry.yaml`: one entry per table.
+- `paper/recovery_registry.yaml`: registered whitebox recovery summary artifacts that can feed
+  recovery tables.
 
 Each entry should include:
 - artifact path
@@ -14,6 +16,16 @@ Each entry should include:
 - expected output digest or numeric tolerance
 - paper location
 - verification status
+
+Table registry entries can be checked with:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli validate-table-registry \
+  --registry paper/table_registry.yaml \
+  --require-outputs
+```
+
+Use `--require-outputs` for paper-build gates and omit it when only source inputs should be checked.
 
 ## Rebuild Order
 
@@ -32,4 +44,3 @@ A result can enter the rebuilt paper only when:
 - its inputs are declared;
 - it has passed the relevant unit/smoke/numerical/R checks;
 - deviations from ELLMTrees are documented.
-

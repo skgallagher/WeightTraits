@@ -6,6 +6,7 @@ import pytest
 
 from weighttraits.paper.results import (
     recovery_table_rows,
+    validate_table_registry,
     write_recovery_table_csv,
     write_recovery_table_json,
 )
@@ -150,3 +151,135 @@ result_sets:
 
     with pytest.raises(ValueError, match="summary artifact mismatch"):
         recovery_table_rows(registry, base_dir=tmp_path)
+
+
+def test_validate_table_registry_checks_inputs_outputs_and_rows(tmp_path):
+    source_input = tmp_path / "paper/recovery_registry.yaml"
+    json_out = tmp_path / "reports/paper/recovery.json"
+    csv_out = tmp_path / "reports/paper/recovery.csv"
+    registry = tmp_path / "paper/table_registry.yaml"
+    source_input.parent.mkdir(parents=True)
+    source_input.write_text("result_sets: []\n")
+    rows = [
+        {
+            "result_set_id": "example",
+            "result_set_title": "Example",
+            "summary_id": "full_model",
+            "artifact": "model",
+            "representation": "full_weight",
+            "metric": "l2",
+            "n_models": 4,
+            "n_layers": 12,
+            "n_truth_leaves": 4.0,
+            "n_truth_splits": 1.0,
+            "rf": 0,
+            "normalized_rf": 0.0,
+            "exact_tree_recovery": True,
+            "exact_tree_recovery_rate": 1.0,
+            "clade_recovery": 1.0,
+            "split_precision": 1.0,
+            "distance_mean": 0.125,
+            "distance_min": 0.01,
+            "distance_max": 0.2,
+            "environment": "local",
+            "status": "smoke_verified",
+            "truth_manifest": "truth.jsonl",
+            "ledger": "ledger.jsonl",
+            "summary": "summary.json",
+        }
+    ]
+    write_recovery_table_json(rows, json_out)
+    write_recovery_table_csv(rows, csv_out)
+    registry.write_text(
+        """
+tables:
+  - id: whitebox_smoke_recovery
+    title: Whitebox smoke recovery
+    status: smoke_verified
+    source_command: wt make-recovery-table
+    source_inputs:
+      - paper/recovery_registry.yaml
+    outputs:
+      - reports/paper/recovery.json
+      - reports/paper/recovery.csv
+    expected_rows: 1
+    paper_location: provisional
+    verification_status: local_verified
+"""
+    )
+
+    report = validate_table_registry(registry, base_dir=tmp_path, require_outputs=True)
+
+    assert report["valid"]
+    assert report["n_tables"] == 1
+    assert report["tables"][0]["id"] == "whitebox_smoke_recovery"
+    assert report["tables"][0]["expected_rows"] == 1
+    assert report["tables"][0]["outputs"] == [
+        {
+            "path": "reports/paper/recovery.json",
+            "exists": True,
+            "observed_rows": 1,
+        },
+        {
+            "path": "reports/paper/recovery.csv",
+            "exists": True,
+            "observed_rows": 1,
+        },
+    ]
+
+
+def test_validate_table_registry_reports_missing_required_output(tmp_path):
+    source_input = tmp_path / "paper/recovery_registry.yaml"
+    registry = tmp_path / "paper/table_registry.yaml"
+    source_input.parent.mkdir(parents=True)
+    source_input.write_text("result_sets: []\n")
+    registry.write_text(
+        """
+tables:
+  - id: whitebox_smoke_recovery
+    title: Whitebox smoke recovery
+    source_command: wt make-recovery-table
+    source_inputs:
+      - paper/recovery_registry.yaml
+    outputs:
+      - reports/paper/missing.json
+    expected_rows: 1
+    paper_location: provisional
+    verification_status: local_verified
+"""
+    )
+
+    report = validate_table_registry(registry, base_dir=tmp_path, require_outputs=True)
+
+    assert not report["valid"]
+    assert report["issues"][0]["code"] == "missing_output"
+
+
+def test_validate_table_registry_reports_row_count_mismatch(tmp_path):
+    source_input = tmp_path / "paper/recovery_registry.yaml"
+    json_out = tmp_path / "reports/paper/recovery.json"
+    registry = tmp_path / "paper/table_registry.yaml"
+    source_input.parent.mkdir(parents=True)
+    source_input.write_text("result_sets: []\n")
+    json_out.parent.mkdir(parents=True)
+    json_out.write_text(json.dumps({"n_rows": 2, "rows": [{}, {}]}) + "\n")
+    registry.write_text(
+        """
+tables:
+  - id: whitebox_smoke_recovery
+    title: Whitebox smoke recovery
+    source_command: wt make-recovery-table
+    source_inputs:
+      - paper/recovery_registry.yaml
+    outputs:
+      - reports/paper/recovery.json
+    expected_rows: 1
+    paper_location: provisional
+    verification_status: local_verified
+"""
+    )
+
+    report = validate_table_registry(registry, base_dir=tmp_path, require_outputs=True)
+
+    assert not report["valid"]
+    assert report["issues"][0]["code"] == "row_count_mismatch"

@@ -18,3 +18,11 @@ PYTHONPATH=src python -m weighttraits.cli make-recovery-table \
   --out reports/paper/whitebox_smoke_recovery.json \
   --csv-out reports/paper/whitebox_smoke_recovery.csv
 ```
+
+Validate the table registry and generated row counts:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli validate-table-registry \
+  --registry paper/table_registry.yaml \
+  --require-outputs
+```

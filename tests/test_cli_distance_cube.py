@@ -111,3 +111,23 @@ def test_make_recovery_table_parser_accepts_registry_outputs():
     assert args.base_dir == Path("/tmp/run")
     assert args.out == Path("/tmp/recovery.json")
     assert args.csv_out == Path("/tmp/recovery.csv")
+
+
+def test_validate_table_registry_parser_accepts_output_checks():
+    args = build_parser().parse_args(
+        [
+            "validate-table-registry",
+            "--registry",
+            "paper/table_registry.yaml",
+            "--base-dir",
+            "/tmp/run",
+            "--require-outputs",
+            "--out",
+            "/tmp/table_registry_audit.json",
+        ]
+    )
+
+    assert args.registry == Path("paper/table_registry.yaml")
+    assert args.base_dir == Path("/tmp/run")
+    assert args.require_outputs is True
+    assert args.out == Path("/tmp/table_registry_audit.json")

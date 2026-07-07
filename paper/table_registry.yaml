@@ -16,6 +16,9 @@ tables:
       - outputs/tiny_full_mid_branching_contrast_steps8_smoke/model_leaf_analysis/summary.json
       - outputs/tiny_lora_mid_branching_contrast_steps8_smoke/merged_leaf_analysis/summary.json
       - outputs/tiny_lora_mid_branching_contrast_steps8_smoke/cumulative_leaf_analysis/summary.json
+    outputs:
+      - reports/paper/whitebox_smoke_recovery.json
+      - reports/paper/whitebox_smoke_recovery.csv
     expected_rows: 18
     paper_location: provisional-smoke-registry
     verification_status: wright_smoke_verified

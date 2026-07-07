@@ -20,6 +20,7 @@ from weighttraits.distances.streaming import build_distance_cube, write_distance
 from weighttraits.manifests.reference import manifest_leaf_ids
 from weighttraits.paper.results import (
     recovery_table_rows,
+    validate_table_registry,
     write_recovery_table_csv,
     write_recovery_table_json,
 )
@@ -164,6 +165,16 @@ def _make_recovery_table(args: argparse.Namespace) -> int:
     }
     print(json.dumps(summary, indent=2, sort_keys=True))
     return 0
+
+
+def _validate_table_registry(args: argparse.Namespace) -> int:
+    report = validate_table_registry(
+        args.registry,
+        base_dir=args.base_dir,
+        require_outputs=args.require_outputs,
+    )
+    _emit_json(report, args.out)
+    return 0 if report["valid"] or args.allow_issues else 1
 
 
 def _build_distance_cube(args: argparse.Namespace) -> int:
@@ -539,6 +550,26 @@ def build_parser() -> argparse.ArgumentParser:
     recovery_table.add_argument("--out", type=Path, help="Optional JSON table output")
     recovery_table.add_argument("--csv-out", type=Path, help="Optional CSV table output")
     recovery_table.set_defaults(func=_make_recovery_table)
+
+    table_registry = sub.add_parser(
+        "validate-table-registry",
+        help="Validate paper table registry inputs and optional generated outputs",
+    )
+    table_registry.add_argument("--registry", type=Path, required=True)
+    table_registry.add_argument(
+        "--base-dir",
+        type=Path,
+        default=Path("."),
+        help="Base directory used to resolve relative registry paths",
+    )
+    table_registry.add_argument(
+        "--require-outputs",
+        action="store_true",
+        help="Also require declared table outputs and validate their row counts",
+    )
+    table_registry.add_argument("--out", type=Path)
+    table_registry.add_argument("--allow-issues", action="store_true")
+    table_registry.set_defaults(func=_validate_table_registry)
 
     cube = sub.add_parser("build-distance-cube", help="Build a streaming distance cube")
     cube.add_argument(

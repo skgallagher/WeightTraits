@@ -360,6 +360,38 @@ reports/paper/whitebox_smoke_recovery.csv
 - The generated table has `n_rows=18`, covering six registered summaries times three metrics:
   `correlation`, `cosine`, and `l2`.
 
+Paper table-registry validation slice:
+
+```text
+docs/HANDOFF.md
+docs/PAPER_REPRODUCTION.md
+paper/README.md
+paper/table_registry.yaml
+src/weighttraits/paper/__init__.py
+src/weighttraits/paper/results.py
+src/weighttraits/cli.py
+tests/test_cli_distance_cube.py
+tests/test_paper_results.py
+```
+
+Intent and status of that slice:
+
+- Add `outputs` declarations to `paper/table_registry.yaml`.
+- Add `wt validate-table-registry`.
+- Validate table registry shape, declared source inputs, optional generated outputs, and observed
+  row counts for JSON/CSV table artifacts.
+- Keep generated reports ignored while still making paper-build gates checkable.
+- Local focused paper/parser tests passed with 13 tests; full local suite passed with 138 tests.
+- Wright focused paper/parser tests passed with 13 tests; full Wright suite passed with 138 tests.
+- On Wright, validated `paper/table_registry.yaml` with `--require-outputs` and wrote:
+
+```text
+reports/paper/table_registry_validation.json
+```
+
+- The validation report had `valid=true`, `n_issues=0`, all seven source inputs present, and both
+  `reports/paper/whitebox_smoke_recovery.{json,csv}` present with `observed_rows=18`.
+
 Previous artifact-distance smoke slice contents:
 
 ```text
