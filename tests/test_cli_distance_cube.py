@@ -90,3 +90,24 @@ def test_analyze_training_ledger_parser_accepts_workflow_options():
     assert args.artifact == "model"
     assert args.metric == ["l2", "cosine"]
     assert args.out == Path("/tmp/whitebox")
+
+
+def test_make_recovery_table_parser_accepts_registry_outputs():
+    args = build_parser().parse_args(
+        [
+            "make-recovery-table",
+            "--registry",
+            "paper/recovery_registry.yaml",
+            "--base-dir",
+            "/tmp/run",
+            "--out",
+            "/tmp/recovery.json",
+            "--csv-out",
+            "/tmp/recovery.csv",
+        ]
+    )
+
+    assert args.registry == Path("paper/recovery_registry.yaml")
+    assert args.base_dir == Path("/tmp/run")
+    assert args.out == Path("/tmp/recovery.json")
+    assert args.csv_out == Path("/tmp/recovery.csv")

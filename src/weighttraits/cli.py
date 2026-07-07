@@ -18,6 +18,11 @@ from weighttraits.distances.manifest import (
 from weighttraits.distances.readers import CumulativeLoraReader, LoraFactorReader, reader_from_path
 from weighttraits.distances.streaming import build_distance_cube, write_distance_cube
 from weighttraits.manifests.reference import manifest_leaf_ids
+from weighttraits.paper.results import (
+    recovery_table_rows,
+    write_recovery_table_csv,
+    write_recovery_table_json,
+)
 from weighttraits.phylo.audit import audit_manifest_topology
 from weighttraits.phylo.reconstruct import reconstruct_tree_from_cube
 from weighttraits.phylo.recovery import aggregate_recovery, score_split_recovery
@@ -139,6 +144,25 @@ def _aggregate_recovery(args: argparse.Namespace) -> int:
                 rows.append(json.load(handle))
     report = aggregate_recovery(rows)
     _emit_json(report, args.out)
+    return 0
+
+
+def _make_recovery_table(args: argparse.Namespace) -> int:
+    rows = recovery_table_rows(args.registry, base_dir=args.base_dir)
+    if args.out:
+        write_recovery_table_json(rows, args.out, registry=args.registry)
+    if args.csv_out:
+        write_recovery_table_csv(rows, args.csv_out)
+    summary = {
+        "registry": str(args.registry),
+        "base_dir": str(args.base_dir),
+        "out": str(args.out) if args.out else None,
+        "csv_out": str(args.csv_out) if args.csv_out else None,
+        "n_rows": len(rows),
+        "metrics": sorted({str(row["metric"]) for row in rows}),
+        "result_sets": sorted({str(row["result_set_id"]) for row in rows}),
+    }
+    print(json.dumps(summary, indent=2, sort_keys=True))
     return 0
 
 
@@ -500,6 +524,21 @@ def build_parser() -> argparse.ArgumentParser:
     aggregate.add_argument("--scores", type=Path, nargs="+", required=True)
     aggregate.add_argument("--out", type=Path)
     aggregate.set_defaults(func=_aggregate_recovery)
+
+    recovery_table = sub.add_parser(
+        "make-recovery-table",
+        help="Build paper-facing recovery table rows from registered whitebox summaries",
+    )
+    recovery_table.add_argument("--registry", type=Path, required=True)
+    recovery_table.add_argument(
+        "--base-dir",
+        type=Path,
+        default=Path("."),
+        help="Base directory used to resolve relative summary paths",
+    )
+    recovery_table.add_argument("--out", type=Path, help="Optional JSON table output")
+    recovery_table.add_argument("--csv-out", type=Path, help="Optional CSV table output")
+    recovery_table.set_defaults(func=_make_recovery_table)
 
     cube = sub.add_parser("build-distance-cube", help="Build a streaming distance cube")
     cube.add_argument(

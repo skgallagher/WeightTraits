@@ -321,6 +321,45 @@ Intent and status of that slice:
 - Distance-cube audit metadata for cumulative LoRA records
   `metric_execution={"correlation": "lora_low_rank", "cosine": "lora_low_rank", "l2": "lora_low_rank"}`.
 
+Paper recovery registry slice:
+
+```text
+paper/README.md
+paper/recovery_registry.yaml
+paper/table_registry.yaml
+src/weighttraits/paper/__init__.py
+src/weighttraits/paper/results.py
+src/weighttraits/cli.py
+tests/test_cli_distance_cube.py
+tests/test_paper_results.py
+docs/HANDOFF.md
+```
+
+Intent and status of that slice:
+
+- Add `paper/recovery_registry.yaml` as the first paper-facing registry of verified whitebox
+  recovery summaries.
+- Register the mid branching contrast whitebox smokes for steps2 and steps8:
+  full checkpoints, LoRA merged checkpoints, and cumulative LoRA adapter chains.
+- Add `wt make-recovery-table`.
+- Read registered `summary.json` files, validate artifact mode agreement, and emit one compact
+  table row per summary metric.
+- Support JSON and CSV outputs for downstream paper/table rebuilds.
+- Add `paper/table_registry.yaml` entry `whitebox_smoke_recovery`, with source command and expected
+  row count.
+- Local focused paper/parser tests passed with 9 tests; full local suite passed with 134 tests.
+- Wright focused paper/parser tests passed with 9 tests; full Wright suite passed with 134 tests.
+- On Wright, built:
+
+```text
+reports/paper/whitebox_smoke_recovery.json
+reports/paper/whitebox_smoke_recovery.csv
+```
+
+  from `paper/recovery_registry.yaml`.
+- The generated table has `n_rows=18`, covering six registered summaries times three metrics:
+  `correlation`, `cosine`, and `l2`.
+
 Previous artifact-distance smoke slice contents:
 
 ```text
