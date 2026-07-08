@@ -1,5 +1,8 @@
+import csv
 import json
 from pathlib import Path
+import subprocess
+import sys
 
 import yaml
 
@@ -46,6 +49,13 @@ def _check_expectations(stats: dict, expect: dict) -> None:
             )
 
 
+def _write_ellmtrees_manifest(run_dir: Path, rows: list[dict]) -> None:
+    run_dir.mkdir(parents=True)
+    run_dir.joinpath("manifest.jsonl").write_text(
+        "\n".join(json.dumps(row) for row in rows) + "\n"
+    )
+
+
 def test_all_tree_examples_have_expectations():
     paths = _example_paths()
     assert paths, "no tree examples found"
@@ -83,6 +93,113 @@ def test_confirm_paper_numbers_tree_set_has_50_min_leaf_manifests():
         assert len(rows) == tree["n_rows"]
         assert len(leaf_ids) == tree["n_leaves"]
         assert tree["n_leaves"] >= 4
+
+
+def test_confirm_paper_tree_comparison_report_smoke(tmp_path):
+    repo = Path(__file__).resolve().parents[1]
+    ellmtrees_runs = tmp_path / "ellmtrees_runs"
+    paper_tex = tmp_path / "paper.tex"
+    out_dir = tmp_path / "report"
+
+    paper_tex.write_text(
+        r"""
+Training trees are generated via a Poisson branching process.
+$k \sim \mathrm{Poisson}(\lambda = 1.5)$.
+The node budget is $n_\mathrm{nodes} = 14$ and the maximum depth is
+$n_\mathrm{layers} = 4$. Runs with fewer than 4 leaves are excluded.
+This procedure yields trees with 4--8 observed leaves across the 50 replications.
+"""
+    )
+
+    _write_ellmtrees_manifest(
+        ellmtrees_runs / "run_001",
+        [
+            {
+                "node_id": "n0",
+                "grow": "train",
+                "depth": 1,
+                "path": ["root", "n0"],
+                "is_leaf": False,
+            },
+            {
+                "node_id": "n1",
+                "grow": "train",
+                "depth": 2,
+                "path": ["root", "n0", "n1"],
+                "is_leaf": True,
+            },
+            {
+                "node_id": "n2",
+                "grow": "train",
+                "depth": 2,
+                "path": ["root", "n0", "n2"],
+                "is_leaf": True,
+            },
+        ],
+    )
+
+    _write_ellmtrees_manifest(
+        ellmtrees_runs / "run_002",
+        [
+            {
+                "node_id": "n0",
+                "grow": "train",
+                "depth": 1,
+                "path": ["root", "n0"],
+                "is_leaf": False,
+            },
+            {
+                "node_id": "n1",
+                "grow": "train",
+                "depth": 2,
+                "path": ["root", "n0", "n1"],
+                "is_leaf": True,
+            },
+            {
+                "node_id": "n2",
+                "grow": "train",
+                "depth": 2,
+                "path": ["root", "n0", "n2"],
+                "is_leaf": True,
+            },
+            {
+                "node_id": "n3",
+                "grow": "train",
+                "depth": 2,
+                "path": ["root", "n0", "n3"],
+                "is_leaf": True,
+            },
+        ],
+    )
+
+    subprocess.run(
+        [
+            sys.executable,
+            str(repo / "scripts/compare_confirm_paper_trees.py"),
+            "--weighttraits-summary",
+            str(repo / "examples/training/confirm_paper_numbers/tree_set_summary.json"),
+            "--ellmtrees-runs",
+            str(ellmtrees_runs),
+            "--paper-tex",
+            str(paper_tex),
+            "--out-dir",
+            str(out_dir),
+        ],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    rows = list(csv.DictReader((out_dir / "source_summary.csv").open()))
+    by_source = {row["source"]: row for row in rows}
+    assert by_source["ELLMTrees runs_branching_v3"]["n_trees"] == "2"
+    assert by_source["ELLMTrees runs_branching_v3"]["leaves_min"] == "2"
+    assert by_source["WeightTraits confirm_paper_numbers"]["n_trees"] == "50"
+    assert by_source["WeightTraits confirm_paper_numbers"]["leaves_max"] == "10"
+    assert (out_dir / "README.md").exists()
+    assert (out_dir / "leaf_count_distribution.svg").exists()
+    assert (out_dir / "training_nodes_vs_leaves.svg").exists()
 
 
 def test_confirm_paper_numbers_assignments_match_tree_set_without_replacement():

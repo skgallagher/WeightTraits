@@ -13,6 +13,18 @@ PYTHONPATH=src python -m weighttraits.cli generate-tree-set \
 
 The topology setting follows the active draft: Poisson branching with `lambda=1.5`, `n_nodes=14`, `max_depth=4`, and rejection of trees with fewer than four leaves. The current accepted draw has 50 trees, accepted from 78 candidate seeds starting at `20260707`.
 
+Compare the generated set against the active paper text and the local ELLMTrees reference artifacts with:
+
+```bash
+python scripts/compare_confirm_paper_trees.py \
+  --weighttraits-summary examples/training/confirm_paper_numbers/tree_set_summary.json \
+  --ellmtrees-runs ../ELLMTrees/outputs/runs_branching_v3 \
+  --paper-tex ../ELLMTrees-paper/iclr_draft_v2.tex \
+  --out-dir reports/confirm_paper_tree_comparison
+```
+
+The comparison writes CSV tables, a Markdown summary, and SVG plots under `reports/confirm_paper_tree_comparison/`. Those outputs are intentionally ignored by git; rerun the command after regenerating topologies or after the paper tree-generation text changes.
+
 Task/data rows were then assigned with the paper-declared 36-dataset pool: 9 summarization, 10 classification, 8 QA, and 9 translation datasets. Assignments are sampled without replacement within each tree, using assignment seeds `1..50`.
 
 ```bash
