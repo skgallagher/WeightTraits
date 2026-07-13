@@ -9,11 +9,20 @@ from weighttraits.paper.diagnostics import (
 )
 from weighttraits.paper.figures import (
     VARIANT_DIAGNOSTIC_METRICS,
+    load_weighttraits_paired_comparisons_artifact,
     load_weighttraits_runset_diagnostics_artifact,
     load_weighttraits_variants_artifact,
     plot_weighttraits_additivity_recovery,
     plot_weighttraits_metric_robustness,
+    plot_weighttraits_paired_effects,
     plot_weighttraits_variants_diagnostics,
+)
+from weighttraits.paper.paired import (
+    PAIRED_COMPARISON_COLUMNS,
+    WEIGHTTRAITS_PAIRED_COMPARISONS_SCHEMA,
+    weighttraits_paired_comparison_rows,
+    write_weighttraits_paired_comparisons_csv,
+    write_weighttraits_paired_comparisons_json,
 )
 from weighttraits.paper.results import (
     ELLMTREES_VARIANTS_TABLE_COLUMNS,
@@ -44,10 +53,12 @@ from weighttraits.paper.results import (
 
 __all__ = [
     "ELLMTREES_VARIANTS_TABLE_COLUMNS",
+    "PAIRED_COMPARISON_COLUMNS",
     "RECOVERY_TABLE_COLUMNS",
     "RUNSET_DIAGNOSTIC_COLUMNS",
     "VARIANT_DIAGNOSTIC_METRICS",
     "WEIGHTTRAITS_RUNSET_DIAGNOSTICS_SCHEMA",
+    "WEIGHTTRAITS_PAIRED_COMPARISONS_SCHEMA",
     "WEIGHTTRAITS_VARIANTS_SCHEMA",
     "behavior_holdout_draft_table_rows",
     "compare_table_artifacts",
@@ -58,9 +69,11 @@ __all__ = [
     "load_table_registry",
     "load_weighttraits_variants_registry",
     "load_weighttraits_runset_diagnostics_artifact",
+    "load_weighttraits_paired_comparisons_artifact",
     "load_weighttraits_variants_artifact",
     "plot_weighttraits_additivity_recovery",
     "plot_weighttraits_metric_robustness",
+    "plot_weighttraits_paired_effects",
     "plot_weighttraits_variants_diagnostics",
     "recovery_table_rows",
     "run_table_registry_comparisons",
@@ -74,8 +87,11 @@ __all__ = [
     "write_recovery_table_json",
     "weighttraits_variants_table_rows",
     "weighttraits_runset_diagnostic_rows",
+    "weighttraits_paired_comparison_rows",
     "write_weighttraits_runset_diagnostics_csv",
     "write_weighttraits_runset_diagnostics_json",
+    "write_weighttraits_paired_comparisons_csv",
+    "write_weighttraits_paired_comparisons_json",
     "write_weighttraits_variants_table_csv",
     "write_weighttraits_variants_table_json",
 ]

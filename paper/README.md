@@ -19,6 +19,8 @@ Current registries:
   (four LoRA scopes plus full fine-tuning), independent of the unfinished legacy-scope row.
 - `weighttraits_runset_diagnostics_registry.yaml`: native three-metric recovery, four-point, and
   Atteson diagnostics for those same five completed conditions.
+- `weighttraits_paired_comparisons_registry.yaml`: deterministic same-topology paired effects and
+  bootstrap intervals across metrics and training scopes.
 - `recovery_registry.yaml`: verified whitebox recovery summary artifacts.
 - `table_registry.yaml`: paper-facing table definitions and source commands.
 
@@ -108,6 +110,25 @@ PYTHONPATH=src python -m weighttraits.cli plot-weighttraits-additivity-recovery 
 The diagnostics builder validates every contributing row as native `direct` analysis and rejects
 mixed or legacy analysis engines. The JSON records `producer: weighttraits`; both plotting commands
 require that provenance-bearing JSON rather than accepting arbitrary CSV input.
+
+Compute paired effects across the shared 50 topology IDs:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-weighttraits-paired-comparisons \
+  --registry paper/weighttraits_paired_comparisons_registry.yaml \
+  --out reports/paper/weighttraits_paired_comparisons.json \
+  --csv-out reports/paper/weighttraits_paired_comparisons.csv
+
+PYTHONPATH=src python -m weighttraits.cli plot-weighttraits-paired-effects \
+  --comparisons reports/paper/weighttraits_paired_comparisons.json \
+  --group scope_cosine \
+  --out reports/paper/weighttraits_paired_scope_cosine.svg
+```
+
+Effects are oriented so positive values favor the first condition named in each comparison. The
+artifact reports paired means, medians, deterministic 10,000-resample bootstrap intervals,
+win/tie/loss counts, and exact two-sided sign tests. It requires identical topology-ID sets on both
+sides and rejects non-direct analysis summaries.
 
 Recovery and ordering sample counts are tracked separately. A Poisson draw may give the root only
 one child; such a tree remains valid for recovery but has no cross-root-branch pairs and therefore

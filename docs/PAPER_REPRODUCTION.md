@@ -28,6 +28,8 @@ provenance rather than treated as a reproduction failure.
   for an interim independent comparison before the legacy-scope row finishes.
 - `paper/weighttraits_runset_diagnostics_registry.yaml`: native multi-metric recovery,
   four-point-additivity, and Atteson-margin analysis inputs.
+- `paper/weighttraits_paired_comparisons_registry.yaml`: same-topology paired metric and scope
+  effects with deterministic bootstrap intervals.
 
 Each entry should include:
 - artifact path
@@ -98,6 +100,24 @@ PYTHONPATH=src python -m weighttraits.cli plot-weighttraits-additivity-recovery 
 The builder requires all source rows to report `analysis_engine: direct`, the registered
 representation, and the expected tree count. The plotting commands accept only the generated
 `weighttraits.runset_diagnostics.v1` JSON with `producer: weighttraits`.
+
+Paired comparisons use the shared fresh topology IDs rather than treating the five run sets as
+independent samples:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-weighttraits-paired-comparisons \
+  --registry paper/weighttraits_paired_comparisons_registry.yaml \
+  --out reports/paper/weighttraits_paired_comparisons.json \
+  --csv-out reports/paper/weighttraits_paired_comparisons.csv
+PYTHONPATH=src python -m weighttraits.cli plot-weighttraits-paired-effects \
+  --comparisons reports/paper/weighttraits_paired_comparisons.json \
+  --group metric_cosine_vs_l2 \
+  --out reports/paper/weighttraits_paired_metric_cosine_vs_l2.svg
+```
+
+Every comparison requires the exact same topology-ID set on both sides. Effects are oriented so
+positive favors the first named side and include paired means, medians, 95% deterministic
+bootstrap intervals, win/tie/loss counts, and exact sign tests.
 
 Pulled Wright analysis directories can be re-rolled without editing their cluster-authored
 provenance paths:

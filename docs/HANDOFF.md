@@ -239,6 +239,14 @@ and multi-metric diagnostics under `reports/paper/weighttraits_runset_diagnostic
 metric robustness and cosine additivity/Atteson-versus-recovery. Their build path rejects any row
 whose analysis engine is not `direct`; old ELLMTrees outputs remain post-hoc references only.
 
+Same-tree paired analysis is now registered in
+`paper/weighttraits_paired_comparisons_registry.yaml`. It compares cosine with L2 and correlation
+within each completed condition, and compares k-only, q/k/v, full-attention, and full fine-tuning
+with q/v under cosine. The builder requires identical topology IDs, direct-analysis provenance,
+and registered artifact/representation/tree counts. It writes deterministic 10,000-resample
+bootstrap intervals plus exact sign-test summaries to ignored
+`reports/paper/weighttraits_paired_comparisons.*` and produces group-specific forest plots.
+
 At the same checkpoint, legacy-scope training array `153912` had 46/50 tasks complete and tasks
 3, 4, 29, and 50 still running. Dependent rollup `154445` and corrected-scope array
 `154446_[1-50%6]` remain pending on `afterok`, so raising the corrected array throttle to six did

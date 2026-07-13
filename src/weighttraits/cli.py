@@ -10,16 +10,23 @@ from typing import Mapping, Sequence
 import yaml
 
 from weighttraits.paper.figures import (
+    load_weighttraits_paired_comparisons_artifact,
     load_weighttraits_runset_diagnostics_artifact,
     load_weighttraits_variants_artifact,
     plot_weighttraits_additivity_recovery,
     plot_weighttraits_metric_robustness,
+    plot_weighttraits_paired_effects,
     plot_weighttraits_variants_diagnostics,
 )
 from weighttraits.paper.diagnostics import (
     weighttraits_runset_diagnostic_rows,
     write_weighttraits_runset_diagnostics_csv,
     write_weighttraits_runset_diagnostics_json,
+)
+from weighttraits.paper.paired import (
+    weighttraits_paired_comparison_rows,
+    write_weighttraits_paired_comparisons_csv,
+    write_weighttraits_paired_comparisons_json,
 )
 from weighttraits.analysis.completion import (
     audit_training_run_set_completion,
@@ -406,6 +413,38 @@ def _plot_weighttraits_additivity_recovery(args: argparse.Namespace) -> int:
         title=args.title,
     )
     summary["diagnostics"] = str(args.diagnostics)
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
+def _make_weighttraits_paired_comparisons(args: argparse.Namespace) -> int:
+    rows = weighttraits_paired_comparison_rows(args.registry, base_dir=args.base_dir)
+    if args.out:
+        write_weighttraits_paired_comparisons_json(rows, args.out, registry=args.registry)
+    if args.csv_out:
+        write_weighttraits_paired_comparisons_csv(rows, args.csv_out)
+    summary = {
+        "registry": str(args.registry),
+        "base_dir": str(args.base_dir),
+        "out": str(args.out) if args.out else None,
+        "csv_out": str(args.csv_out) if args.csv_out else None,
+        "n_rows": len(rows),
+        "comparisons": list(dict.fromkeys(str(row["comparison_id"]) for row in rows)),
+        "outcomes": list(dict.fromkeys(str(row["outcome"]) for row in rows)),
+    }
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
+def _plot_weighttraits_paired_effects(args: argparse.Namespace) -> int:
+    rows = load_weighttraits_paired_comparisons_artifact(args.comparisons)
+    summary = plot_weighttraits_paired_effects(
+        rows,
+        args.out,
+        group=args.group,
+        title=args.title,
+    )
+    summary["comparisons"] = str(args.comparisons)
     print(json.dumps(summary, indent=2, sort_keys=True))
     return 0
 
@@ -1422,6 +1461,34 @@ def build_parser() -> argparse.ArgumentParser:
         default="Independent WeightTraits additivity and recovery",
     )
     additivity_recovery_plot.set_defaults(func=_plot_weighttraits_additivity_recovery)
+
+    paired_comparisons = sub.add_parser(
+        "make-weighttraits-paired-comparisons",
+        help="Compute paired same-topology effects from native WeightTraits run-set summaries",
+    )
+    paired_comparisons.add_argument("--registry", type=Path, required=True)
+    paired_comparisons.add_argument(
+        "--base-dir",
+        type=Path,
+        default=Path("."),
+        help="Base directory used to resolve relative native summary paths",
+    )
+    paired_comparisons.add_argument("--out", type=Path, help="Optional provenance JSON output")
+    paired_comparisons.add_argument("--csv-out", type=Path, help="Optional long-form CSV output")
+    paired_comparisons.set_defaults(func=_make_weighttraits_paired_comparisons)
+
+    paired_effects_plot = sub.add_parser(
+        "plot-weighttraits-paired-effects",
+        help="Plot paired mean effects with deterministic bootstrap confidence intervals",
+    )
+    paired_effects_plot.add_argument("--comparisons", type=Path, required=True)
+    paired_effects_plot.add_argument("--group", required=True)
+    paired_effects_plot.add_argument("--out", type=Path, required=True)
+    paired_effects_plot.add_argument(
+        "--title",
+        default="Independent WeightTraits paired same-tree effects",
+    )
+    paired_effects_plot.set_defaults(func=_plot_weighttraits_paired_effects)
 
     behavior_holdout_table = sub.add_parser(
         "make-behavior-holdout-table",

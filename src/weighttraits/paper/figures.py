@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from weighttraits.paper.diagnostics import WEIGHTTRAITS_RUNSET_DIAGNOSTICS_SCHEMA
+from weighttraits.paper.paired import WEIGHTTRAITS_PAIRED_COMPARISONS_SCHEMA
 from weighttraits.paper.results import WEIGHTTRAITS_VARIANTS_SCHEMA
 
 
@@ -374,6 +375,138 @@ def plot_weighttraits_additivity_recovery(
         "metric": metric,
         "n_conditions": len(selected),
         "condition_ids": condition_ids,
+    }
+
+
+def load_weighttraits_paired_comparisons_artifact(
+    path: str | Path,
+) -> list[dict[str, Any]]:
+    """Load provenance-bearing paired comparisons and reject arbitrary inputs."""
+
+    artifact = Path(path)
+    if artifact.suffix.lower() != ".json":
+        raise ValueError("WeightTraits paired figures require the provenance-bearing JSON artifact")
+    payload = json.loads(artifact.read_text())
+    if not isinstance(payload, dict):
+        raise ValueError(f"WeightTraits paired comparisons must be a JSON object: {artifact}")
+    if payload.get("schema") != WEIGHTTRAITS_PAIRED_COMPARISONS_SCHEMA:
+        raise ValueError(f"WeightTraits paired comparisons have invalid schema: {artifact}")
+    if payload.get("producer") != "weighttraits":
+        raise ValueError(f"WeightTraits paired comparisons have invalid producer: {artifact}")
+    rows = payload.get("rows")
+    if not isinstance(rows, list) or not rows:
+        raise ValueError(f"WeightTraits paired comparisons require non-empty rows: {artifact}")
+    if payload.get("n_rows") != len(rows):
+        raise ValueError(f"WeightTraits paired comparisons row-count mismatch: {artifact}")
+    required_numbers = (
+        "n_pairs",
+        "mean_effect",
+        "median_effect",
+        "ci_low",
+        "ci_high",
+        "wins",
+        "ties",
+        "losses",
+        "win_rate",
+        "sign_test_p",
+    )
+    normalized = []
+    seen: set[tuple[str, str]] = set()
+    for index, raw in enumerate(rows, start=1):
+        if not isinstance(raw, dict):
+            raise ValueError(f"paired-comparison row {index} must be an object")
+        row = dict(raw)
+        comparison_id = _required_text(row, "comparison_id", index=index)
+        outcome = _required_text(row, "outcome", index=index)
+        _required_text(row, "label", index=index)
+        _required_text(row, "outcome_label", index=index)
+        key = (comparison_id, outcome)
+        if key in seen:
+            raise ValueError(f"duplicate paired-comparison row {key!r}")
+        seen.add(key)
+        for field in required_numbers:
+            row[field] = _required_finite(row, field, index=index)
+        if row["ci_low"] > row["ci_high"]:
+            raise ValueError(f"paired-comparison row {index} has reversed confidence interval")
+        normalized.append(row)
+    return normalized
+
+
+def plot_weighttraits_paired_effects(
+    rows: Sequence[dict[str, Any]],
+    path: str | Path,
+    *,
+    group: str,
+    title: str = "WeightTraits paired same-tree effects",
+) -> dict[str, Any]:
+    """Plot paired mean effects and bootstrap intervals for one comparison group."""
+
+    selected = [row for row in rows if str(row.get("group")) == group]
+    if not selected:
+        raise ValueError(f"paired comparisons do not contain group {group!r}")
+    comparison_ids = list(dict.fromkeys(str(row["comparison_id"]) for row in selected))
+    outcomes = list(dict.fromkeys(str(row["outcome"]) for row in selected))
+    indexed = {(str(row["comparison_id"]), str(row["outcome"])): row for row in selected}
+    for comparison_id in comparison_ids:
+        missing = [outcome for outcome in outcomes if (comparison_id, outcome) not in indexed]
+        if missing:
+            raise ValueError(f"paired comparison {comparison_id!r} is missing outcomes {missing}")
+
+    plt, out = _figure_context(path)
+    n_columns = 2
+    n_rows = math.ceil(len(outcomes) / n_columns)
+    figure, axes = plt.subplots(
+        n_rows,
+        n_columns,
+        figsize=(11.5, max(4.5, 3.2 * n_rows)),
+        squeeze=False,
+    )
+    figure.set_facecolor("white")
+    y_positions = list(range(len(comparison_ids)))
+    for outcome_index, outcome in enumerate(outcomes):
+        axis = axes.flat[outcome_index]
+        axis.set_facecolor("white")
+        outcome_rows = [indexed[(comparison_id, outcome)] for comparison_id in comparison_ids]
+        means = [float(row["mean_effect"]) for row in outcome_rows]
+        lower_errors = [
+            mean - float(row["ci_low"])
+            for mean, row in zip(means, outcome_rows, strict=True)
+        ]
+        upper_errors = [
+            float(row["ci_high"]) - mean
+            for mean, row in zip(means, outcome_rows, strict=True)
+        ]
+        axis.errorbar(
+            means,
+            y_positions,
+            xerr=[lower_errors, upper_errors],
+            fmt="o",
+            color="#2f7699",
+            capsize=3,
+        )
+        axis.axvline(0.0, color="#7a858c", linewidth=1.0)
+        axis.grid(axis="x", color="#d9dee2", linewidth=0.8)
+        axis.set_axisbelow(True)
+        axis.set_yticks(
+            y_positions,
+            labels=[str(row["label"]) for row in outcome_rows],
+        )
+        axis.invert_yaxis()
+        units = str(outcome_rows[0].get("units", ""))
+        axis.set_xlabel(f"Paired effect ({units}); positive favors first" if units else "Paired effect; positive favors first")
+        axis.set_title(str(outcome_rows[0]["outcome_label"]))
+    for empty_index in range(len(outcomes), len(axes.flat)):
+        axes.flat[empty_index].set_visible(False)
+    figure.suptitle(title)
+    figure.tight_layout(rect=(0.0, 0.0, 1.0, 0.94))
+    _save_figure(figure, out)
+    plt.close(figure)
+    return {
+        "out": str(out),
+        "schema": WEIGHTTRAITS_PAIRED_COMPARISONS_SCHEMA,
+        "group": group,
+        "n_comparisons": len(comparison_ids),
+        "outcomes": outcomes,
     }
 
 
