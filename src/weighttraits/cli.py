@@ -10,8 +10,16 @@ from typing import Mapping, Sequence
 import yaml
 
 from weighttraits.paper.figures import (
+    load_weighttraits_runset_diagnostics_artifact,
     load_weighttraits_variants_artifact,
+    plot_weighttraits_additivity_recovery,
+    plot_weighttraits_metric_robustness,
     plot_weighttraits_variants_diagnostics,
+)
+from weighttraits.paper.diagnostics import (
+    weighttraits_runset_diagnostic_rows,
+    write_weighttraits_runset_diagnostics_csv,
+    write_weighttraits_runset_diagnostics_json,
 )
 from weighttraits.analysis.completion import (
     audit_training_run_set_completion,
@@ -358,6 +366,46 @@ def _plot_weighttraits_variants(args: argparse.Namespace) -> int:
     rows = load_weighttraits_variants_artifact(args.table)
     summary = plot_weighttraits_variants_diagnostics(rows, args.out, title=args.title)
     summary["table"] = str(args.table)
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
+def _make_weighttraits_runset_diagnostics(args: argparse.Namespace) -> int:
+    rows = weighttraits_runset_diagnostic_rows(args.registry, base_dir=args.base_dir)
+    if args.out:
+        write_weighttraits_runset_diagnostics_json(rows, args.out, registry=args.registry)
+    if args.csv_out:
+        write_weighttraits_runset_diagnostics_csv(rows, args.csv_out)
+    summary = {
+        "registry": str(args.registry),
+        "base_dir": str(args.base_dir),
+        "out": str(args.out) if args.out else None,
+        "csv_out": str(args.csv_out) if args.csv_out else None,
+        "n_rows": len(rows),
+        "conditions": list(dict.fromkeys(str(row["condition_id"]) for row in rows)),
+        "metrics": list(dict.fromkeys(str(row["metric"]) for row in rows)),
+    }
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
+def _plot_weighttraits_metric_robustness(args: argparse.Namespace) -> int:
+    rows = load_weighttraits_runset_diagnostics_artifact(args.diagnostics)
+    summary = plot_weighttraits_metric_robustness(rows, args.out, title=args.title)
+    summary["diagnostics"] = str(args.diagnostics)
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
+def _plot_weighttraits_additivity_recovery(args: argparse.Namespace) -> int:
+    rows = load_weighttraits_runset_diagnostics_artifact(args.diagnostics)
+    summary = plot_weighttraits_additivity_recovery(
+        rows,
+        args.out,
+        metric=args.metric,
+        title=args.title,
+    )
+    summary["diagnostics"] = str(args.diagnostics)
     print(json.dumps(summary, indent=2, sort_keys=True))
     return 0
 
@@ -1330,6 +1378,50 @@ def build_parser() -> argparse.ArgumentParser:
         default="Independent WeightTraits variant diagnostics",
     )
     weighttraits_variants_plot.set_defaults(func=_plot_weighttraits_variants)
+
+    runset_diagnostics = sub.add_parser(
+        "make-weighttraits-runset-diagnostics",
+        help="Build fresh multi-metric diagnostics from native WeightTraits run-set summaries",
+    )
+    runset_diagnostics.add_argument("--registry", type=Path, required=True)
+    runset_diagnostics.add_argument(
+        "--base-dir",
+        type=Path,
+        default=Path("."),
+        help="Base directory used to resolve relative native summary paths",
+    )
+    runset_diagnostics.add_argument("--out", type=Path, help="Optional provenance JSON output")
+    runset_diagnostics.add_argument("--csv-out", type=Path, help="Optional long-form CSV output")
+    runset_diagnostics.set_defaults(func=_make_weighttraits_runset_diagnostics)
+
+    metric_robustness_plot = sub.add_parser(
+        "plot-weighttraits-metric-robustness",
+        help="Plot recovery sensitivity across fresh L2, cosine, and correlation distances",
+    )
+    metric_robustness_plot.add_argument("--diagnostics", type=Path, required=True)
+    metric_robustness_plot.add_argument("--out", type=Path, required=True)
+    metric_robustness_plot.add_argument(
+        "--title",
+        default="Independent WeightTraits distance-metric robustness",
+    )
+    metric_robustness_plot.set_defaults(func=_plot_weighttraits_metric_robustness)
+
+    additivity_recovery_plot = sub.add_parser(
+        "plot-weighttraits-additivity-recovery",
+        help="Plot fresh additivity and Atteson diagnostics against recovery",
+    )
+    additivity_recovery_plot.add_argument("--diagnostics", type=Path, required=True)
+    additivity_recovery_plot.add_argument(
+        "--metric",
+        choices=["l2", "cosine", "correlation"],
+        default="cosine",
+    )
+    additivity_recovery_plot.add_argument("--out", type=Path, required=True)
+    additivity_recovery_plot.add_argument(
+        "--title",
+        default="Independent WeightTraits additivity and recovery",
+    )
+    additivity_recovery_plot.set_defaults(func=_plot_weighttraits_additivity_recovery)
 
     behavior_holdout_table = sub.add_parser(
         "make-behavior-holdout-table",

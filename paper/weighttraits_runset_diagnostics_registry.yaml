@@ -1,0 +1,49 @@
+version: 1
+id: weighttraits_confirm_paper_runset_diagnostics
+title: Independent WeightTraits confirm-paper run-set diagnostics
+description: >
+  Native direct-analysis rollups used for metric robustness and
+  additivity/Atteson recovery figures. Legacy ELLMTrees analysis outputs are
+  not valid inputs.
+metrics: [l2, cosine, correlation]
+
+conditions:
+  - id: flan_lora_qv
+    label: "LoRA q/v"
+    section: "Encoder--decoder: Flan-T5-base"
+    summary: outputs/analysis_v20260713/lora_finetune_summary.json
+    artifact: adapter_chain
+    representation: lora_cumulative_delta
+    expected_trees: 50
+
+  - id: flan_lora_k_only
+    label: "LoRA k-only"
+    section: "Encoder--decoder: Flan-T5-base"
+    summary: outputs/analysis_v20260713/lora_k_only_summary.json
+    artifact: adapter_chain
+    representation: lora_cumulative_delta
+    expected_trees: 50
+
+  - id: flan_lora_qkv
+    label: "LoRA q/k/v"
+    section: "Encoder--decoder: Flan-T5-base"
+    summary: outputs/analysis_v20260713/lora_qkv_summary.json
+    artifact: adapter_chain
+    representation: lora_cumulative_delta
+    expected_trees: 50
+
+  - id: flan_lora_full_attn
+    label: "LoRA full attention"
+    section: "Encoder--decoder: Flan-T5-base"
+    summary: outputs/analysis_v20260713/lora_full_attn_summary.json
+    artifact: adapter_chain
+    representation: lora_cumulative_delta
+    expected_trees: 50
+
+  - id: flan_full_finetune
+    label: "Full fine-tuning"
+    section: "Encoder--decoder: Flan-T5-base"
+    summary: outputs/analysis_v20260713/full_finetune_summary.json
+    artifact: model
+    representation: full_weight
+    expected_trees: 50

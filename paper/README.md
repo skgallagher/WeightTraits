@@ -15,6 +15,10 @@ Current registries:
   table.
 - `weighttraits_variants_registry.yaml`: row mapping from the versioned WeightTraits run-set
   rollups to the five rebuilt Flan-T5 rows in `tab:variants`.
+- `weighttraits_completed_conditions_registry.yaml`: the five currently complete fresh conditions
+  (four LoRA scopes plus full fine-tuning), independent of the unfinished legacy-scope row.
+- `weighttraits_runset_diagnostics_registry.yaml`: native three-metric recovery, four-point, and
+  Atteson diagnostics for those same five completed conditions.
 - `recovery_registry.yaml`: verified whitebox recovery summary artifacts.
 - `table_registry.yaml`: paper-facing table definitions and source commands.
 
@@ -81,6 +85,29 @@ PYTHONPATH=src python -m weighttraits.cli plot-weighttraits-variants \
 The plotting command requires the provenance-bearing `weighttraits.variants.v1` JSON written by
 `make-weighttraits-variants-table`. It rejects legacy-style JSON and CSV inputs so a reference
 table cannot accidentally enter the candidate figure path.
+
+Build the completed-condition robustness and additivity artifacts directly from native run-set
+summaries:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-weighttraits-runset-diagnostics \
+  --registry paper/weighttraits_runset_diagnostics_registry.yaml \
+  --out reports/paper/weighttraits_runset_diagnostics.json \
+  --csv-out reports/paper/weighttraits_runset_diagnostics.csv
+
+PYTHONPATH=src python -m weighttraits.cli plot-weighttraits-metric-robustness \
+  --diagnostics reports/paper/weighttraits_runset_diagnostics.json \
+  --out reports/paper/weighttraits_metric_robustness.svg
+
+PYTHONPATH=src python -m weighttraits.cli plot-weighttraits-additivity-recovery \
+  --diagnostics reports/paper/weighttraits_runset_diagnostics.json \
+  --metric cosine \
+  --out reports/paper/weighttraits_additivity_recovery.svg
+```
+
+The diagnostics builder validates every contributing row as native `direct` analysis and rejects
+mixed or legacy analysis engines. The JSON records `producer: weighttraits`; both plotting commands
+require that provenance-bearing JSON rather than accepting arbitrary CSV input.
 
 Recovery and ordering sample counts are tracked separately. A Poisson draw may give the root only
 one child; such a tree remains valid for recovery but has no cross-root-branch pairs and therefore

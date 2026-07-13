@@ -230,6 +230,20 @@ remain separate. `paper/weighttraits_variants_registry.yaml` and
 `wt make-weighttraits-variants-table` map the versioned `analysis_v20260713` rollups into the exact
 legacy `tab:variants` artifact schema without recomputing checkpoint distances.
 
+Later on 2026-07-13, full fine-tuning direct analysis job `154440` completed and all 50 per-tree
+artifacts were pulled into ignored `outputs/analysis_v20260713/full_finetune/`. The local rollup was
+regenerated with the current code and relocated truth manifests, yielding 50 recovery trees and 26
+ordering-eligible trees (24 have `missing_branch_class`). The five currently complete fresh
+conditions now have native candidate artifacts under `reports/paper/weighttraits_completed_conditions.*`
+and multi-metric diagnostics under `reports/paper/weighttraits_runset_diagnostics.*`, with plots for
+metric robustness and cosine additivity/Atteson-versus-recovery. Their build path rejects any row
+whose analysis engine is not `direct`; old ELLMTrees outputs remain post-hoc references only.
+
+At the same checkpoint, legacy-scope training array `153912` had 46/50 tasks complete and tasks
+3, 4, 29, and 50 still running. Dependent rollup `154445` and corrected-scope array
+`154446_[1-50%6]` remain pending on `afterok`, so raising the corrected array throttle to six did
+not weaken or change its dependency.
+
 On 2026-07-07, the `fig:overview` and `fig:coherence_recovery` digests in
 `paper/reference_registry.yaml` were refreshed to match the current sibling reference files after
 `../ELLMTrees-paper/figures/fig1_paper_overview.{tex,pdf}`,

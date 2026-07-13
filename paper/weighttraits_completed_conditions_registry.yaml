@@ -1,0 +1,54 @@
+version: 1
+id: weighttraits_completed_fresh_conditions
+title: Independently completed WeightTraits conditions
+description: >
+  Five completed direct-analysis conditions available before the legacy-scope
+  approximation finishes. Every row is computed from native WeightTraits
+  run-set outputs; no legacy table or analysis artifact is an input.
+metric: cosine
+
+variants:
+  - id: flan_lora_qv
+    section: "Encoder--decoder: Flan-T5-base"
+    model: Flan-T5-base
+    label: "LoRA q/v"
+    recovery_group: flan_lora_qv
+    summary: outputs/analysis_v20260713/lora_finetune_summary.json
+    artifact: adapter_chain
+    representation: lora_cumulative_delta
+
+  - id: flan_lora_k_only
+    section: "Encoder--decoder: Flan-T5-base"
+    model: Flan-T5-base
+    label: "LoRA k-only"
+    recovery_group: flan_lora_k_only
+    summary: outputs/analysis_v20260713/lora_k_only_summary.json
+    artifact: adapter_chain
+    representation: lora_cumulative_delta
+
+  - id: flan_lora_qkv
+    section: "Encoder--decoder: Flan-T5-base"
+    model: Flan-T5-base
+    label: "LoRA q/k/v"
+    recovery_group: flan_lora_qkv
+    summary: outputs/analysis_v20260713/lora_qkv_summary.json
+    artifact: adapter_chain
+    representation: lora_cumulative_delta
+
+  - id: flan_lora_full_attn
+    section: "Encoder--decoder: Flan-T5-base"
+    model: Flan-T5-base
+    label: "LoRA full attention"
+    recovery_group: flan_lora_full_attn
+    summary: outputs/analysis_v20260713/lora_full_attn_summary.json
+    artifact: adapter_chain
+    representation: lora_cumulative_delta
+
+  - id: flan_full_finetune
+    section: "Encoder--decoder: Flan-T5-base"
+    model: Flan-T5-base
+    label: "Full fine-tuning"
+    recovery_group: flan_full_finetune
+    summary: outputs/analysis_v20260713/full_finetune_summary.json
+    artifact: model
+    representation: full_weight
