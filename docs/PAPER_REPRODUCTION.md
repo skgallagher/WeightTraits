@@ -1,10 +1,16 @@
 # Paper Reproduction Plan
 
-The ICLR draft should eventually be rebuilt as a consequence of registered artifacts, not as a manual copy of old figures and tables.
+The ICLR results should eventually be rebuilt as a consequence of registered artifacts, not as a manual copy of old figures and tables.
 
-Current active draft: `../ELLMTrees-paper/iclr_draft_v2.tex`. As of 2026-07-07, Shannon is roughly
-two-thirds through this draft and is revising the results section. Use this file as the live target
-for stale-claim audits and result traceability; treat older draft files as references.
+Frozen target: `../ELLMTrees-paper/iclr_draft_v2.tex`, pinned in `paper/reference_registry.yaml` at
+SHA-256 `2b74779ab7c26707efc9a36059fe7fa5226f71737b71b5a86f74db9dacab32c6` on
+2026-07-09. Use it for result traceability and stale-claim audits; do not edit it from WeightTraits.
+
+The scientific target is distributional reproduction: comparable topology samples, training
+conditions, distance behavior, and result distributions within declared tolerances. Exact replay of
+historical seeds, byte-identical checkpoints, and identical individual trees is not required.
+Early stopping is an intentional WeightTraits trainer feature and should be recorded in run
+provenance rather than treated as a reproduction failure.
 
 ## Registry Files
 
@@ -12,7 +18,7 @@ for stale-claim audits and result traceability; treat older draft files as refer
 - `paper/table_registry.yaml`: one entry per table.
 - `paper/recovery_registry.yaml`: registered whitebox recovery summary artifacts that can feed
   recovery tables.
-- `paper/reference_registry.yaml`: pinned live-draft, figure, table, source-script, and source-data
+- `paper/reference_registry.yaml`: pinned frozen-draft, figure, table, source-script, and source-data
   references from the old ELLMTrees paper/results repos.
 - `paper/ellmtrees_variants_registry.yaml`: row mapping for the generated legacy `tab:variants`
   reference table.
@@ -98,6 +104,31 @@ formatting may differ.
 7. Compile the paper from a clean checkout.
 8. Run a stale-claim audit against `../ELLMTrees-paper/iclr_draft_v2.tex`, older draft files,
    `CLAUDE.md`, and handoff notes.
+
+For the legacy Flan `lora_full_ft_approx` row, distinguish declared from executed scope. The old and
+new replay configs declare `q,k,v,o,wi,wo`, but PEFT suffix matching finds no `wi` module in gated
+Flan-T5; both executions resolve to `q,k,v,o,wo` across 168 adapter modules. Preserve that row as a
+legacy executable-condition reference. Treat explicit `wi_0,wi_1` targeting as a separate corrected
+ablation, not as an interchangeable rerun of the registered legacy row.
+
+Use `docs/EXPERIMENT_CHECKLIST.md` as the queue-facing control board while moving through these
+steps. It records the current Wright jobs, paper targets, pre-queue gates, and blocked/scaffolded
+experiment families.
+
+## Open Paper-Facing Result Changes
+
+- **Merged versus cumulative LoRA is a real analysis choice.** On the first 14 clean Flan LoRA q/v
+  trees, cosine recovery is stronger for merged weights (`94.0%` clade recovery, `85.7%` PAER,
+  mean FN `0.143`) than for cumulative adapter deltas (`89.9%`, `71.4%`, mean FN `0.286`). A merged
+  leaf is `theta_base + delta_path`, whereas the adapter-chain representation is `delta_path` alone.
+  L2 cancels the common base and currently matches across the two representations; cosine and
+  correlation do not. Before rebuilding `tab:variants`, audit the old Flan `TRAINED_ONLY=1`
+  representation, name the new representation explicitly, and retain a paired same-tree sensitivity
+  analysis. The cumulative path is also operationally attractive: representative tree 001 stores
+  `78 MiB` of adapter artifacts versus `12.94 GiB` of merged checkpoints (about `166x` smaller), and
+  the first 14-tree cumulative analysis took `1:44` versus `12:22` for merged analysis (about `7.1x`
+  faster). Treat the recovery values and timing as provisional until all 50 LoRA trees finish and a
+  controlled cold/warm-cache resource benchmark is run.
 
 ## Paper Gate
 

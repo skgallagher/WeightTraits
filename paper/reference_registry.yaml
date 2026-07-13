@@ -1,6 +1,6 @@
 version: 1
 description: >
-  Reference surface for the live ELLMTrees ICLR v2 draft. Paths are resolved from the
+  Frozen reference surface for the ELLMTrees ICLR v2 draft. Paths are resolved from the
   WeightTraits repository root. The old ELLMTrees repositories are read-only references.
 created: 2026-07-07
 active_draft: ../ELLMTrees-paper/iclr_draft_v2.tex
@@ -8,14 +8,15 @@ active_draft: ../ELLMTrees-paper/iclr_draft_v2.tex
 entries:
   - id: active_draft_v2
     kind: draft
-    classification: live_target
-    status: in_progress
+    classification: frozen_target
+    status: reference_pinned
     paper_location: full_draft
     path: ../ELLMTrees-paper/iclr_draft_v2.tex
+    sha256: 2b74779ab7c26707efc9a36059fe7fa5226f71737b71b5a86f74db9dacab32c6
     notes: >
-      Shannon is roughly two-thirds through this draft and is revising the results
-      section. The live draft is intentionally checked for existence only until
-      it is ready for a final stale-claim freeze.
+      Frozen as the reproduction target on 2026-07-09. WeightTraits should reproduce
+      its result distributions without editing this sibling paper or requiring exact
+      replay of every historical seed.
 
   - id: reproducibility_map
     kind: provenance_doc
@@ -304,3 +305,18 @@ entries:
       - path: ../ELLMTrees/results/aggregate/lora_qkv_branch_structure.csv
         role: related_source_data
         sha256: 70d9027099e4969e46fb41b981ce45160af93ecb2ca4eea3551f39cf64ab9033
+
+  - id: tab:phylolm
+    kind: table
+    classification: appendix_supporting
+    status: source_identified
+    paper_location: "Appendix Table: behavior-only PhyloLM recovery"
+    path: ../ELLMTrees-paper/iclr_draft_v2.tex
+    source_command: "cd ../ELLMTrees && python codex/phylolm/score_phylolm_table.py --all"
+    source_inputs:
+      - path: ../ELLMTrees/codex/phylolm/score_phylolm_table.py
+        role: table_generator
+        sha256: 8e6646440840f81e4c7fda6d5f1c84e65bbe638d9ab385448b1677a1a5ba44fc
+      - path: ../ELLMTrees/results/aggregate/recovery_rescore_phylolm/table_metrics.csv
+        role: table_source_data
+        sha256: 605bcb034672af888821a88a9986068a1cbfcc57044d039c0072dd504824e367

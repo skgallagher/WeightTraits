@@ -34,6 +34,13 @@ variants:
     section: "Encoder--decoder: Flan-T5-base"
     model: Flan-T5-base
     label: "LoRA full_ft_approx"
+    declared_target_modules: [q, k, v, o, wi, wo]
+    resolved_target_modules: [q, k, v, o, wo]
+    resolved_module_count: 168
+    semantic_status: legacy_executable_scope
+    semantic_note: >
+      Gated Flan-T5 exposes wi_0 and wi_1 rather than wi. The legacy PEFT list therefore adapted
+      attention projections plus FFN wo, but neither FFN input projection.
     recovery_group: runs_lora_full_ft_approx
     branch_source: ../ELLMTrees/results/aggregate/lora_full_ft_approx_branch_structure.csv
 

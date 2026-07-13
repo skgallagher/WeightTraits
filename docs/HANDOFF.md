@@ -1,6 +1,6 @@
 # WeightTraits Handoff
 
-Last updated: 2026-07-07.
+Last updated: 2026-07-09.
 
 ## Project Intent
 
@@ -32,6 +32,23 @@ As of 2026-07-07, the project has a working end-to-end whitebox recovery spine:
   the paper-declared 36-dataset pool without replacement within each tree.
 - `wt make-training-run-list-set` now writes per-tree run lists for the confirm-paper-number set,
   avoiding node/output collisions across the 50 trees.
+- `wt cache-training-datasets` builds bounded canonical-row caches for training, with deterministic
+  dataset filters applied before sample caps; it supports opt-in seeded shuffle sampling with
+  cache-side provenance.
+- HF/PEFT execution applies `trainer.seed` before model and adapter construction, so LoRA
+  initialization is deterministic. Causal jobs can choose completion-only or all-token loss.
+- HF/PEFT execution now rejects requested LoRA targets that match zero loaded-model modules and
+  persists the resolved adapter scope plus exact trainable counts in `lora_target_audit.json` and
+  terminal ledger metadata.
+- Every metric-specific analysis tree now writes label-free four-point additivity and oracle
+  all-edge Atteson-margin diagnostics, and run-set rollups carry their scalar estimates.
+- `wt audit-training-row-data` loads and renders one planned run-list row from the same
+  registry/format/cache options without starting model training.
+- `wt run-training-row --override-max-steps N --report-to wandb --run-name NAME` supports
+  runtime-only trainer overrides for real smoke or batch launches while keeping the generated paper
+  run lists unchanged.
+- Wright launch scripts for the confirm-paper run live under `scripts/slurm/` and run each tree
+  sequentially inside one GPU job so parent checkpoints exist before child rows start.
 
 Latest verified paper outputs:
 
@@ -57,12 +74,17 @@ examples/training/confirm_paper_numbers/dataset_registry.yaml
 examples/training/confirm_paper_numbers/dataset_formats.yaml
 examples/training/confirm_paper_numbers/full_finetune_data_format_validation.json
 examples/training/confirm_paper_numbers/dataset_registry_no_load_audit.json
+examples/training/confirm_paper_numbers/full_finetune_data_cache_summary.json
 examples/training/confirm_paper_numbers/full_finetune_run_list_summary.json
 examples/training/confirm_paper_numbers/full_finetune_runlists/run_lists/*.runs.jsonl
 examples/training/confirm_paper_numbers/full_finetune_runlists/reports/*.report.json
 examples/training/confirm_paper_numbers/full_finetune_training_run_list_summary.json
 examples/training/confirm_paper_numbers/full_finetune_training_runlists/run_lists/*.runs.jsonl
 examples/training/confirm_paper_numbers/full_finetune_training_runlists/reports/*.report.json
+examples/training/confirm_paper_numbers/lora_finetune.yaml
+examples/training/confirm_paper_numbers/lora_finetune_training_run_list_summary.json
+examples/training/confirm_paper_numbers/lora_finetune_training_runlists/run_lists/*.runs.jsonl
+examples/training/confirm_paper_numbers/lora_finetune_training_runlists/reports/*.report.json
 ```
 
 These reports remain ignored by Git. The whitebox smoke reports were generated on Wright and pulled
@@ -110,14 +132,87 @@ The 36-dataset registry and format-contract layer now lives in
 has `valid=true`, 50 trees, 641 jobs, 641 valid jobs, and 0 issues. The no-load registry audit has
 `valid=true`, 36 datasets, and 36 `not_loaded` audits, meaning the declarations and requested splits
 are structurally consistent without downloading from Hugging Face. Dotted field maps are supported
-for nested rows such as `translation.en` -> `source_text`.
+for nested rows such as `translation.en` -> `source_text`. The broken old `CogComp/trec` loader has
+been replaced with `SetFit/TREC-QC` plus the current `label_text` target mapping.
+
+The full-FT finite data cache lives under ignored path
+`data/confirm_paper_numbers/full_finetune_cache/`, with tracked audit summary
+`examples/training/confirm_paper_numbers/full_finetune_data_cache_summary.json`. The summary reports
+`valid=true`, 36 datasets, and 36 ok datasets. Summarization registry rows now keep their original
+datasets but apply deterministic `document` length caps before sample limits; all 9 summarization
+train splits still cached 10,000 accepted examples under those caps. The full 36-dataset cache uses
+`min_train_rows=1` because several classification/QA datasets are naturally smaller than 10,000.
 
 A second, non-dry-run full-FT run-list set now lives under
 `examples/training/confirm_paper_numbers/full_finetune_training_runlists/`. It is valid with 50
 per-tree run lists and 641 planned `weighttraits.cli run-training-row` entries. Its runner options
-point at the confirm-paper registry/formats, cap samples at 10,000 train / 1,000 eval, and allow
-missing eval splits. Keep the dry-run run-list set for row-selection checks; use the training set
-after a networked sample-loading audit passes.
+point at the confirm-paper registry/formats, require
+`data/confirm_paper_numbers/full_finetune_cache`, cap samples at 10,000 train / 1,000 eval, and allow
+missing eval splits. Keep the dry-run run-list set for selector-only checks; use the training set
+after cache and row-data smokes pass.
+
+The LoRA comparison scaffold lives under
+`examples/training/confirm_paper_numbers/lora_finetune.yaml` and
+`examples/training/confirm_paper_numbers/lora_finetune_training_runlists/`. It uses the same
+`assignment_summary.json`, registry, format map, finite cache, and train/eval caps as the full-FT
+training set, but switches the training method to Flan-T5-base LoRA (`r=8`, `alpha=16`, dropout
+0.05, target modules `q` and `v`, merge-after-train enabled). The LoRA summary is valid with the
+same 50 trees and 641 planned rows. A mechanical comparison confirmed all 50 per-tree row counts
+match the full-FT run lists, and `node_id` plus `dataset_id` order match tree-by-tree.
+
+On 2026-07-08, the local cached row-data smoke passed for
+`full_finetune_training_runlists/run_lists/confirm_paper_tree_001.runs.jsonl --index 0` with
+`--max-train-samples 1 --max-eval-samples 1`: row `n0` (`rte`) required the finite cache and rendered
+1 train plus 1 validation record with no issues, without loading a model.
+Use `run-training-row --override-max-steps 2` for the first real trainer smoke from that row so the
+paper row's default 2,000-step setting does not accidentally turn the smoke into a long training run.
+
+Wright launch status from 2026-07-08:
+
+- Synced the current working tree and finite cache to `/home/export/sgallagh/WeightTraits`.
+- Installed `wandb==0.28.0` in the Wright `weighttraits` Conda env.
+- Replaced incompatible `torch 2.12.1+cu130` with `torch 2.5.1+cu121`; Slurm CUDA check
+  `153742` confirmed `torch.cuda.is_available() == True` on `NVIDIA L40`.
+- Single-row model smoke `153743` completed: tree 001 row 0, 1 train / 1 eval row, 2 steps,
+  `train_loss=3.81463623046875`, `eval_loss=4.069091796875`.
+- Two-row dependency smoke `153744` completed: row 0 produced `n0`, row 1 loaded from `n0` and
+  completed, validating sequential parent-child execution.
+- Real full-FT launch is in progress with W&B offline logging: tree 001 is job `153745_1`, and
+  trees 002-050 are array job `153752_[2-50%5]`. This gives at most 6 concurrent tree jobs.
+  The earlier array `153746` was canceled before training because concurrent `mamba run` calls
+  contended on the mamba lock; the scripts now call the env Python directly.
+- LoRA two-row dependency smoke `153779` completed: tree 001 row 0 produced `n0`, row 1 loaded from
+  `n0`, and both rows completed with 1 train / 1 eval row and 2 steps. The smoke output was archived
+  to `outputs/confirm_paper_numbers/lora_finetune_smokes/confirm_paper_tree_001_dependency_smoke_153779`.
+- Real LoRA launch is in progress with W&B offline logging as array job `153785_[1-50%2]`. It uses
+  the same 50 trees as the full-FT launch and adds at most 2 concurrent LoRA tree jobs.
+
+Wright audit on 2026-07-11 established that job `153912` is a faithful replay of the legacy
+ELLMTrees executable scope but not of its prose label. Its frozen config declares
+`q,k,v,o,wi,wo`; a completed adapter contains 336 LoRA A/B tensors across 168 resolved
+`q,k,v,o,wo` modules and no `wi`, `wi_0`, or `wi_1` tensors. The old
+`runs_lora_full_ft_approx` distance metadata likewise lists 168 trained tensors and the same
+resolved scope. Let `153912` complete, report it as the legacy attention-plus-FFN-output condition,
+and keep any corrected `q,k,v,o,wi_0,wi_1,wo` experiment separate. The corrected config scaffold is
+`examples/training/confirm_paper_numbers/lora_all_projections_corrected.yaml`. Its generated set has
+50 valid run lists and 641 rows under `lora_all_projections_corrected_training_runlists`; tree IDs,
+row counts, and node/dataset order match q/v, and the cached tree-001 row-0 audit passed with 1 train
+/ 1 eval record. A validation-only Wright copy at
+`/home/export/sgallagh/WeightTraits-validation-20260711` passed 28 focused tests. Corrected row-0
+smoke `154275` and dependent row-1 smoke `154277` are pending, each capped at 1 train / 1 eval row
+and 2 steps. It is not queue-ready until those jobs pass and their audits confirm 216 modules.
+
+Versioned whitebox analysis began on Wright from the isolated validation checkout on 2026-07-11.
+The analysis wrapper now accepts a separate `PATH_BASE`, allowing reviewed code to read live
+training artifacts without modifying the live sequential-training checkout. One-tree canaries
+`154281`--`154286` completed `0:0` with valid `l2`, `cosine`, and `correlation` rollups. Scaled jobs
+`154287`--`154291` analyze cumulative adapter chains for q/v, k-only, qkv, full-attention, and the
+legacy q/k/v/o/wo condition; `154292` analyzes full-model artifacts. All outputs are isolated under
+`/home/export/sgallagh/WeightTraits-validation-20260711/outputs/analysis_v20260711/`.
+The scaled LoRA runs revealed that run-set aggregation carried Atteson margins but omitted the
+boolean theorem-certificate rate. `runset_results.py` now aggregates
+`atteson_theorem_certified_rate` plus binomial SE; existing per-tree analyses remain valid and need
+only a rollup refresh.
 
 On 2026-07-07, the `fig:overview` and `fig:coherence_recovery` digests in
 `paper/reference_registry.yaml` were refreshed to match the current sibling reference files after
@@ -128,10 +223,11 @@ On 2026-07-07, the `fig:overview` and `fig:coherence_recovery` digests in
 those sibling repos from WeightTraits; treat future digest mismatches as reference-surface drift to
 inspect explicitly.
 
-Atteson-margin caveat: WeightTraits does not compute this margin yet. The active paper definition is
-the all-edge bottleneck, i.e. the minimum fitted edge length over internal and pendant edges divided
-by twice the non-additivity error. If WeightTraits later implements this computation, do not replace
-that definition with an internal-edge-only shortcut.
+WeightTraits now computes the paper's all-edge Atteson bottleneck: the minimum fitted edge length
+over internal and pendant edges divided by twice the non-additivity error. Internal-edge summaries
+are also reported, but they are not substituted for the theorem certificate. Each analyzed distance
+matrix also receives the legacy-compatible four-point score
+`A = (s2 - s3) / (s1 - s3 + eps)`, including truth-informative summaries when a manifest is known.
 After confirming this definition, the paper copy
 `../ELLMTrees-paper/figures/fig4_coherence_atteson.png` was refreshed again from
 `../ELLMTrees/results/aggregate/recovery_rescore/fig4_atteson_layermeans.png`; both now share
@@ -161,11 +257,11 @@ Paper draft context:
 
 Recommended next slice:
 
-1. Run a small networked `audit-training-samples` smoke on Wright for a handful of representative
-   confirm-paper datasets, especially nested translation and paired classification rows.
-2. Launch a tiny row-selection/sample-loading smoke from
-   `full_finetune_training_runlists/run_lists/confirm_paper_tree_001.runs.jsonl` before the full
-   training batch.
+1. Monitor the two active Wright experiment sets: full-FT jobs `153745_1` and `153752_[2-50%5]`,
+   plus LoRA job `153785_[1-50%2]`. Both use offline W&B under
+   `/home/export/sgallagh/WeightTraits/wandb/`.
+2. After the first full-FT and LoRA trees complete, inspect the per-node training logs and confirm
+   downstream recovery tooling can consume the new output roots.
 3. Compare rebuilt recovery/behavior tables against the latest-paper-grounded references through
    `paper/table_registry.yaml` and `wt run-table-comparisons`.
 
