@@ -5,10 +5,20 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import Mapping, Sequence
 
 import yaml
 
-from weighttraits.analysis.whitebox import analyze_training_ledger
+from weighttraits.analysis.completion import (
+    audit_training_run_set_completion,
+    audit_training_tree_completion,
+    write_run_set_completion_csv,
+)
+from weighttraits.analysis.runset_results import (
+    summarize_training_run_set_analysis,
+    write_run_set_analysis_csv,
+)
+from weighttraits.analysis.whitebox import analyze_training_ledger, analyze_training_run_set
 from weighttraits.audit.ellmtrees import inventory_ellmtrees
 from weighttraits.distances.manifest import (
     distance_input_rows_from_training_ledger,
@@ -52,11 +62,18 @@ from weighttraits.training.data_formats import (
 from weighttraits.training.datasets import (
     audit_dataset_registry,
     audit_training_sample_rendering,
+    cache_training_datasets,
     load_dataset_registry,
+    select_training_sample_jobs,
     write_dataset_audit_report,
+    write_dataset_cache_report,
     write_training_sample_render_audit_report,
 )
-from weighttraits.training.executor import dry_run_training_row, run_training_run
+from weighttraits.training.executor import (
+    dry_run_training_row,
+    prepare_training_data,
+    run_training_run,
+)
 from weighttraits.training.ledger import ledger_summary, load_ledger_events
 from weighttraits.training.planner import (
     build_training_jobs,
@@ -450,6 +467,71 @@ def _analyze_training_ledger(args: argparse.Namespace) -> int:
     return 0
 
 
+def _analyze_training_run_set(args: argparse.Namespace) -> int:
+    summary = analyze_training_run_set(
+        args.summary,
+        artifact=args.artifact,
+        metrics=args.metric,
+        out_dir=args.out,
+        path_base=args.path_base,
+        optional_artifacts=set(args.optional_artifact or []),
+        tree_ids=args.tree_id,
+        dry_run=args.dry_run,
+        skip_existing=args.skip_existing,
+        representation=args.representation,
+        node_ids=args.node_id,
+        chunk_size=args.chunk_size,
+        eps=args.eps,
+        layer=args.layer,
+        aggregate=args.aggregate,
+    )
+    _emit_json(summary, args.report_out)
+    return 0 if summary["valid"] else 1
+
+
+def _summarize_training_run_set_analysis(args: argparse.Namespace) -> int:
+    summary = summarize_training_run_set_analysis(
+        args.analysis_root,
+        artifact=args.artifact,
+        path_base=args.path_base,
+        tree_ids=args.tree_id,
+    )
+    _emit_json(summary, args.out)
+    if args.csv_out:
+        write_run_set_analysis_csv(summary["rows"], args.csv_out)
+    return 0 if summary["valid"] or args.allow_empty else 1
+
+
+def _audit_training_tree(args: argparse.Namespace) -> int:
+    report = audit_training_tree_completion(
+        args.run_list,
+        ledger=args.ledger,
+        path_base=args.path_base,
+        optional_artifacts=set(args.optional_artifact or []),
+        require_artifacts=not args.skip_artifact_check,
+        require_parent_order=not args.skip_parent_order_check,
+    )
+    payload = report.to_dict()
+    _emit_json(payload, args.out)
+    return 0 if payload["valid"] or args.allow_issues else 1
+
+
+def _audit_training_run_set(args: argparse.Namespace) -> int:
+    report = audit_training_run_set_completion(
+        args.summary,
+        path_base=args.path_base,
+        optional_artifacts=set(args.optional_artifact or []),
+        require_artifacts=not args.skip_artifact_check,
+        require_parent_order=not args.skip_parent_order_check,
+        only_ready=args.only_ready,
+    )
+    payload = report.to_dict()
+    _emit_json(payload, args.out)
+    if args.csv_out:
+        write_run_set_completion_csv(report, args.csv_out)
+    return 0 if payload["valid"] or args.allow_issues else 1
+
+
 def _reconstruct_tree(args: argparse.Namespace) -> int:
     result = reconstruct_tree_from_cube(
         args.cube,
@@ -561,12 +643,14 @@ def _audit_datasets(args: argparse.Namespace) -> int:
         dataset_ids=args.dataset_id,
         format_specs=specs,
         load=not args.no_load,
+        loader=_hf_dataset_loader(args.streaming),
     )
     if args.out:
         write_dataset_audit_report(report, args.out)
     summary = report.to_dict()
     summary["registry"] = str(args.registry)
     summary["formats"] = str(args.formats) if args.formats else None
+    summary["streaming"] = args.streaming
     summary["out"] = str(args.out) if args.out else None
     print(json.dumps(summary, indent=2, sort_keys=True))
     return 0 if report.valid or args.allow_issues else 1
@@ -583,6 +667,7 @@ def _audit_training_samples(args: argparse.Namespace) -> int:
         dataset_ids=args.dataset_id,
         max_samples=args.max_samples,
         split=args.split,
+        loader=_hf_dataset_loader(args.streaming),
     )
     if args.out:
         write_training_sample_render_audit_report(report, args.out)
@@ -593,7 +678,92 @@ def _audit_training_samples(args: argparse.Namespace) -> int:
     summary["formats"] = str(args.formats)
     summary["max_samples"] = args.max_samples
     summary["split"] = args.split
+    summary["streaming"] = args.streaming
     summary["out"] = str(args.out) if args.out else None
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0 if report.valid or args.allow_issues else 1
+
+
+def _audit_training_sample_set(args: argparse.Namespace) -> int:
+    training_config = load_training_config(args.config)
+    jobs = _training_jobs_from_assignment_summary(args.assignment_summary, training_config)
+    if args.dataset_id:
+        available_ids = {job.dataset_id for job in jobs if job.dataset_id is not None}
+        missing_ids = sorted(set(args.dataset_id) - available_ids)
+        if missing_ids:
+            raise ValueError(f"dataset ids not found in assignment summary: {', '.join(missing_ids)}")
+    selected_jobs = select_training_sample_jobs(
+        jobs,
+        dataset_ids=args.dataset_id,
+        selection=args.selection,
+    )
+    if not selected_jobs:
+        raise ValueError("no training jobs selected for sample audit")
+
+    registry = load_dataset_registry(args.registry)
+    specs = load_dataset_format_specs(args.formats)
+    report = audit_training_sample_rendering(
+        selected_jobs,
+        registry,
+        specs,
+        max_samples=args.max_samples,
+        split=args.split,
+        loader=_hf_dataset_loader(args.streaming),
+    )
+    if args.out:
+        write_training_sample_render_audit_report(report, args.out)
+    summary = report.to_dict()
+    summary["assignment_summary"] = str(args.assignment_summary)
+    summary["config"] = str(args.config)
+    summary["registry"] = str(args.registry)
+    summary["formats"] = str(args.formats)
+    summary["selection"] = args.selection
+    summary["max_samples"] = args.max_samples
+    summary["split"] = args.split
+    summary["streaming"] = args.streaming
+    summary["out"] = str(args.out) if args.out else None
+    summary["n_planned_jobs"] = len(jobs)
+    summary["n_selected_datasets"] = len(
+        {audit.dataset_id for audit in report.audits if audit.dataset_id is not None}
+    )
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0 if report.valid or args.allow_issues else 1
+
+
+def _cache_training_dataset_set(args: argparse.Namespace) -> int:
+    registry = load_dataset_registry(args.registry)
+    specs = load_dataset_format_specs(args.formats)
+    report = cache_training_datasets(
+        registry,
+        specs,
+        out_dir=args.out_dir,
+        dataset_ids=args.dataset_id,
+        train_limit=args.train_limit,
+        eval_limit=args.eval_limit,
+        max_scan=args.max_scan,
+        min_train_rows=args.min_train_rows,
+        min_eval_rows=args.min_eval_rows,
+        loader=_hf_dataset_loader(args.streaming),
+        overwrite=args.overwrite,
+        sample_strategy=args.sample_strategy,
+        sample_seed=args.sample_seed,
+        shuffle_buffer_size=args.shuffle_buffer_size,
+    )
+    if args.summary_out:
+        write_dataset_cache_report(report, args.summary_out)
+    summary = report.to_dict()
+    summary["registry"] = str(args.registry)
+    summary["formats"] = str(args.formats)
+    summary["streaming"] = args.streaming
+    summary["train_limit"] = args.train_limit
+    summary["eval_limit"] = args.eval_limit
+    summary["max_scan"] = args.max_scan
+    summary["min_train_rows"] = args.min_train_rows
+    summary["min_eval_rows"] = args.min_eval_rows
+    summary["sample_strategy"] = report.sample_strategy
+    summary["sample_seed"] = report.sample_seed
+    summary["shuffle_buffer_size"] = report.shuffle_buffer_size
+    summary["summary_out"] = str(args.summary_out) if args.summary_out else None
     print(json.dumps(summary, indent=2, sort_keys=True))
     return 0 if report.valid or args.allow_issues else 1
 
@@ -720,15 +890,76 @@ def _describe_training_run(args: argparse.Namespace) -> int:
     return 0
 
 
+def _audit_training_row_data(args: argparse.Namespace) -> int:
+    runs = load_training_run_specs(args.run_list)
+    run = select_training_run(runs, index=args.index, node_id=args.node_id)
+    options = dict(run.runner.get("options", {}))
+    registry_path = args.registry or _optional_path(options.get("registry_path"))
+    formats_path = args.formats or _optional_path(options.get("formats_path"))
+    data_cache_root = args.data_cache_root or _optional_path(options.get("data_cache_root"))
+    if registry_path is None or formats_path is None:
+        raise ValueError(
+            "audit-training-row-data requires --registry and --formats unless the run row carries them"
+        )
+    registry = load_dataset_registry(registry_path)
+    specs = load_dataset_format_specs(formats_path)
+    data = prepare_training_data(
+        run,
+        registry,
+        specs,
+        loader=_hf_dataset_loader(args.streaming),
+        data_cache_root=data_cache_root,
+        require_data_cache=args.require_data_cache or bool(options.get("require_data_cache")),
+        max_train_samples=args.max_train_samples
+        if args.max_train_samples is not None
+        else options.get("max_train_samples"),
+        max_eval_samples=args.max_eval_samples
+        if args.max_eval_samples is not None
+        else options.get("max_eval_samples"),
+        allow_missing_eval=args.allow_missing_eval or bool(options.get("allow_missing_eval")),
+    )
+    summary = {
+        "valid": data.valid,
+        "run_list": str(args.run_list),
+        "node_id": run.node_id,
+        "array_index": run.array_index,
+        "dataset_id": run.dataset_id,
+        "task_family": run.task_family,
+        "registry": str(registry_path),
+        "formats": str(formats_path),
+        "data_cache_root": str(data_cache_root) if data_cache_root is not None else None,
+        "require_data_cache": args.require_data_cache or bool(options.get("require_data_cache")),
+        "streaming": args.streaming,
+        "data": data.summary(),
+    }
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0 if data.valid or args.allow_issues else 1
+
+
 def _run_training_row(args: argparse.Namespace) -> int:
     runs = load_training_run_specs(args.run_list)
     run = select_training_run(runs, index=args.index, node_id=args.node_id)
     options = dict(run.runner.get("options", {}))
+    trainer_overrides = _trainer_overrides_from_args(args)
+    run = _run_with_trainer_overrides(run, trainer_overrides)
+    execution_overrides = (
+        {"trainer": trainer_overrides} if trainer_overrides else {}
+    )
     if args.dry_run or options.get("dry_run"):
-        print(json.dumps(dry_run_training_row(run).to_dict(), indent=2, sort_keys=True))
+        print(
+            json.dumps(
+                dry_run_training_row(
+                    run,
+                    execution_overrides=execution_overrides,
+                ).to_dict(),
+                indent=2,
+                sort_keys=True,
+            )
+        )
         return 0
     registry_path = args.registry or _optional_path(options.get("registry_path"))
     formats_path = args.formats or _optional_path(options.get("formats_path"))
+    data_cache_root = args.data_cache_root or _optional_path(options.get("data_cache_root"))
     if registry_path is None or formats_path is None:
         raise ValueError(
             "run-training-row requires --registry and --formats unless --dry-run is set"
@@ -739,6 +970,8 @@ def _run_training_row(args: argparse.Namespace) -> int:
         run,
         registry,
         specs,
+        data_cache_root=data_cache_root,
+        require_data_cache=args.require_data_cache or bool(options.get("require_data_cache")),
         max_train_samples=args.max_train_samples
         if args.max_train_samples is not None
         else options.get("max_train_samples"),
@@ -746,6 +979,7 @@ def _run_training_row(args: argparse.Namespace) -> int:
         if args.max_eval_samples is not None
         else options.get("max_eval_samples"),
         allow_missing_eval=args.allow_missing_eval or bool(options.get("allow_missing_eval")),
+        execution_overrides=execution_overrides,
     )
     print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
     return 0
@@ -790,12 +1024,88 @@ def _optional_int(*values: object) -> int | None:
     return None
 
 
+def _trainer_overrides_from_args(args: argparse.Namespace) -> dict[str, object]:
+    overrides: dict[str, object] = {}
+    if getattr(args, "override_max_steps", None) is not None:
+        if args.override_max_steps < 1:
+            raise ValueError("--override-max-steps must be at least 1")
+        overrides["max_steps"] = args.override_max_steps
+    if getattr(args, "report_to", None):
+        overrides["report_to"] = _report_to_values(args.report_to)
+    if getattr(args, "run_name", None):
+        overrides["run_name"] = args.run_name
+    return overrides
+
+
+def _report_to_values(values: Sequence[str]) -> list[str]:
+    reporters = []
+    for value in values:
+        parts = [part.strip() for part in value.split(",")]
+        if any(not part for part in parts):
+            raise ValueError("--report-to entries must not be empty")
+        reporters.extend(parts)
+    if not reporters:
+        raise ValueError("--report-to requires at least one reporter")
+    disabled = [reporter for reporter in reporters if reporter.lower() == "none"]
+    if disabled:
+        if len(reporters) > 1:
+            raise ValueError("--report-to none cannot be combined with other reporters")
+        return []
+    return reporters
+
+
+def _run_with_trainer_overrides(run, overrides: Mapping[str, object]):
+    if not overrides:
+        return run
+    row = run.to_dict()
+    job = dict(row["job"])
+    trainer = dict(job.get("trainer") or {})
+    trainer.update(overrides)
+    job["trainer"] = trainer
+    row["job"] = job
+    return type(run)(**row)
+
+
+def _hf_dataset_loader(streaming: bool):
+    if not streaming:
+        return None
+
+    def load_streaming_dataset(*args, **kwargs):
+        from datasets import load_dataset
+
+        options = dict(kwargs)
+        options.setdefault("streaming", True)
+        return load_dataset(*args, **options)
+
+    return load_streaming_dataset
+
+
+def _training_jobs_from_assignment_summary(
+    assignment_summary_path: Path,
+    training_config: dict[str, object],
+) -> list:
+    assignment_summary = json.loads(assignment_summary_path.read_text())
+    jobs = []
+    for assignment in assignment_summary.get("assignments", []):
+        tree_id = str(assignment["tree_id"])
+        manifest = Path(assignment["assigned_manifest"])
+        jobs.extend(
+            build_training_jobs(
+                load_manifest_rows(manifest),
+                _with_tree_output_root(training_config, tree_id),
+            )
+        )
+    return jobs
+
+
 def _training_runner_contract(args: argparse.Namespace) -> tuple[str, dict[str, object]]:
     if (args.registry is None) != (args.formats is None):
         raise ValueError("--registry and --formats must be provided together")
     runner_options = {
         "registry_path": str(args.registry) if args.registry else None,
         "formats_path": str(args.formats) if args.formats else None,
+        "data_cache_root": str(args.data_cache_root) if args.data_cache_root else None,
+        "require_data_cache": args.require_data_cache,
         "max_train_samples": args.max_train_samples,
         "max_eval_samples": args.max_eval_samples,
         "allow_missing_eval": args.allow_missing_eval,
@@ -1167,6 +1477,171 @@ def build_parser() -> argparse.ArgumentParser:
     )
     analyze_ledger.set_defaults(func=_analyze_training_ledger)
 
+    analyze_run_set = sub.add_parser(
+        "analyze-training-run-set",
+        help="Analyze every completion-ready tree in a generated training run-list-set summary",
+    )
+    analyze_run_set.add_argument("--summary", type=Path, required=True)
+    analyze_run_set.add_argument(
+        "--artifact",
+        choices=["model", "merged", "adapter_chain"],
+        required=True,
+        help="Ledger artifact to analyze",
+    )
+    analyze_run_set.add_argument(
+        "--metric",
+        action="append",
+        required=True,
+        help="Metric to compute and score; repeat for multiple metrics",
+    )
+    analyze_run_set.add_argument(
+        "--out",
+        type=Path,
+        required=True,
+        help="Root output directory; one subdirectory is written per analyzed tree",
+    )
+    analyze_run_set.add_argument(
+        "--report-out",
+        type=Path,
+        help="Optional JSON report path; defaults to stdout",
+    )
+    analyze_run_set.add_argument(
+        "--tree-id",
+        action="append",
+        help="Restrict to one or more tree IDs; defaults to every ready tree",
+    )
+    analyze_run_set.add_argument(
+        "--node-id",
+        action="append",
+        help="Restrict to one or more node IDs; defaults to truth-manifest leaves",
+    )
+    analyze_run_set.add_argument(
+        "--path-base",
+        type=Path,
+        default=Path("."),
+        help="Base directory for relative run-list and artifact paths",
+    )
+    analyze_run_set.add_argument(
+        "--optional-artifact",
+        action="append",
+        help="Expected artifact name to warn on if missing instead of blocking analysis",
+    )
+    analyze_run_set.add_argument("--dry-run", action="store_true")
+    analyze_run_set.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help="Skip ready trees whose direct summary already exists with the requested metrics",
+    )
+    analyze_run_set.add_argument("--chunk-size", type=int, default=1_000_000)
+    analyze_run_set.add_argument("--eps", type=float, default=1e-3)
+    analyze_run_set.add_argument(
+        "--representation",
+        choices=["full_weight", "lora_cumulative_delta", "lora_increment_delta"],
+        help="Override the default representation for the selected artifact",
+    )
+    analyze_run_set.add_argument(
+        "--layer",
+        help="Layer name or zero-based layer index. Defaults to aggregating across all layers.",
+    )
+    analyze_run_set.add_argument(
+        "--aggregate",
+        choices=["mean", "median"],
+        default="mean",
+        help="Layer aggregation used when --layer is omitted",
+    )
+    analyze_run_set.set_defaults(func=_analyze_training_run_set)
+
+    summarize_run_set_analysis = sub.add_parser(
+        "summarize-training-run-set-analysis",
+        help="Summarize available per-tree direct analysis outputs under a run-set root",
+    )
+    summarize_run_set_analysis.add_argument(
+        "--analysis-root",
+        type=Path,
+        required=True,
+        help="Root directory containing TREEID/*_leaf_analysis/summary.json outputs",
+    )
+    summarize_run_set_analysis.add_argument(
+        "--artifact",
+        choices=["model", "merged", "adapter_chain"],
+        required=True,
+        help="Artifact analysis directory to summarize",
+    )
+    summarize_run_set_analysis.add_argument(
+        "--path-base",
+        type=Path,
+        default=Path("."),
+        help="Base directory for relative analysis-root and score paths",
+    )
+    summarize_run_set_analysis.add_argument(
+        "--tree-id",
+        action="append",
+        help="Restrict to one or more tree IDs; defaults to every discovered tree",
+    )
+    summarize_run_set_analysis.add_argument("--out", type=Path)
+    summarize_run_set_analysis.add_argument("--csv-out", type=Path)
+    summarize_run_set_analysis.add_argument(
+        "--allow-empty",
+        action="store_true",
+        help="Return success even when requested tree IDs have no summary yet",
+    )
+    summarize_run_set_analysis.set_defaults(func=_summarize_training_run_set_analysis)
+
+    audit_tree = sub.add_parser(
+        "audit-training-tree",
+        help="Audit a completed training tree run list against its ledger and artifacts",
+    )
+    audit_tree.add_argument("--run-list", type=Path, required=True)
+    audit_tree.add_argument(
+        "--ledger",
+        type=Path,
+        help="Ledger path; defaults to the single ledger path declared in the run list",
+    )
+    audit_tree.add_argument(
+        "--path-base",
+        type=Path,
+        default=Path("."),
+        help="Base directory for relative run-list artifact paths",
+    )
+    audit_tree.add_argument("--out", type=Path)
+    audit_tree.add_argument("--allow-issues", action="store_true")
+    audit_tree.add_argument(
+        "--optional-artifact",
+        action="append",
+        help="Expected artifact name to warn on if missing instead of failing; repeatable",
+    )
+    audit_tree.add_argument("--skip-artifact-check", action="store_true")
+    audit_tree.add_argument("--skip-parent-order-check", action="store_true")
+    audit_tree.set_defaults(func=_audit_training_tree)
+
+    audit_run_set = sub.add_parser(
+        "audit-training-run-set",
+        help="Audit every tree in a training run-list-set summary",
+    )
+    audit_run_set.add_argument("--summary", type=Path, required=True)
+    audit_run_set.add_argument(
+        "--path-base",
+        type=Path,
+        default=Path("."),
+        help="Base directory for relative run-list and artifact paths",
+    )
+    audit_run_set.add_argument("--out", type=Path)
+    audit_run_set.add_argument("--csv-out", type=Path)
+    audit_run_set.add_argument("--allow-issues", action="store_true")
+    audit_run_set.add_argument(
+        "--optional-artifact",
+        action="append",
+        help="Expected artifact name to warn on if missing instead of failing; repeatable",
+    )
+    audit_run_set.add_argument(
+        "--only-ready",
+        action="store_true",
+        help="Emit only trees whose completion audit is valid",
+    )
+    audit_run_set.add_argument("--skip-artifact-check", action="store_true")
+    audit_run_set.add_argument("--skip-parent-order-check", action="store_true")
+    audit_run_set.set_defaults(func=_audit_training_run_set)
+
     reconstruct = sub.add_parser(
         "reconstruct-tree",
         help="Reconstruct a neighbor-joining Newick tree from a distance cube",
@@ -1244,6 +1719,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Validate registry/requested splits without importing or downloading datasets",
     )
+    audit_data.add_argument(
+        "--streaming",
+        action="store_true",
+        help="Use Hugging Face streaming mode when loading datasets",
+    )
     audit_data.add_argument("--allow-issues", action="store_true")
     audit_data.set_defaults(func=_audit_datasets)
 
@@ -1280,9 +1760,141 @@ def build_parser() -> argparse.ArgumentParser:
         "--split",
         help="Override the train split declared by registry/formats",
     )
+    audit_samples.add_argument(
+        "--streaming",
+        action="store_true",
+        help="Use Hugging Face streaming mode when loading datasets",
+    )
     audit_samples.add_argument("--out", type=Path)
     audit_samples.add_argument("--allow-issues", action="store_true")
     audit_samples.set_defaults(func=_audit_training_samples)
+
+    audit_sample_set = sub.add_parser(
+        "audit-training-sample-set",
+        help="Load samples and render prompts across an assigned tree set",
+    )
+    audit_sample_set.add_argument(
+        "--assignment-summary",
+        type=Path,
+        required=True,
+        help="assignment_summary.json from assign-task-data-set",
+    )
+    audit_sample_set.add_argument("--config", type=Path, required=True)
+    audit_sample_set.add_argument(
+        "--registry",
+        type=Path,
+        required=True,
+        help="Task/data registry YAML",
+    )
+    audit_sample_set.add_argument(
+        "--formats",
+        type=Path,
+        required=True,
+        help="Dataset format contract YAML",
+    )
+    audit_sample_set.add_argument(
+        "--dataset-id",
+        action="append",
+        help="Restrict audit to one dataset id; repeat for multiple ids",
+    )
+    audit_sample_set.add_argument(
+        "--selection",
+        choices=("one-per-dataset", "all-jobs"),
+        default="one-per-dataset",
+        help="Choose representative jobs or every planned job",
+    )
+    audit_sample_set.add_argument(
+        "--max-samples",
+        type=int,
+        default=8,
+        help="Maximum rows to render per selected job",
+    )
+    audit_sample_set.add_argument(
+        "--split",
+        help="Override the train split declared by registry/formats",
+    )
+    audit_sample_set.add_argument(
+        "--streaming",
+        action="store_true",
+        help="Use Hugging Face streaming mode when loading datasets",
+    )
+    audit_sample_set.add_argument("--out", type=Path)
+    audit_sample_set.add_argument("--allow-issues", action="store_true")
+    audit_sample_set.set_defaults(func=_audit_training_sample_set)
+
+    cache_data = sub.add_parser(
+        "cache-training-datasets",
+        help="Build bounded filtered dataset caches for training runs",
+    )
+    cache_data.add_argument("--registry", type=Path, required=True, help="Task/data registry YAML")
+    cache_data.add_argument(
+        "--formats",
+        type=Path,
+        required=True,
+        help="Dataset format contract YAML",
+    )
+    cache_data.add_argument(
+        "--dataset-id",
+        action="append",
+        help="Restrict cache build to one dataset id; repeat for multiple ids",
+    )
+    cache_data.add_argument("--out-dir", type=Path, required=True)
+    cache_data.add_argument("--summary-out", type=Path)
+    cache_data.add_argument(
+        "--train-limit",
+        type=int,
+        default=10000,
+        help="Accepted train rows to cache per dataset",
+    )
+    cache_data.add_argument(
+        "--eval-limit",
+        type=int,
+        default=1000,
+        help="Accepted eval rows to cache per dataset",
+    )
+    cache_data.add_argument(
+        "--max-scan",
+        type=int,
+        help="Maximum raw rows to scan per split before reporting scan_limit",
+    )
+    cache_data.add_argument(
+        "--min-train-rows",
+        type=int,
+        default=10000,
+        help="Minimum accepted train rows required for success",
+    )
+    cache_data.add_argument(
+        "--min-eval-rows",
+        type=int,
+        default=0,
+        help="Minimum accepted eval rows required for success",
+    )
+    cache_data.add_argument(
+        "--streaming",
+        action="store_true",
+        help="Use Hugging Face streaming mode while building caches",
+    )
+    cache_data.add_argument(
+        "--sample-strategy",
+        choices=("first", "seeded_shuffle"),
+        default="first",
+        help="Select accepted rows in source order or after a deterministic shuffle",
+    )
+    cache_data.add_argument(
+        "--sample-seed",
+        type=int,
+        default=42,
+        help="Random seed used by --sample-strategy seeded_shuffle",
+    )
+    cache_data.add_argument(
+        "--shuffle-buffer-size",
+        type=int,
+        default=10000,
+        help="Bounded shuffle buffer for streaming datasets",
+    )
+    cache_data.add_argument("--overwrite", action="store_true")
+    cache_data.add_argument("--allow-issues", action="store_true")
+    cache_data.set_defaults(func=_cache_training_dataset_set)
 
     run_list = sub.add_parser(
         "make-training-run-list",
@@ -1314,6 +1926,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run_list.add_argument("--max-train-samples", type=int)
     run_list.add_argument("--max-eval-samples", type=int)
+    run_list.add_argument("--data-cache-root", type=Path)
+    run_list.add_argument("--require-data-cache", action="store_true")
     run_list.add_argument("--allow-missing-eval", action="store_true")
     run_list.add_argument("--runner-dry-run", action="store_true")
     run_list.add_argument("--allow-existing-artifacts", action="store_true")
@@ -1347,6 +1961,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run_list_set.add_argument("--max-train-samples", type=int)
     run_list_set.add_argument("--max-eval-samples", type=int)
+    run_list_set.add_argument("--data-cache-root", type=Path)
+    run_list_set.add_argument("--require-data-cache", action="store_true")
     run_list_set.add_argument("--allow-missing-eval", action="store_true")
     run_list_set.add_argument("--runner-dry-run", action="store_true")
     run_list_set.add_argument("--allow-existing-artifacts", action="store_true")
@@ -1364,6 +1980,29 @@ def build_parser() -> argparse.ArgumentParser:
     selector.add_argument("--node-id")
     describe_run.set_defaults(func=_describe_training_run)
 
+    audit_row_data = sub.add_parser(
+        "audit-training-row-data",
+        help="Load and render data for one training run-list row without model training",
+    )
+    audit_row_data.add_argument("--run-list", type=Path, required=True)
+    audit_row_selector = audit_row_data.add_mutually_exclusive_group(required=True)
+    audit_row_selector.add_argument("--index", type=int)
+    audit_row_selector.add_argument("--node-id")
+    audit_row_data.add_argument("--registry", type=Path)
+    audit_row_data.add_argument("--formats", type=Path)
+    audit_row_data.add_argument("--max-train-samples", type=int)
+    audit_row_data.add_argument("--max-eval-samples", type=int)
+    audit_row_data.add_argument("--data-cache-root", type=Path)
+    audit_row_data.add_argument("--require-data-cache", action="store_true")
+    audit_row_data.add_argument("--allow-missing-eval", action="store_true")
+    audit_row_data.add_argument(
+        "--streaming",
+        action="store_true",
+        help="Use Hugging Face streaming mode if the row falls back to dataset loading",
+    )
+    audit_row_data.add_argument("--allow-issues", action="store_true")
+    audit_row_data.set_defaults(func=_audit_training_row_data)
+
     run_row = sub.add_parser(
         "run-training-row",
         help="Execute one training run-list row by array index or node id",
@@ -1376,7 +2015,26 @@ def build_parser() -> argparse.ArgumentParser:
     run_row.add_argument("--formats", type=Path)
     run_row.add_argument("--max-train-samples", type=int)
     run_row.add_argument("--max-eval-samples", type=int)
+    run_row.add_argument("--data-cache-root", type=Path)
+    run_row.add_argument("--require-data-cache", action="store_true")
     run_row.add_argument("--allow-missing-eval", action="store_true")
+    run_row.add_argument(
+        "--override-max-steps",
+        type=int,
+        help="Temporarily override trainer.max_steps for this selected row",
+    )
+    run_row.add_argument(
+        "--report-to",
+        action="append",
+        help=(
+            "Temporarily override trainer.report_to for this selected row; repeat the flag "
+            "or comma-separate reporters such as wandb,tensorboard"
+        ),
+    )
+    run_row.add_argument(
+        "--run-name",
+        help="Temporarily override trainer.run_name for this selected row",
+    )
     run_row.add_argument("--dry-run", action="store_true")
     run_row.set_defaults(func=_run_training_row)
 

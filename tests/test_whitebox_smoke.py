@@ -6,7 +6,7 @@ import pytest
 pytest.importorskip("Bio")
 safetensors_np = pytest.importorskip("safetensors.numpy")
 
-from weighttraits.cli import main
+from weighttraits.cli import main  # noqa: E402
 
 
 def test_tiny_whitebox_cli_smoke_builds_reconstructs_scores_and_aggregates(tmp_path):

@@ -110,6 +110,9 @@ def test_lora_training_jobs_use_merged_parent_and_adapter_artifacts(tmp_path):
     assert jobs[1].init_from == str(tmp_path / "outputs/n0/merged")
     assert jobs[1].expected_artifacts["adapter"] == str(tmp_path / "outputs/n1/adapter")
     assert jobs[1].expected_artifacts["merged"] == str(tmp_path / "outputs/n1/merged")
+    assert jobs[1].expected_artifacts["lora_target_audit"] == str(
+        tmp_path / "outputs/n1/lora_target_audit.json"
+    )
 
 
 def test_training_plan_roundtrip_from_files(tmp_path):

@@ -323,6 +323,10 @@ def _slurm_runner_command(run_list: TrainingRunList, *, python: str) -> str:
             pieces.extend(["--registry", shlex.quote(str(options["registry_path"]))])
         if options.get("formats_path"):
             pieces.extend(["--formats", shlex.quote(str(options["formats_path"]))])
+        if options.get("data_cache_root"):
+            pieces.extend(["--data-cache-root", shlex.quote(str(options["data_cache_root"]))])
+        if options.get("require_data_cache"):
+            pieces.append("--require-data-cache")
         if options.get("max_train_samples") is not None:
             pieces.extend(["--max-train-samples", str(options["max_train_samples"])])
         if options.get("max_eval_samples") is not None:

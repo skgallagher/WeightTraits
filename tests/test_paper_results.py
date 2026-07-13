@@ -39,6 +39,7 @@ def _write_summary(path: Path, *, artifact: str = "model") -> None:
                         "rf": 0,
                         "normalized_rf": 0.0,
                         "exact_tree_recovery": True,
+                        "polytomy_aware_exact_recovery": True,
                         "clade_recovery": 1.0,
                         "split_precision": 1.0,
                         "distance_mean": 0.125,
@@ -50,6 +51,7 @@ def _write_summary(path: Path, *, artifact: str = "model") -> None:
                         "rf": 2,
                         "normalized_rf": 0.5,
                         "exact_tree_recovery": False,
+                        "polytomy_aware_exact_recovery": True,
                         "clade_recovery": 0.5,
                         "split_precision": 0.5,
                         "distance_mean": 0.25,
@@ -59,6 +61,7 @@ def _write_summary(path: Path, *, artifact: str = "model") -> None:
                 ],
                 "aggregate_recovery": {
                     "exact_tree_recovery_rate": 0.5,
+                    "polytomy_aware_exact_recovery_rate": 1.0,
                     "n_truth_leaves_mean": 4.0,
                     "n_truth_splits_mean": 1.0,
                 },
@@ -96,6 +99,8 @@ result_sets:
     assert rows[0]["metric"] == "l2"
     assert rows[0]["exact_tree_recovery"] is True
     assert rows[0]["exact_tree_recovery_rate"] == 0.5
+    assert rows[0]["polytomy_aware_exact_recovery"] is True
+    assert rows[0]["polytomy_aware_exact_recovery_rate"] == 1.0
     assert rows[0]["environment"] == "local"
     assert rows[1]["metric"] == "cosine"
 
@@ -117,6 +122,8 @@ def test_recovery_table_writers_emit_json_and_csv(tmp_path):
             "normalized_rf": 0.0,
             "exact_tree_recovery": True,
             "exact_tree_recovery_rate": 1.0,
+            "polytomy_aware_exact_recovery": True,
+            "polytomy_aware_exact_recovery_rate": 1.0,
             "clade_recovery": 1.0,
             "split_precision": 1.0,
             "distance_mean": 0.125,
@@ -141,6 +148,7 @@ def test_recovery_table_writers_emit_json_and_csv(tmp_path):
     with csv_out.open() as handle:
         csv_rows = list(csv.DictReader(handle))
     assert csv_rows[0]["exact_tree_recovery"] == "true"
+    assert csv_rows[0]["polytomy_aware_exact_recovery"] == "true"
     assert csv_rows[0]["distance_mean"] == "0.125"
 
 

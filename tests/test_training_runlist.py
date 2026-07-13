@@ -178,6 +178,8 @@ def test_render_slurm_script_calls_training_runner_when_configured(tmp_path):
         runner_options={
             "registry_path": "configs/task_data_candidates.yaml",
             "formats_path": "examples/training/dataset_formats_smoke.yaml",
+            "data_cache_root": "data/cache",
+            "require_data_cache": True,
             "max_train_samples": 2,
             "allow_missing_eval": True,
         },
@@ -192,6 +194,8 @@ def test_render_slurm_script_calls_training_runner_when_configured(tmp_path):
     assert "run-training-row" in script
     assert "--registry configs/task_data_candidates.yaml" in script
     assert "--formats examples/training/dataset_formats_smoke.yaml" in script
+    assert "--data-cache-root data/cache" in script
+    assert "--require-data-cache" in script
     assert "--max-train-samples 2" in script
     assert "--allow-missing-eval" in script
 
@@ -335,6 +339,9 @@ def test_make_training_run_list_set_parser_accepts_batch_options():
             "/tmp/formats.yaml",
             "--max-train-samples",
             "16",
+            "--data-cache-root",
+            "/tmp/cache",
+            "--require-data-cache",
             "--runner-dry-run",
             "--allow-existing-artifacts",
             "--allow-issues",
@@ -348,6 +355,8 @@ def test_make_training_run_list_set_parser_accepts_batch_options():
     assert args.registry == Path("/tmp/task_data.yaml")
     assert args.formats == Path("/tmp/formats.yaml")
     assert args.max_train_samples == 16
+    assert args.data_cache_root == Path("/tmp/cache")
+    assert args.require_data_cache
     assert args.runner_dry_run
     assert args.allow_existing_artifacts
     assert args.allow_issues

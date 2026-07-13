@@ -41,6 +41,7 @@ def test_nj_resolution_adds_false_positive_without_false_negative():
     assert score["clade_recovery"] == 1.0
     assert math.isclose(score["split_precision"], 2 / 3)
     assert score["exact_tree_recovery"] is False
+    assert score["polytomy_aware_exact_recovery"] is True
     assert ["n3", "n4"] in score["false_positive_splits"]
 
 
@@ -55,6 +56,7 @@ def test_missing_clade_counts_false_negative():
     assert score["rf"] == 1
     assert score["clade_recovery"] == 0.5
     assert score["false_negative_rate"] == 0.5
+    assert score["polytomy_aware_exact_recovery"] is False
 
 
 def test_identical_manifest_is_exact_recovery():
@@ -67,6 +69,7 @@ def test_identical_manifest_is_exact_recovery():
     assert score["clade_recovery"] == 1.0
     assert score["split_precision"] == 1.0
     assert score["exact_tree_recovery"] is True
+    assert score["polytomy_aware_exact_recovery"] is True
 
 
 def test_two_tip_smoke_truth_has_no_informative_splits():
@@ -94,6 +97,11 @@ def test_aggregate_recovery_reports_standard_errors():
     assert math.isclose(aggregate["pooled_clade_recovery_se"], math.sqrt(0.75 * 0.25 / 4))
     assert aggregate["exact_tree_recovery_rate"] == 0.0
     assert aggregate["exact_tree_recovery_rate_se"] == 0.0
+    assert aggregate["polytomy_aware_exact_recovery_rate"] == 0.5
+    assert math.isclose(
+        aggregate["polytomy_aware_exact_recovery_rate_se"],
+        math.sqrt(0.5 * 0.5 / 2),
+    )
 
 
 def test_score_json_is_serializable():

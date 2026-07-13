@@ -29,6 +29,8 @@ RECOVERY_TABLE_COLUMNS = [
     "normalized_rf",
     "exact_tree_recovery",
     "exact_tree_recovery_rate",
+    "polytomy_aware_exact_recovery",
+    "polytomy_aware_exact_recovery_rate",
     "clade_recovery",
     "split_precision",
     "distance_mean",
@@ -838,6 +840,12 @@ def _rows_from_summary_entry(
                 "normalized_rf": result.get("normalized_rf"),
                 "exact_tree_recovery": result.get("exact_tree_recovery"),
                 "exact_tree_recovery_rate": aggregate.get("exact_tree_recovery_rate"),
+                "polytomy_aware_exact_recovery": result.get(
+                    "polytomy_aware_exact_recovery"
+                ),
+                "polytomy_aware_exact_recovery_rate": aggregate.get(
+                    "polytomy_aware_exact_recovery_rate"
+                ),
                 "clade_recovery": result.get("clade_recovery"),
                 "split_precision": result.get("split_precision"),
                 "distance_mean": result.get("distance_mean"),

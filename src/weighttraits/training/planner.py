@@ -214,6 +214,7 @@ def _expected_artifacts(output_dir: Path, method: str) -> dict[str, str]:
         return {
             "adapter": str(output_dir / "adapter"),
             "merged": str(output_dir / "merged"),
+            "lora_target_audit": str(output_dir / "lora_target_audit.json"),
             "training_log": str(output_dir / "training_log.jsonl"),
         }
     return {
