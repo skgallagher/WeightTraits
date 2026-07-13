@@ -199,3 +199,24 @@ This set is valid with 50 trees and 641 rows, matches the q/v set's `(node_id, d
 and explicitly targets `q,k,v,o,wi_0,wi_1,wo`. Every generated row expects
 `lora_target_audit.json`. The cached tree-001 row-0 audit passes; do not submit a broad array until
 one-row and two-row Wright smokes verify 216 resolved adapter modules.
+
+## Llama 3.2 1B variants
+
+Fresh decoder-only variants use these configs:
+
+- `llama32_1b_full_finetune.yaml`
+- `llama32_1b_lora_qkv_r8.yaml`
+- `llama32_1b_lora_qkv_r64.yaml`
+
+Each generated `*_training_runlists` directory contains 50 valid trees and 641 executable rows,
+using the same assignments as the Flan full-finetune condition. The configs pin the official
+checkpoint revision and use completion-only causal loss. Regenerate a set with the same
+`make-training-run-list-set` command above, substituting the Llama config, output directory, and
+summary name.
+
+Wright smokes established causal packing, exact QKV module resolution, root training, and LoRA
+parent-child loading. Broad arrays are still gated on the retention and three-tree benchmark in
+`docs/LLAMA32_1B_EXPERIMENT_PLAN.md`; a merged checkpoint is about 2.4 GB, so retaining all 641
+merged nodes is not acceptable by default. These configs opt into successful-run cleanup of
+Trainer resume checkpoints: Wright job `154474` removed a 7.0 GB checkpoint after retaining and
+verifying the 2.4 GB final model.

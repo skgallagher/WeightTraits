@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 from pathlib import Path
 
 from weighttraits.cli import build_parser
@@ -8,6 +9,8 @@ from weighttraits.training.executor import (
     BackendTrainResult,
     _CausalDataCollator,
     _audit_wrapped_lora_model,
+    _cleanup_trainer_checkpoints,
+    _pretrained_kwargs,
     _requested_lora_targets,
     _resolve_lora_target_modules,
     _set_training_seed,
@@ -89,6 +92,39 @@ def _run(tmp_path: Path):
         jobs,
         ledger_path=tmp_path / "training_ledger.jsonl",
     ).runs[0]
+
+
+def test_pretrained_kwargs_pins_only_remote_root_initialization(tmp_path: Path) -> None:
+    config = _config(tmp_path)
+    config["base_model_revision"] = "0123456789abcdef"
+    run = build_training_run_list(
+        build_training_jobs(_rows(), config),
+        ledger_path=tmp_path / "training_ledger.jsonl",
+    ).runs[0]
+
+    assert _pretrained_kwargs(run) == {"revision": "0123456789abcdef"}
+    assert _pretrained_kwargs(replace(run, init_from=str(tmp_path / "parent/model"))) == {}
+
+
+def test_cleanup_trainer_checkpoints_is_opt_in_and_directory_scoped(tmp_path: Path) -> None:
+    run = _run(tmp_path)
+    checkpoint = Path(run.output_dir) / "checkpoint-2"
+    checkpoint.mkdir(parents=True)
+    (checkpoint / "optimizer.pt").write_text("resume state")
+    similarly_named_file = Path(run.output_dir) / "checkpoint-note"
+    similarly_named_file.write_text("keep")
+
+    assert _cleanup_trainer_checkpoints(run) == []
+    assert checkpoint.exists()
+
+    job = dict(run.job)
+    trainer = dict(job["trainer"])
+    trainer["cleanup_checkpoints_on_success"] = True
+    job["trainer"] = trainer
+    cleanup_run = replace(run, job=job)
+    assert _cleanup_trainer_checkpoints(cleanup_run) == [str(checkpoint)]
+    assert not checkpoint.exists()
+    assert similarly_named_file.exists()
 
 
 def _registry():

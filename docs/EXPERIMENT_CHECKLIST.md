@@ -542,7 +542,7 @@ to six on 2026-07-13; the dependency expression was unchanged.
 
 ### `llama1b-variants`
 
-Status: `blocked`.
+Status: `ready` for a three-tree benchmark; broad arrays remain blocked on retention policy.
 
 Paper target:
 
@@ -555,18 +555,36 @@ Old ELLMTrees reference rows:
 - `llama1b_lora_qkv_r64`
 - `llama1b_full_ft`
 
-Blockers:
+Completed gates:
 
-- [ ] Confirm model access and exact Hugging Face model ID.
-- [ ] Add decoder-only training config with `model_task: causal_lm`.
-- [ ] Validate tokenizer, prompt/target packing, and generation/eval behavior.
-- [ ] Confirm LoRA target-module names for the Llama architecture.
-- [ ] Run tiny local dry-run.
-- [ ] Run Wright one-row and two-row smoke.
+- [x] Confirm the official model ID `meta-llama/Llama-3.2-1B`; pin cached revision
+  `4e20de362430cd3b72f300e6b0f18e50e7166e08` in every root job.
+- [x] Add separate full-FT, QKV LoRA r8, and QKV LoRA r64 causal-LM configs.
+- [x] Validate completion-only prompt/target packing and EOS-as-pad behavior.
+- [x] Resolve exactly 48 QKV LoRA modules (16 each of q/k/v); rank 64 has 9,437,184
+  trainable adapter parameters and zero unmatched targets.
+- [x] Generate 50 valid run lists / 641 rows for each condition. Their ordered tree, node, and
+  dataset assignments exactly match the Flan full-FT set.
+- [x] Audit one cached train/eval row from classification, translation, summarization, and QA.
+- [x] Run Wright root and parent-child rank-64 LoRA smokes: jobs `154463` and `154464` completed
+  two steps with status `completed`.
+- [x] Run Wright full-FT root smoke: job `154465` completed two steps on one L40 without OOM.
+- [x] Complete the full-FT parent-child smoke: `154473` completed two steps from the local n0
+  parent. Its final model is 2.4 GB; the Trainer resume checkpoint added 7.0 GB. Attempt
+  `154472` failed before script execution because the isolated staging log directory was absent.
+- [ ] Run three representative trees per condition; record wall time, peak GPU memory, disk growth,
+  and first-tree recovery before considering 50-tree arrays.
+- [ ] Finish the lineage-model retention policy. Successful Llama jobs now remove Trainer resume
+  checkpoints only after final artifact save; job `154474` verified a 9.3 GB node falls to 2.4 GB
+  and records the removed path in backend metadata. Internal parent-model pruning is still pending.
 
 Guardrail:
 
 - Do not queue Llama broad arrays from the current Flan run-list assumptions. Treat Llama as a new model family.
+- Do not retain every merged 1B checkpoint by default. The root rank-64 smoke produced a 53 MB
+  adapter and a 2.4 GB merged model; 641 merged models would be roughly 1.5 TB per condition.
+- Wright has a cached gated checkpoint, but offline execution is intentional until authenticated
+  Hugging Face access is verified. The pinned revision prevents silent model drift.
 - Do not pursue `runs_llama8b_full_ft_approx` unless deliberately revisited.
 
 ### `behavior-holdout-rebuild`

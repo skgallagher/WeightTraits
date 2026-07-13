@@ -49,6 +49,13 @@ As of 2026-07-07, the project has a working end-to-end whitebox recovery spine:
   run lists unchanged.
 - Wright launch scripts for the confirm-paper run live under `scripts/slurm/` and run each tree
   sequentially inside one GPU job so parent checkpoints exist before child rows start.
+- Llama 3.2 1B now has independent full-FT and QKV LoRA r8/r64 scaffolds with an immutable base
+  revision, 50 matched run lists per condition, causal packing checks, and successful bounded Wright
+  root/dependency smokes. See `docs/LLAMA32_1B_EXPERIMENT_PLAN.md`; broad arrays remain gated by a
+  three-tree resource benchmark and checkpoint retention policy.
+- Llama full-FT child smoke `154473` proved local-parent initialization. Cleanup smoke `154474`
+  proved successful jobs discard the 7.0 GB Trainer resume checkpoint only after retaining the
+  2.4 GB final model; the removed path is persisted in backend metadata.
 
 Latest verified paper outputs:
 

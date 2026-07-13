@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass, field
 import inspect
 import json
 from pathlib import Path
+import shutil
 from typing import Any, Callable, Mapping, Protocol, Sequence
 
 from weighttraits.training.data_formats import DatasetFormatSpec
@@ -357,7 +358,8 @@ class HfPeftTrainingBackend:
         deps = _load_hf_deps()
         _set_training_seed(deps, run.job)
         model_task = _model_task(run.job)
-        tokenizer = deps["AutoTokenizer"].from_pretrained(run.init_from)
+        pretrained_kwargs = _pretrained_kwargs(run)
+        tokenizer = deps["AutoTokenizer"].from_pretrained(run.init_from, **pretrained_kwargs)
         if getattr(tokenizer, "pad_token", None) is None and getattr(tokenizer, "eos_token", None):
             tokenizer.pad_token = tokenizer.eos_token
         model_cls = (
@@ -365,8 +367,12 @@ class HfPeftTrainingBackend:
             if model_task == "seq2seq"
             else deps["AutoModelForCausalLM"]
         )
-        model = model_cls.from_pretrained(run.init_from)
-        backend_metadata: dict[str, Any] = {}
+        model = model_cls.from_pretrained(run.init_from, **pretrained_kwargs)
+        backend_metadata: dict[str, Any] = {
+            "base_model": str(run.job.get("base_model", "")),
+            "base_model_revision": run.job.get("base_model_revision"),
+            "init_from": run.init_from,
+        }
         preflight_artifacts: dict[str, str] = {}
         if run.method == "lora":
             model, lora_audit = self._wrap_lora(model, run, deps, model_task)
@@ -407,6 +413,9 @@ class HfPeftTrainingBackend:
         output = trainer.train()
         artifacts = self._save_artifacts(run, trainer, model, tokenizer)
         artifacts.update(preflight_artifacts)
+        removed_checkpoints = _cleanup_trainer_checkpoints(run)
+        if removed_checkpoints:
+            backend_metadata["removed_trainer_checkpoints"] = removed_checkpoints
         train_loss = _metric_value(getattr(output, "metrics", {}), "train_loss")
         eval_loss = _metric_value(getattr(trainer.state, "log_history", []), "eval_loss")
         status = "stopped_early" if callback.stopped else "completed"
@@ -800,6 +809,7 @@ def _training_arguments(
         "max_seq_length",
         "model_task",
         "causal_loss_scope",
+        "cleanup_checkpoints_on_success",
     }
     kwargs = {key: value for key, value in trainer.items() if key not in ignored}
     kwargs["output_dir"] = run.output_dir
@@ -826,6 +836,21 @@ def _data_collator(deps: dict[str, Any], tokenizer: Any, model: Any, model_task:
     if model_task == "seq2seq":
         return deps["DataCollatorForSeq2Seq"](tokenizer=tokenizer, model=model)
     return _CausalDataCollator(tokenizer)
+
+
+def _cleanup_trainer_checkpoints(run: TrainingRunSpec) -> list[str]:
+    """Remove resumable Trainer checkpoints only after final artifacts were saved."""
+
+    trainer = dict(run.job.get("trainer", {}))
+    if not bool(trainer.get("cleanup_checkpoints_on_success", False)):
+        return []
+    removed: list[str] = []
+    for checkpoint in sorted(Path(run.output_dir).glob("checkpoint-*")):
+        if not checkpoint.is_dir():
+            continue
+        shutil.rmtree(checkpoint)
+        removed.append(str(checkpoint))
+    return removed
 
 
 class _CausalDataCollator:
@@ -859,6 +884,17 @@ def _set_training_seed(deps: Mapping[str, Any], job: Mapping[str, Any]) -> int:
     seed = int(trainer.get("seed", 42))
     deps["set_seed"](seed)
     return seed
+
+
+def _pretrained_kwargs(run: TrainingRunSpec) -> dict[str, str]:
+    """Pin remote root initialization while leaving local lineage paths untouched."""
+
+    base_model = str(run.job.get("base_model", ""))
+    revision = run.job.get("base_model_revision")
+    if run.init_from != base_model or revision is None:
+        return {}
+    revision_text = str(revision).strip()
+    return {"revision": revision_text} if revision_text else {}
 
 
 def _causal_loss_scope(trainer: Mapping[str, Any]) -> str:
