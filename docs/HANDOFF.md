@@ -56,6 +56,10 @@ As of 2026-07-07, the project has a working end-to-end whitebox recovery spine:
 - Llama full-FT child smoke `154473` proved local-parent initialization. Cleanup smoke `154474`
   proved successful jobs discard the 7.0 GB Trainer resume checkpoint only after retaining the
   2.4 GB final model; the removed path is persisted in backend metadata.
+- `prune-training-parent-artifact` and the opt-in sequential-wrapper retention hook now remove an
+  internal full model or LoRA merged model only after every direct child succeeds. The isolated
+  Llama Wright smoke removed 2,488,861,763 bytes from n0, preserved both leaf models, and wrote a
+  JSONL decision audit. Existing experiment wrappers remain pruning-off unless explicitly enabled.
 
 Latest verified paper outputs:
 

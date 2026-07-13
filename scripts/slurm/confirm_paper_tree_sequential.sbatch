@@ -32,6 +32,8 @@ expanded_run_name_prefix="${expanded_run_name_prefix//__TREE_ID__/${TREE_ID}}"
 expanded_run_name_prefix="${expanded_run_name_prefix//\{TREE_ID\}/${TREE_ID}}"
 RUN_NAME_PREFIX="${RUN_NAME_PREFIX:-${expanded_run_name_prefix}}"
 WANDB_PROJECT="${WANDB_PROJECT:-weighttraits-confirm-paper}"
+PRUNE_INTERNAL_PARENTS="${PRUNE_INTERNAL_PARENTS:-false}"
+RETENTION_AUDIT="${RETENTION_AUDIT:-}"
 
 cd "${REPO}"
 mkdir -p slurm_logs
@@ -84,4 +86,24 @@ for row_index in $(seq "${ROW_START}" "${ROW_END}"); do
   printf ' %q' "${cmd[@]}"
   printf '\n'
   "${cmd[@]}"
+
+  case "${PRUNE_INTERNAL_PARENTS}" in
+    1|true|TRUE|yes|YES)
+      prune_cmd=(
+        env
+        PYTHONPATH=src
+        "${PYTHON_BIN}" -m weighttraits.cli prune-training-parent-artifact
+        --run-list "${RUN_LIST}"
+        --index "${row_index}"
+      )
+      if [[ -n "${RETENTION_AUDIT}" ]]; then
+        prune_cmd+=(--audit-out "${RETENTION_AUDIT}")
+      fi
+      printf 'Applying retention policy after tree %s row %s (%s):' \
+        "${TREE_ID}" "${row_index}" "${node_id}"
+      printf ' %q' "${prune_cmd[@]}"
+      printf '\n'
+      "${prune_cmd[@]}"
+      ;;
+  esac
 done

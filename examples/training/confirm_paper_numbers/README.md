@@ -220,3 +220,15 @@ parent-child loading. Broad arrays are still gated on the retention and three-tr
 merged nodes is not acceptable by default. These configs opt into successful-run cleanup of
 Trainer resume checkpoints: Wright job `154474` removed a 7.0 GB checkpoint after retaining and
 verifying the 2.4 GB final model.
+
+For bounded Llama tree runs, enable lineage-aware pruning explicitly:
+
+```bash
+sbatch --export=ALL,PRUNE_INTERNAL_PARENTS=true,... \
+  scripts/slurm/confirm_paper_tree_sequential.sbatch
+```
+
+The wrapper calls `prune-training-parent-artifact` only after a row succeeds. The command requires
+every direct child of the candidate parent to have a successful terminal ledger state. Full-FT
+pruning removes only the internal `model/`; LoRA pruning removes only the internal `merged/` and
+retains every adapter. Leaves, logs, ledgers, and JSONL retention audits remain.

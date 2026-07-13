@@ -48,6 +48,12 @@ Before a broad launch, implement a deliberate lifecycle:
    for analysis, or use cumulative adapters as a separately labeled sensitivity analysis. Do not
    silently substitute one representation for another.
 
+The sequential Slurm wrapper implements step 2/3 when `PRUNE_INTERNAL_PARENTS=true`. After each
+successful row, `prune-training-parent-artifact` consults the shared tree ledger and acts only when
+all of the parent's direct children have successful terminal states. Decisions are appended to a
+per-tree retention audit. A Wright smoke removed 2,488,861,763 bytes from internal n0 and verified
+that both leaf models remained. The option is off by default for existing experiment families.
+
 ## Next launch gate
 
 Run three representative trees per condition with the six-job cluster cap. Capture elapsed time,

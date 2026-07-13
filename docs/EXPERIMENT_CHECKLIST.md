@@ -574,9 +574,12 @@ Completed gates:
   `154472` failed before script execution because the isolated staging log directory was absent.
 - [ ] Run three representative trees per condition; record wall time, peak GPU memory, disk growth,
   and first-tree recovery before considering 50-tree arrays.
-- [ ] Finish the lineage-model retention policy. Successful Llama jobs now remove Trainer resume
-  checkpoints only after final artifact save; job `154474` verified a 9.3 GB node falls to 2.4 GB
-  and records the removed path in backend metadata. Internal parent-model pruning is still pending.
+- [x] Implement lineage-aware internal-parent pruning. It requires successful terminal ledger states
+  for every direct child, removes only the parent's `model/` (full FT) or `merged/` (LoRA), retains
+  leaves and every adapter, and writes a JSONL audit. The isolated Wright smoke removed exactly
+  2,488,861,763 bytes from n0 while preserving n1/n2 leaf models. Successful jobs also remove
+  Trainer resume checkpoints only after final artifact save; job `154474` verified a 9.3 GB node
+  falls to 2.4 GB and records the removed path in backend metadata.
 
 Guardrail:
 

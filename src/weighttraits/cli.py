@@ -112,6 +112,11 @@ from weighttraits.training.runlist import (
     write_training_run_list,
     write_training_run_report,
 )
+from weighttraits.training.retention import (
+    append_retention_audit,
+    default_retention_audit_path,
+    prune_completed_parent_artifact,
+)
 
 
 def _audit_ellmtrees(args: argparse.Namespace) -> int:
@@ -1102,6 +1107,22 @@ def _run_training_row(args: argparse.Namespace) -> int:
         allow_missing_eval=args.allow_missing_eval or bool(options.get("allow_missing_eval")),
         execution_overrides=execution_overrides,
     )
+    print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    return 0
+
+
+def _prune_training_parent_artifact(args: argparse.Namespace) -> int:
+    runs = load_training_run_specs(args.run_list)
+    selected = select_training_run(runs, index=args.index, node_id=args.node_id)
+    result = prune_completed_parent_artifact(
+        runs,
+        selected_node_id=selected.node_id,
+        ledger_events=load_ledger_events(selected.ledger_path),
+        dry_run=args.dry_run,
+    )
+    if not args.dry_run:
+        audit_path = args.audit_out or default_retention_audit_path(selected.ledger_path)
+        append_retention_audit(audit_path, result)
     print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
     return 0
 
@@ -2270,6 +2291,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run_row.add_argument("--dry-run", action="store_true")
     run_row.set_defaults(func=_run_training_row)
+
+    prune_parent = sub.add_parser(
+        "prune-training-parent-artifact",
+        help="Prune a completed internal parent's model after all direct children succeed",
+    )
+    prune_parent.add_argument("--run-list", type=Path, required=True)
+    prune_selector = prune_parent.add_mutually_exclusive_group(required=True)
+    prune_selector.add_argument("--index", type=int)
+    prune_selector.add_argument("--node-id")
+    prune_parent.add_argument("--audit-out", type=Path)
+    prune_parent.add_argument("--dry-run", action="store_true")
+    prune_parent.set_defaults(func=_prune_training_parent_artifact)
 
     return parser
 
