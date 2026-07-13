@@ -6,38 +6,65 @@ task_families:
         hf_args: [abisee/cnn_dailymail, "3.0.0"]
         train_split: train
         eval_split: validation
+        filter:
+          max_chars:
+            document: 4096
       - id: xsum
         hf_args: [EdinburghNLP/xsum]
         train_split: train
         eval_split: validation
+        filter:
+          max_chars:
+            document: 4096
       - id: samsum
         hf_args: [knkarthick/samsum]
         train_split: train
         eval_split: validation
+        filter:
+          max_chars:
+            document: 4096
       - id: billsum
         hf_args: [FiscalNote/billsum]
         train_split: train
         eval_split: test
+        filter:
+          max_chars:
+            document: 16384
       - id: pubmed
         hf_args: [ccdv/pubmed-summarization]
         train_split: train
         eval_split: validation
+        filter:
+          max_chars:
+            document: 8192
       - id: govreport
         hf_args: [ccdv/govreport-summarization]
         train_split: train
         eval_split: validation
+        filter:
+          max_chars:
+            document: 65536
       - id: arxiv_summ
         hf_args: [ccdv/arxiv-summarization]
         train_split: train
         eval_split: validation
+        filter:
+          max_chars:
+            document: 16384
       - id: bigpatent
         hf_args: [NortheasternUniversity/big_patent, all]
         train_split: train
         eval_split: validation
+        filter:
+          max_chars:
+            document: 16384
       - id: dialogsum
         hf_args: [knkarthick/dialogsum]
         train_split: train
         eval_split: validation
+        filter:
+          max_chars:
+            document: 4096
   classification:
     datasets:
       - id: sst2
@@ -77,7 +104,7 @@ task_families:
         train_split: train
         eval_split: test
       - id: trec
-        hf_args: [CogComp/trec]
+        hf_args: [SetFit/TREC-QC]
         train_split: train
         eval_split: test
   qa:

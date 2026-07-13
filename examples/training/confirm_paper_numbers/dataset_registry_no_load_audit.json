@@ -531,7 +531,7 @@
       "dataset_id": "trec",
       "error": null,
       "hf_args": [
-        "CogComp/trec"
+        "SetFit/TREC-QC"
       ],
       "hf_kwargs": {},
       "requested_splits": [

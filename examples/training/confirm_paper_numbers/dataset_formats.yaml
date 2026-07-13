@@ -159,9 +159,9 @@ datasets:
     train_split: train
     eval_split: test
     prompt_fields: [text]
-    raw_fields: [text, coarse_label]
+    raw_fields: [text, label_text]
     field_map:
-      target: coarse_label
+      target: label_text
   - dataset_id: squad
     task_family: qa
     train_split: train

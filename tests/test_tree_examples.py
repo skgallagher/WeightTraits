@@ -276,10 +276,12 @@ def test_confirm_paper_numbers_training_run_lists_are_wired_for_runner():
     summary = json.loads(summary_path.read_text())
     expected_options = {
         "allow_missing_eval": True,
+        "data_cache_root": "data/confirm_paper_numbers/full_finetune_cache",
         "formats_path": "examples/training/confirm_paper_numbers/dataset_formats.yaml",
         "max_eval_samples": 1000,
         "max_train_samples": 10000,
         "registry_path": "examples/training/confirm_paper_numbers/dataset_registry.yaml",
+        "require_data_cache": True,
     }
 
     assert summary["valid"]
@@ -313,6 +315,9 @@ def test_confirm_paper_numbers_dataset_contract_reports_are_clean():
     no_load_audit = json.loads(
         (repo / "examples/training/confirm_paper_numbers/dataset_registry_no_load_audit.json").read_text()
     )
+    cache_summary = json.loads(
+        (repo / "examples/training/confirm_paper_numbers/full_finetune_data_cache_summary.json").read_text()
+    )
 
     family_ids = {
         dataset["id"]
@@ -336,3 +341,16 @@ def test_confirm_paper_numbers_dataset_contract_reports_are_clean():
     assert no_load_audit["valid"]
     assert no_load_audit["n_datasets"] == no_load_audit["n_ok"] == 36
     assert {audit["status"] for audit in no_load_audit["audits"]} == {"not_loaded"}
+    assert cache_summary["valid"]
+    assert cache_summary["n_datasets"] == cache_summary["n_ok"] == 36
+    summarization_ids = {
+        dataset["id"]
+        for dataset in family_config["task_families"]["summarization"]["datasets"]
+    }
+    summarization_train = [
+        split
+        for split in cache_summary["splits"]
+        if split["dataset_id"] in summarization_ids and split["split"] == "train"
+    ]
+    assert len(summarization_train) == 9
+    assert all(split["n_cached"] == 10000 for split in summarization_train)

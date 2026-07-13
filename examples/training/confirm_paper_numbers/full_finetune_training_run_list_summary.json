@@ -9,10 +9,12 @@
   "runner_entrypoint": "weighttraits.cli run-training-row",
   "runner_options": {
     "allow_missing_eval": true,
+    "data_cache_root": "data/confirm_paper_numbers/full_finetune_cache",
     "formats_path": "examples/training/confirm_paper_numbers/dataset_formats.yaml",
     "max_eval_samples": 1000,
     "max_train_samples": 10000,
-    "registry_path": "examples/training/confirm_paper_numbers/dataset_registry.yaml"
+    "registry_path": "examples/training/confirm_paper_numbers/dataset_registry.yaml",
+    "require_data_cache": true
   },
   "trees": [
     {
