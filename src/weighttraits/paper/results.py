@@ -83,6 +83,9 @@ BEHAVIOR_HOLDOUT_TABLE_COLUMNS = [
 ]
 
 
+WEIGHTTRAITS_VARIANTS_SCHEMA = "weighttraits.variants.v1"
+
+
 BEHAVIOR_HOLDOUT_CELL_SPECS = [
     ("Translation", "trained"),
     ("Translation", "held-out"),
@@ -154,6 +157,21 @@ def load_ellmtrees_variants_registry(path: str | Path) -> dict[str, Any]:
     for key in ("recovery_source", "per_run_recovery_source"):
         if not isinstance(data.get(key), str) or not data.get(key):
             raise ValueError(f"ELLMTrees variants registry requires {key}: {registry_path}")
+    return data
+
+
+def load_weighttraits_variants_registry(path: str | Path) -> dict[str, Any]:
+    """Load mappings from WeightTraits run-set rollups to `tab:variants` rows."""
+
+    registry_path = Path(path)
+    data = yaml.safe_load(registry_path.read_text())
+    if not isinstance(data, dict):
+        raise ValueError(f"WeightTraits variants registry must be a mapping: {registry_path}")
+    variants = data.get("variants")
+    if not isinstance(variants, list) or not variants:
+        raise ValueError(
+            f"WeightTraits variants registry requires a non-empty variants list: {registry_path}"
+        )
     return data
 
 
@@ -247,6 +265,153 @@ def ellmtrees_variants_table_rows(
             }
         )
     return rows
+
+
+def weighttraits_variants_table_rows(
+    registry_path: str | Path,
+    *,
+    base_dir: str | Path = ".",
+) -> list[dict[str, Any]]:
+    """Build paper-schema rows from WeightTraits direct-analysis rollups."""
+
+    registry = load_weighttraits_variants_registry(registry_path)
+    base = Path(base_dir)
+    default_metric = str(registry.get("metric", "cosine"))
+    rows = []
+    for variant in registry["variants"]:
+        if not isinstance(variant, dict):
+            raise ValueError("WeightTraits variants entries must be mappings")
+        variant_id = _required_str(variant, "id")
+        summary_source = _required_str(variant, "summary")
+        summary_path = _resolve_registered_path(base, summary_source)
+        if not summary_path.exists():
+            raise FileNotFoundError(summary_path)
+        summary = json.loads(summary_path.read_text())
+        if not isinstance(summary, dict):
+            raise ValueError(f"run-set summary must be a mapping: {summary_path}")
+        metric = str(variant.get("metric", default_metric))
+        aggregate_by_metric = summary.get("aggregate_by_metric")
+        if not isinstance(aggregate_by_metric, dict) or metric not in aggregate_by_metric:
+            raise ValueError(
+                f"run-set summary {summary_path} does not contain metric {metric!r} "
+                f"for variant {variant_id}"
+            )
+        aggregate = aggregate_by_metric[metric]
+        if not isinstance(aggregate, dict):
+            raise ValueError(
+                f"run-set metric aggregate must be a mapping: {summary_path} metric={metric}"
+            )
+        _validate_weighttraits_variant_summary(
+            variant,
+            summary,
+            aggregate,
+            summary_path=summary_path,
+            variant_id=variant_id,
+        )
+        rows.append(
+            {
+                "variant_id": variant_id,
+                "section": str(variant.get("section", "")),
+                "model": str(variant.get("model", "")),
+                "label": str(variant.get("label", "")),
+                "recovery_group": str(variant.get("recovery_group", variant_id)),
+                "n_runs": aggregate.get("n_trees"),
+                "n_ordering_runs": aggregate.get("n_ordering_trees"),
+                "n_pairs": aggregate.get("n_branch_pairs"),
+                "rank_biserial": aggregate.get("branch_rank_biserial_mean"),
+                "rank_biserial_se": aggregate.get("branch_rank_biserial_se"),
+                "within_run_r": aggregate.get("branch_within_run_r_fisher_z_mean"),
+                "within_run_r_se": aggregate.get("branch_within_run_r_se"),
+                "clade_recovery_pct": _percent(aggregate.get("clade_recovery_mean")),
+                "clade_recovery_se_pct": _percent(aggregate.get("clade_recovery_se")),
+                "exact_recovery_pct": _percent(
+                    aggregate.get("polytomy_aware_exact_recovery_rate")
+                ),
+                "exact_recovery_se_pct": _percent(
+                    aggregate.get("polytomy_aware_exact_recovery_rate_se")
+                ),
+                "rf_mean": aggregate.get("rf_mean"),
+                "rf_se": aggregate.get("rf_se"),
+                "fn_mean": aggregate.get("false_negative_mean"),
+                "fn_se": aggregate.get("false_negative_se"),
+                "recovery_source": summary_source,
+                "per_run_recovery_source": summary_source,
+                "branch_source": summary_source,
+            }
+        )
+    return rows
+
+
+def _validate_weighttraits_variant_summary(
+    variant: dict[str, Any],
+    summary: dict[str, Any],
+    aggregate: dict[str, Any],
+    *,
+    summary_path: Path,
+    variant_id: str,
+) -> None:
+    expected_artifact = variant.get("artifact")
+    if expected_artifact is not None and summary.get("artifact") != expected_artifact:
+        raise ValueError(
+            f"run-set artifact mismatch for {variant_id}: expected {expected_artifact!r}, "
+            f"got {summary.get('artifact')!r} in {summary_path}"
+        )
+    expected_representation = variant.get("representation")
+    if expected_representation is not None:
+        representations = {
+            str(row.get("representation"))
+            for row in summary.get("rows", [])
+            if isinstance(row, dict) and row.get("representation") is not None
+        }
+        if representations != {str(expected_representation)}:
+            raise ValueError(
+                f"run-set representation mismatch for {variant_id}: expected "
+                f"{expected_representation!r}, got {sorted(representations)!r} in {summary_path}"
+            )
+    required = (
+        "n_trees",
+        "n_ordering_trees",
+        "n_branch_pairs",
+        "branch_rank_biserial_mean",
+        "branch_rank_biserial_se",
+        "branch_within_run_r_fisher_z_mean",
+        "branch_within_run_r_se",
+        "clade_recovery_mean",
+        "clade_recovery_se",
+        "polytomy_aware_exact_recovery_rate",
+        "polytomy_aware_exact_recovery_rate_se",
+        "rf_mean",
+        "rf_se",
+        "false_negative_mean",
+        "false_negative_se",
+    )
+    missing = [key for key in required if aggregate.get(key) is None]
+    if missing:
+        raise ValueError(
+            f"run-set summary {summary_path} is missing paper fields for {variant_id}: "
+            + ", ".join(missing)
+        )
+    n_trees = int(aggregate["n_trees"])
+    n_ordering_trees = int(aggregate["n_ordering_trees"])
+    if n_ordering_trees <= 0 or n_ordering_trees > n_trees:
+        raise ValueError(
+            f"run-set summary {summary_path} has invalid ordering coverage for {variant_id}: "
+            f"{n_ordering_trees} ordering trees from {n_trees} recovery trees"
+        )
+    status_counts = aggregate.get("branch_ordering_status_counts")
+    if isinstance(status_counts, dict):
+        unexpected_statuses = sorted(set(status_counts) - {"ok", "missing_branch_class"})
+        if unexpected_statuses:
+            raise ValueError(
+                f"run-set summary {summary_path} has invalid ordering statuses for {variant_id}: "
+                + ", ".join(unexpected_statuses)
+            )
+
+
+def _percent(value: Any) -> float | None:
+    if value is None:
+        return None
+    return float(value) * 100.0
 
 
 def behavior_holdout_draft_table_rows(draft_path: str | Path) -> list[dict[str, Any]]:
@@ -638,6 +803,26 @@ def write_ellmtrees_variants_table_json(
     out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
 
+def write_weighttraits_variants_table_json(
+    rows: list[dict[str, Any]],
+    path: str | Path,
+    *,
+    registry: str | Path | None = None,
+) -> None:
+    """Write rebuilt WeightTraits variants rows as JSON."""
+
+    out = Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema": WEIGHTTRAITS_VARIANTS_SCHEMA,
+        "producer": "weighttraits",
+        "registry": str(registry) if registry is not None else None,
+        "n_rows": len(rows),
+        "rows": rows,
+    }
+    out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+
 def write_behavior_holdout_table_json(
     rows: list[dict[str, Any]],
     path: str | Path,
@@ -670,6 +855,18 @@ def write_recovery_table_csv(rows: list[dict[str, Any]], path: str | Path) -> No
 
 def write_ellmtrees_variants_table_csv(rows: list[dict[str, Any]], path: str | Path) -> None:
     """Write old ELLMTrees variants reference rows as CSV with stable columns."""
+
+    out = Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=ELLMTREES_VARIANTS_TABLE_COLUMNS, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({key: _csv_value(row.get(key)) for key in ELLMTREES_VARIANTS_TABLE_COLUMNS})
+
+
+def write_weighttraits_variants_table_csv(rows: list[dict[str, Any]], path: str | Path) -> None:
+    """Write rebuilt WeightTraits variants rows as CSV with paper-stable columns."""
 
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)

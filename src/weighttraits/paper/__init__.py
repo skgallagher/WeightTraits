@@ -1,8 +1,15 @@
 """Paper registry helpers."""
 
+from weighttraits.paper.figures import (
+    VARIANT_DIAGNOSTIC_METRICS,
+    load_weighttraits_variants_artifact,
+    plot_weighttraits_variants_diagnostics,
+)
+
 from weighttraits.paper.results import (
     ELLMTREES_VARIANTS_TABLE_COLUMNS,
     RECOVERY_TABLE_COLUMNS,
+    WEIGHTTRAITS_VARIANTS_SCHEMA,
     behavior_holdout_draft_table_rows,
     compare_table_artifacts,
     ellmtrees_variants_table_rows,
@@ -10,6 +17,7 @@ from weighttraits.paper.results import (
     load_reference_registry,
     load_recovery_registry,
     load_table_registry,
+    load_weighttraits_variants_registry,
     recovery_table_rows,
     run_table_registry_comparisons,
     validate_reference_registry,
@@ -20,11 +28,16 @@ from weighttraits.paper.results import (
     write_ellmtrees_variants_table_json,
     write_recovery_table_csv,
     write_recovery_table_json,
+    weighttraits_variants_table_rows,
+    write_weighttraits_variants_table_csv,
+    write_weighttraits_variants_table_json,
 )
 
 __all__ = [
     "ELLMTREES_VARIANTS_TABLE_COLUMNS",
     "RECOVERY_TABLE_COLUMNS",
+    "VARIANT_DIAGNOSTIC_METRICS",
+    "WEIGHTTRAITS_VARIANTS_SCHEMA",
     "behavior_holdout_draft_table_rows",
     "compare_table_artifacts",
     "ellmtrees_variants_table_rows",
@@ -32,6 +45,9 @@ __all__ = [
     "load_reference_registry",
     "load_recovery_registry",
     "load_table_registry",
+    "load_weighttraits_variants_registry",
+    "load_weighttraits_variants_artifact",
+    "plot_weighttraits_variants_diagnostics",
     "recovery_table_rows",
     "run_table_registry_comparisons",
     "validate_reference_registry",
@@ -42,4 +58,7 @@ __all__ = [
     "write_ellmtrees_variants_table_json",
     "write_recovery_table_csv",
     "write_recovery_table_json",
+    "weighttraits_variants_table_rows",
+    "write_weighttraits_variants_table_csv",
+    "write_weighttraits_variants_table_json",
 ]

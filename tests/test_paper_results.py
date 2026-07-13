@@ -19,6 +19,9 @@ from weighttraits.paper.results import (
     write_ellmtrees_variants_table_json,
     write_recovery_table_csv,
     write_recovery_table_json,
+    weighttraits_variants_table_rows,
+    write_weighttraits_variants_table_csv,
+    write_weighttraits_variants_table_json,
 )
 
 
@@ -799,3 +802,190 @@ def test_ellmtrees_variants_table_writers_emit_json_and_csv(tmp_path):
         csv_rows = list(csv.DictReader(handle))
     assert csv_rows[0]["rank_biserial"] == "1.0"
     assert csv_rows[0]["branch_source"] == "branch.csv"
+
+
+def test_weighttraits_variants_table_rows_map_paper_estimands(tmp_path):
+    summary = tmp_path / "outputs/analysis/example_summary.json"
+    registry = tmp_path / "paper/weighttraits_variants_registry.yaml"
+    summary.parent.mkdir(parents=True)
+    registry.parent.mkdir(parents=True)
+    summary.write_text(
+        json.dumps(
+            {
+                "artifact": "adapter_chain",
+                "rows": [
+                    {"representation": "lora_cumulative_delta"},
+                    {"representation": "lora_cumulative_delta"},
+                ],
+                "aggregate_by_metric": {
+                    "cosine": {
+                        "n_trees": 2,
+                        "n_ordering_trees": 2,
+                        "n_branch_pairs": 16,
+                        "branch_rank_biserial_mean": 0.75,
+                        "branch_rank_biserial_se": 0.25,
+                        "branch_within_run_r_fisher_z_mean": -0.65,
+                        "branch_within_run_r_se": 0.1,
+                        "clade_recovery_mean": 0.75,
+                        "clade_recovery_se": 0.25,
+                        "polytomy_aware_exact_recovery_rate": 0.5,
+                        "polytomy_aware_exact_recovery_rate_se": 0.353553,
+                        "rf_mean": 1.0,
+                        "rf_se": 1.0,
+                        "false_negative_mean": 0.5,
+                        "false_negative_se": 0.5,
+                    }
+                },
+            }
+        )
+        + "\n"
+    )
+    registry.write_text(
+        """
+version: 1
+metric: cosine
+variants:
+  - id: example
+    section: Example
+    model: ExampleModel
+    label: Example variant
+    summary: outputs/analysis/example_summary.json
+    artifact: adapter_chain
+    representation: lora_cumulative_delta
+"""
+    )
+
+    rows = weighttraits_variants_table_rows(registry, base_dir=tmp_path)
+
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["variant_id"] == "example"
+    assert row["n_runs"] == 2
+    assert row["n_ordering_runs"] == 2
+    assert row["n_pairs"] == 16
+    assert row["rank_biserial"] == 0.75
+    assert row["within_run_r"] == -0.65
+    assert row["clade_recovery_pct"] == 75.0
+    assert row["exact_recovery_pct"] == 50.0
+    assert row["rf_mean"] == 1.0
+    assert row["fn_mean"] == 0.5
+    assert row["branch_source"] == "outputs/analysis/example_summary.json"
+
+
+def test_weighttraits_variants_table_allows_root_singletons_to_skip_ordering(tmp_path):
+    summary = tmp_path / "summary.json"
+    registry = tmp_path / "registry.yaml"
+    summary.write_text(
+        json.dumps(
+            {
+                "artifact": "model",
+                "rows": [{"representation": "full_weight"}],
+                "aggregate_by_metric": {
+                    "cosine": {
+                        "n_trees": 2,
+                        "n_ordering_trees": 1,
+                        "n_branch_pairs": 6,
+                        "branch_rank_biserial_mean": 1.0,
+                        "branch_rank_biserial_se": 0.0,
+                        "branch_within_run_r_fisher_z_mean": -0.9,
+                        "branch_within_run_r_se": 0.0,
+                        "clade_recovery_mean": 1.0,
+                        "clade_recovery_se": 0.0,
+                        "polytomy_aware_exact_recovery_rate": 1.0,
+                        "polytomy_aware_exact_recovery_rate_se": 0.0,
+                        "rf_mean": 0.0,
+                        "rf_se": 0.0,
+                        "false_negative_mean": 0.0,
+                        "false_negative_se": 0.0,
+                    }
+                },
+            }
+        )
+        + "\n"
+    )
+    registry.write_text(
+        """
+variants:
+  - id: example
+    summary: summary.json
+    artifact: model
+    representation: full_weight
+"""
+    )
+
+    rows = weighttraits_variants_table_rows(registry, base_dir=tmp_path)
+
+    assert rows[0]["n_runs"] == 2
+    assert rows[0]["n_ordering_runs"] == 1
+
+
+def test_weighttraits_variants_table_rejects_no_ordering_runs(tmp_path):
+    summary = tmp_path / "summary.json"
+    registry = tmp_path / "registry.yaml"
+    summary.write_text(
+        json.dumps(
+            {
+                "artifact": "model",
+                "rows": [{"representation": "full_weight"}],
+                "aggregate_by_metric": {
+                    "cosine": {
+                        "n_trees": 2,
+                        "n_ordering_trees": 0,
+                        "n_branch_pairs": 0,
+                        "branch_rank_biserial_mean": 1.0,
+                        "branch_rank_biserial_se": 0.0,
+                        "branch_within_run_r_fisher_z_mean": -0.9,
+                        "branch_within_run_r_se": 0.0,
+                        "clade_recovery_mean": 1.0,
+                        "clade_recovery_se": 0.0,
+                        "polytomy_aware_exact_recovery_rate": 1.0,
+                        "polytomy_aware_exact_recovery_rate_se": 0.0,
+                        "rf_mean": 0.0,
+                        "rf_se": 0.0,
+                        "false_negative_mean": 0.0,
+                        "false_negative_se": 0.0,
+                    }
+                },
+            }
+        )
+        + "\n"
+    )
+    registry.write_text(
+        """
+variants:
+  - id: example
+    summary: summary.json
+    artifact: model
+    representation: full_weight
+"""
+    )
+
+    with pytest.raises(ValueError, match="0 ordering trees from 2 recovery trees"):
+        weighttraits_variants_table_rows(registry, base_dir=tmp_path)
+
+
+def test_weighttraits_variants_table_writers_emit_json_and_csv(tmp_path):
+    rows = [
+        {
+            "variant_id": "example",
+            "rank_biserial": 0.75,
+            "recovery_source": "summary.json",
+            "per_run_recovery_source": "summary.json",
+            "branch_source": "summary.json",
+        }
+    ]
+    json_out = tmp_path / "variants.json"
+    csv_out = tmp_path / "variants.csv"
+
+    write_weighttraits_variants_table_json(rows, json_out, registry="paper/rebuild.yaml")
+    write_weighttraits_variants_table_csv(rows, csv_out)
+
+    payload = json.loads(json_out.read_text())
+    assert payload["schema"] == "weighttraits.variants.v1"
+    assert payload["producer"] == "weighttraits"
+    assert payload["n_rows"] == 1
+    assert payload["rows"][0]["variant_id"] == "example"
+    with csv_out.open() as handle:
+        csv_rows = list(csv.DictReader(handle))
+    assert csv_rows[0]["rank_biserial"] == "0.75"
+    assert csv_rows[0]["recovery_source"] == "summary.json"

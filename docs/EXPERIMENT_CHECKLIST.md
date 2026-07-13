@@ -56,18 +56,20 @@ Before a paper artifact changes:
 
 ## Current Wright Board
 
-Last manually checked: 2026-07-09.
+Last manually checked: 2026-07-13 10:12 EDT.
 
 | ID | Status | Paper Target | Wright Job | Notes |
 | --- | --- | --- | --- | --- |
-| `cp-flan-full-50` | running | `tab:variants`, `fig:coherence_recovery`, whitebox recovery rebuild | `153745_1`, `153752_[2-50%5]` | Flan-T5-base full fine-tune, same 50 confirm-paper trees, 641 planned rows. |
-| `cp-flan-lora-qv-50` | running | LoRA comparison condition; informs `tab:variants` rebuild but is not every old LoRA target-module row | `153785_[1-50%2]` | Flan-T5-base LoRA with target modules `q` and `v`, same 50 trees and 641 planned rows as full fine-tune. |
-| `cp-flan-lora-k-50` | running | `tab:variants`, `tab:lora_variants` | `153909_[1-50%4]` | Paper-matched Flan LoRA k-only scope; dependency smoke `153905` passed. |
-| `cp-flan-lora-qkv-50` | running | `tab:variants`, `tab:lora_variants` | `153910_[1-50%4]` | Paper-matched Flan LoRA q/k/v scope; dependency smoke `153906` passed. |
-| `cp-flan-lora-full-attn-50` | running | `tab:variants`, `tab:lora_variants` | `153911_[1-50%4]` | Paper-matched Flan LoRA q/k/v/o scope; dependency smoke `153907` passed. |
-| `cp-flan-lora-full-ft-approx-50` | running | legacy `tab:variants`, `tab:lora_variants` replay | `153912_[1-50%4]` | Frozen legacy declaration q/k/v/o/wi/wo; resolved PEFT scope is q/k/v/o/wo because Flan-T5 has `wi_0`/`wi_1`, not `wi`. Dependency smoke `153908` passed. |
+| `cp-flan-full-50` | done | `tab:variants`, `fig:coherence_recovery`, whitebox recovery rebuild | `153745_1`, `153752_[2-50%5]` | All 50 Flan-T5-base full-FT tasks completed `0:0`. |
+| `cp-flan-lora-qv-50` | done | LoRA comparison condition; informs `tab:variants` rebuild but is not every old LoRA target-module row | `153785_[1-50%2]` | All 50 q/v tasks completed `0:0`. |
+| `cp-flan-lora-k-50` | done | `tab:variants`, `tab:lora_variants` | `153909_[1-50%4]` | All 50 k-only tasks completed `0:0`. |
+| `cp-flan-lora-qkv-50` | done | `tab:variants`, `tab:lora_variants` | `153910_[1-50%4]` | All 50 q/k/v tasks completed `0:0`. |
+| `cp-flan-lora-full-attn-50` | done | `tab:variants`, `tab:lora_variants` | `153911_[1-50%4]` | All 50 q/k/v/o tasks completed `0:0`. |
+| `cp-flan-lora-full-ft-approx-50` | running | legacy `tab:variants`, `tab:lora_variants` replay | `153912_[1-50%6]` | Frozen legacy declaration q/k/v/o/wi/wo; resolved PEFT scope is q/k/v/o/wo because Flan-T5 has `wi_0`/`wi_1`, not `wi`. Throttle raised from four to six on 2026-07-13; dependency smoke `153908` passed. |
 | `cp-first-tree-analysis` | done | Recovery pipeline gate | `153902`, `153903`, `153904` | Direct full, merged-LoRA, and cumulative-LoRA analyses completed successfully; PAER rollups validated. |
-| `cp-versioned-analysis-v20260711` | running | whitebox recovery, additivity, Atteson, variant rollups | `154287`--`154292` | Latest reviewed code in isolated checkout; cumulative adapter-chain analysis for five LoRA conditions plus full-model analysis. Live training artifacts are read-only inputs. |
+| `cp-versioned-analysis-v20260711` | done | whitebox recovery, additivity, Atteson, variant rollups | `154287`--`154292` | All six jobs completed `0:0`; rollups exist in the isolated checkout. |
+| `cp-versioned-analysis-v20260713` | running | final whitebox recovery and paper variants rollups | `154440`--`154445` | LoRA jobs `154441`--`154444` completed `0:0`; full-FT `154440` is running; legacy `154445` waits for training. |
+| `cp-flan-lora-all-projections-corrected` | running | corrected sensitivity beyond the legacy row | `154275`, `154277`, `154446_[1-50%6]` | Both smokes passed with 216 resolved modules; bounded array retains its dependency on legacy training. |
 | `paper-reference-validation` | ready | all live-draft labels and pinned references | local/Wright command | Run after paper edits or reference-surface changes. |
 
 Current queue snapshot command:
@@ -505,7 +507,7 @@ comparison against the pinned ELLMTrees rows.
 
 ### `flan-lora-all-projections-corrected`
 
-Status: `scaffold`.
+Status: `running`.
 
 Purpose:
 
@@ -521,17 +523,22 @@ Do before queueing:
 - [x] Generate 50 valid run lists / 641 rows from the same `assignment_summary.json` under a
   distinct output root; tree IDs, row counts, and `(node_id, dataset_id)` order match q/v.
 - [x] Run cached tree-001 row-0 audit with 1 train / 1 eval record and zero issues.
-- [ ] Run one-row trainer smoke and verify `lora_target_audit.json` reports 216 resolved modules.
-- [ ] Run two-row dependency smoke.
+- [x] Run one-row trainer smoke and verify `lora_target_audit.json` reports 216 resolved modules:
+  job `154275` completed `0:0` with 216 modules, 432 LoRA tensors, and zero unmatched targets.
+- [x] Run two-row dependency smoke: dependent job `154277` completed `0:0` and loaded the corrected
+  parent scope.
 - [ ] Decide whether the corrected condition is paper-facing or an appendix sensitivity analysis.
-- [ ] Only then launch a bounded array.
+- [x] Launch a bounded array: `154446_[1-50%6]` is submitted with dependency on legacy array
+  `153912`.
 
 Wright smoke staging (2026-07-11): the reviewed code and corrected run lists are isolated at
 `/home/export/sgallagh/WeightTraits-validation-20260711`, with the finite cache linked read-only from
 the live experiment checkout. Focused remote tests passed (28 tests). The original two-day-wrapper
 submission `154274` was canceled while pending and replaced with 30-minute row jobs: row 0 is
-`154275`, and dependent row 1 is `154277` (`afterok:154275`). Both are bounded to 1 train row,
-1 eval row, and 2 steps; no broad corrected array has been submitted.
+`154275`, and dependent row 1 is `154277` (`afterok:154275`). Both completed successfully with 1
+train row, 1 eval row, and 2 steps. Bounded corrected array `154446_[1-50%6]` is now submitted with
+an `afterok` dependency on the legacy `153912` array. Its concurrency throttle was raised from four
+to six on 2026-07-13; the dependency expression was unchanged.
 
 ### `llama1b-variants`
 
@@ -605,9 +612,10 @@ Known reference surface:
 
 Do after enough trees complete:
 
-- [ ] Aggregate per-tree distance/recovery summaries by condition.
-- [ ] Implement or port four-point additivity.
-- [ ] Implement Atteson margin with the paper definition: minimum fitted edge length over internal and pendant edges divided by twice the non-additivity error.
+- [x] Aggregate per-tree distance/recovery summaries by condition; versioned analysis jobs write
+  per-condition JSON/CSV rollups.
+- [x] Implement or port four-point additivity.
+- [x] Implement Atteson margin with the paper definition: minimum fitted edge length over internal and pendant edges divided by twice the non-additivity error.
 - [ ] Regenerate the figure from WeightTraits outputs.
 - [ ] Compare against the pinned old reference and document deviations.
 

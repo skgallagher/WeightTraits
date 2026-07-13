@@ -2,7 +2,10 @@
 
 This directory will hold the rebuilt ICLR draft and artifact registries.
 
-The old paper in `../ELLMTrees/paper` is a reference target. WeightTraits should regenerate figures and tables from source commands before they are used here.
+The old paper in `../ELLMTrees/paper` is a reference target only. Legacy analysis code and derived
+tables are never inputs to WeightTraits candidate statistics or figures. Candidate artifacts are
+computed by WeightTraits from the new experiment outputs; old results may be compared only after
+the independent candidate artifact is frozen.
 
 Current registries:
 
@@ -10,6 +13,8 @@ Current registries:
   from the old ELLMTrees paper/results repos.
 - `ellmtrees_variants_registry.yaml`: row mapping for the old ELLMTrees `tab:variants` reference
   table.
+- `weighttraits_variants_registry.yaml`: row mapping from the versioned WeightTraits run-set
+  rollups to the five rebuilt Flan-T5 rows in `tab:variants`.
 - `recovery_registry.yaml`: verified whitebox recovery summary artifacts.
 - `table_registry.yaml`: paper-facing table definitions and source commands.
 
@@ -38,6 +43,49 @@ PYTHONPATH=src python -m weighttraits.cli make-ellmtrees-variants-table \
   --out reports/paper/ellmtrees_variants_reference.json \
   --csv-out reports/paper/ellmtrees_variants_reference.csv
 ```
+
+After the versioned direct analyses finish, rerun their lightweight rollups with the current code.
+The rollup derives the paper's per-tree same-branch/cross-branch rank-biserial and within-run
+correlation from each saved distance matrix; it does not reload checkpoints or recompute weights.
+For example:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli summarize-training-run-set-analysis \
+  --analysis-root outputs/analysis_v20260713/lora_qkv \
+  --artifact adapter_chain \
+  --truth-manifest-root examples/training/confirm_paper_numbers/assigned_manifests \
+  --out outputs/analysis_v20260713/lora_qkv_summary.json \
+  --csv-out outputs/analysis_v20260713/lora_qkv_rows.csv
+```
+
+`--truth-manifest-root` is useful after pulling analysis directories from Wright: it relocates an
+absolute cluster-authored manifest path by filename without modifying the saved analysis artifact.
+
+Build the five WeightTraits Flan-T5 candidate rows in the same stable schema as the legacy table:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-weighttraits-variants-table \
+  --registry paper/weighttraits_variants_registry.yaml \
+  --out reports/paper/weighttraits_variants_rebuild.json \
+  --csv-out reports/paper/weighttraits_variants_rebuild.csv
+```
+
+Plot the independent candidate estimands and standard errors:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli plot-weighttraits-variants \
+  --table reports/paper/weighttraits_variants_rebuild.json \
+  --out reports/paper/weighttraits_variants_rebuild.svg
+```
+
+The plotting command requires the provenance-bearing `weighttraits.variants.v1` JSON written by
+`make-weighttraits-variants-table`. It rejects legacy-style JSON and CSV inputs so a reference
+table cannot accidentally enter the candidate figure path.
+
+Recovery and ordering sample counts are tracked separately. A Poisson draw may give the root only
+one child; such a tree remains valid for recovery but has no cross-root-branch pairs and therefore
+does not contribute a rank-biserial or within-run correlation. This matches the legacy analysis
+behavior instead of manufacturing an ordering label for an undefined comparison.
 
 Extract the live draft `tab:behavior_holdout` reference table:
 

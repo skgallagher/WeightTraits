@@ -9,6 +9,10 @@ from typing import Mapping, Sequence
 
 import yaml
 
+from weighttraits.paper.figures import (
+    load_weighttraits_variants_artifact,
+    plot_weighttraits_variants_diagnostics,
+)
 from weighttraits.analysis.completion import (
     audit_training_run_set_completion,
     audit_training_tree_completion,
@@ -42,6 +46,9 @@ from weighttraits.paper.results import (
     write_ellmtrees_variants_table_json,
     write_recovery_table_csv,
     write_recovery_table_json,
+    weighttraits_variants_table_rows,
+    write_weighttraits_variants_table_csv,
+    write_weighttraits_variants_table_json,
 )
 from weighttraits.phylo.audit import audit_manifest_topology
 from weighttraits.phylo.reconstruct import reconstruct_tree_from_cube
@@ -329,6 +336,32 @@ def _make_ellmtrees_variants_table(args: argparse.Namespace) -> int:
     return 0
 
 
+def _make_weighttraits_variants_table(args: argparse.Namespace) -> int:
+    rows = weighttraits_variants_table_rows(args.registry, base_dir=args.base_dir)
+    if args.out:
+        write_weighttraits_variants_table_json(rows, args.out, registry=args.registry)
+    if args.csv_out:
+        write_weighttraits_variants_table_csv(rows, args.csv_out)
+    summary = {
+        "registry": str(args.registry),
+        "base_dir": str(args.base_dir),
+        "out": str(args.out) if args.out else None,
+        "csv_out": str(args.csv_out) if args.csv_out else None,
+        "n_rows": len(rows),
+        "variants": [str(row["variant_id"]) for row in rows],
+    }
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
+def _plot_weighttraits_variants(args: argparse.Namespace) -> int:
+    rows = load_weighttraits_variants_artifact(args.table)
+    summary = plot_weighttraits_variants_diagnostics(rows, args.out, title=args.title)
+    summary["table"] = str(args.table)
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
 def _make_behavior_holdout_table(args: argparse.Namespace) -> int:
     rows = behavior_holdout_draft_table_rows(args.draft)
     if args.out:
@@ -494,6 +527,7 @@ def _summarize_training_run_set_analysis(args: argparse.Namespace) -> int:
         args.analysis_root,
         artifact=args.artifact,
         path_base=args.path_base,
+        truth_manifest_root=args.truth_manifest_root,
         tree_ids=args.tree_id,
     )
     _emit_json(summary, args.out)
@@ -1265,6 +1299,38 @@ def build_parser() -> argparse.ArgumentParser:
     ellmtrees_variants_table.add_argument("--csv-out", type=Path, help="Optional CSV table output")
     ellmtrees_variants_table.set_defaults(func=_make_ellmtrees_variants_table)
 
+    weighttraits_variants_table = sub.add_parser(
+        "make-weighttraits-variants-table",
+        help="Build rebuilt tab:variants rows from WeightTraits run-set summaries",
+    )
+    weighttraits_variants_table.add_argument("--registry", type=Path, required=True)
+    weighttraits_variants_table.add_argument(
+        "--base-dir",
+        type=Path,
+        default=Path("."),
+        help="Base directory used to resolve relative run-set summary paths",
+    )
+    weighttraits_variants_table.add_argument("--out", type=Path, help="Optional JSON table output")
+    weighttraits_variants_table.add_argument("--csv-out", type=Path, help="Optional CSV table output")
+    weighttraits_variants_table.set_defaults(func=_make_weighttraits_variants_table)
+
+    weighttraits_variants_plot = sub.add_parser(
+        "plot-weighttraits-variants",
+        help="Plot fresh ordering and recovery diagnostics from a native WeightTraits table",
+    )
+    weighttraits_variants_plot.add_argument(
+        "--table",
+        type=Path,
+        required=True,
+        help="Provenance-bearing JSON from make-weighttraits-variants-table",
+    )
+    weighttraits_variants_plot.add_argument("--out", type=Path, required=True)
+    weighttraits_variants_plot.add_argument(
+        "--title",
+        default="Independent WeightTraits variant diagnostics",
+    )
+    weighttraits_variants_plot.set_defaults(func=_plot_weighttraits_variants)
+
     behavior_holdout_table = sub.add_parser(
         "make-behavior-holdout-table",
         help="Extract the live draft tab:behavior_holdout table as JSON/CSV rows",
@@ -1572,6 +1638,14 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=Path("."),
         help="Base directory for relative analysis-root and score paths",
+    )
+    summarize_run_set_analysis.add_argument(
+        "--truth-manifest-root",
+        type=Path,
+        help=(
+            "Optional local directory used to relocate cluster-authored truth-manifest paths "
+            "by filename"
+        ),
     )
     summarize_run_set_analysis.add_argument(
         "--tree-id",

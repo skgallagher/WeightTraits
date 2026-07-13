@@ -22,6 +22,8 @@ provenance rather than treated as a reproduction failure.
   references from the old ELLMTrees paper/results repos.
 - `paper/ellmtrees_variants_registry.yaml`: row mapping for the generated legacy `tab:variants`
   reference table.
+- `paper/weighttraits_variants_registry.yaml`: row mapping from versioned WeightTraits run-set
+  summaries to rebuilt Flan-T5 `tab:variants` rows.
 
 Each entry should include:
 - artifact path
@@ -59,6 +61,43 @@ PYTHONPATH=src python -m weighttraits.cli make-ellmtrees-variants-table \
   --out reports/paper/ellmtrees_variants_reference.json \
   --csv-out reports/paper/ellmtrees_variants_reference.csv
 ```
+
+The rebuilt Flan-T5 rows can be materialized after the `analysis_v20260713` rollups are refreshed:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-weighttraits-variants-table \
+  --registry paper/weighttraits_variants_registry.yaml \
+  --out reports/paper/weighttraits_variants_rebuild.json \
+  --csv-out reports/paper/weighttraits_variants_rebuild.csv
+```
+
+Candidate computations are independent: legacy ELLMTrees scripts, aggregate CSVs, and reference
+figures are not inputs to the WeightTraits rollups or plots. The old artifacts are retained only
+for post-hoc comparison after a native candidate artifact has been generated.
+
+Pulled Wright analysis directories can be re-rolled without editing their cluster-authored
+provenance paths:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli summarize-training-run-set-analysis \
+  --analysis-root outputs/analysis_v20260713/lora_qkv \
+  --artifact adapter_chain \
+  --truth-manifest-root examples/training/confirm_paper_numbers/assigned_manifests \
+  --out outputs/analysis_v20260713/lora_qkv_summary.json
+```
+
+Plot only the provenance-bearing native candidate JSON:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli plot-weighttraits-variants \
+  --table reports/paper/weighttraits_variants_rebuild.json \
+  --out reports/paper/weighttraits_variants_rebuild.svg
+```
+
+The run-set rollup computes ordering from saved metric matrices and truth manifests. Ordering uses
+the paper's direct-child-of-root branch definition, per-run rank-biserial effects, and Fisher-z mean
+for within-run correlations. Trees whose root has one child remain in recovery estimates but are
+reported as `missing_branch_class` and excluded from ordering estimates.
 
 The live draft `tab:behavior_holdout` table can be materialized as the current paper-grounded
 reference with:

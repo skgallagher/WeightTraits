@@ -11,6 +11,7 @@ from weighttraits.analysis.direct import (
     analyze_training_ledger_direct,
     truth_newick_from_manifest,
 )
+from weighttraits.analysis.branch_ordering import branch_ordering_stats
 from weighttraits.analysis.tree_diagnostics import TREE_DIAGNOSTICS, write_tree_diagnostics
 from weighttraits.distances.manifest import (
     distance_input_rows_from_training_ledger,
@@ -244,6 +245,7 @@ def analyze_training_ledger(
         tree_path = out / f"tree_{metric}.newick"
         audit_path = out / f"tree_{metric}.audit.json"
         score_path = out / f"score_{metric}.json"
+        branch_ordering_path = out / f"branch_ordering_{metric}.json"
 
         tree_path.write_text(reconstruction.newick + "\n")
         audit_path.write_text(json.dumps(reconstruction.audit, indent=2, sort_keys=True) + "\n")
@@ -272,6 +274,14 @@ def analyze_training_ledger(
             truth_newick=truth_newick,
             truth_splits=truth_splits,
         )
+        branch_ordering = branch_ordering_stats(
+            truth_manifest,
+            labels=cube.model_ids,
+            distances=matrix,
+        )
+        branch_ordering_path.write_text(
+            json.dumps(branch_ordering, indent=2, sort_keys=True) + "\n"
+        )
 
         score_records.append(score)
         result_rows.append(
@@ -291,6 +301,8 @@ def analyze_training_ledger(
                 "distance_min": reconstruction.audit["distance_min"],
                 "distance_max": reconstruction.audit["distance_max"],
                 "distance_mean": reconstruction.audit["distance_mean"],
+                "branch_ordering": str(branch_ordering_path),
+                **branch_ordering,
                 **diagnostics,
             }
         )
