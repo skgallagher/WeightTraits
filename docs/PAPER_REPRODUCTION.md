@@ -22,6 +22,14 @@ provenance rather than treated as a reproduction failure.
   references from the old ELLMTrees paper/results repos.
 - `paper/ellmtrees_variants_registry.yaml`: row mapping for the generated legacy `tab:variants`
   reference table.
+- `paper/weighttraits_variants_registry.yaml`: row mapping from versioned WeightTraits run-set
+  summaries to rebuilt Flan-T5 `tab:variants` rows.
+- `paper/weighttraits_completed_conditions_registry.yaml`: five completed native conditions used
+  for an interim independent comparison before the legacy-scope row finishes.
+- `paper/weighttraits_runset_diagnostics_registry.yaml`: native multi-metric recovery,
+  four-point-additivity, and Atteson-margin analysis inputs.
+- `paper/weighttraits_paired_comparisons_registry.yaml`: same-topology paired metric and scope
+  effects with deterministic bootstrap intervals.
 
 Each entry should include:
 - artifact path
@@ -59,6 +67,81 @@ PYTHONPATH=src python -m weighttraits.cli make-ellmtrees-variants-table \
   --out reports/paper/ellmtrees_variants_reference.json \
   --csv-out reports/paper/ellmtrees_variants_reference.csv
 ```
+
+The rebuilt Flan-T5 rows can be materialized after the `analysis_v20260713` rollups are refreshed:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-weighttraits-variants-table \
+  --registry paper/weighttraits_variants_registry.yaml \
+  --out reports/paper/weighttraits_variants_rebuild.json \
+  --csv-out reports/paper/weighttraits_variants_rebuild.csv
+```
+
+Candidate computations are independent: legacy ELLMTrees scripts, aggregate CSVs, and reference
+figures are not inputs to the WeightTraits rollups or plots. The old artifacts are retained only
+for post-hoc comparison after a native candidate artifact has been generated.
+
+Fresh robustness and additivity figures are built from a provenance-bearing long-form artifact:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-weighttraits-runset-diagnostics \
+  --registry paper/weighttraits_runset_diagnostics_registry.yaml \
+  --out reports/paper/weighttraits_runset_diagnostics.json \
+  --csv-out reports/paper/weighttraits_runset_diagnostics.csv
+PYTHONPATH=src python -m weighttraits.cli plot-weighttraits-metric-robustness \
+  --diagnostics reports/paper/weighttraits_runset_diagnostics.json \
+  --out reports/paper/weighttraits_metric_robustness.svg
+PYTHONPATH=src python -m weighttraits.cli plot-weighttraits-additivity-recovery \
+  --diagnostics reports/paper/weighttraits_runset_diagnostics.json \
+  --metric cosine \
+  --out reports/paper/weighttraits_additivity_recovery.svg
+```
+
+The builder requires all source rows to report `analysis_engine: direct`, the registered
+representation, and the expected tree count. The plotting commands accept only the generated
+`weighttraits.runset_diagnostics.v1` JSON with `producer: weighttraits`.
+
+Paired comparisons use the shared fresh topology IDs rather than treating the five run sets as
+independent samples:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli make-weighttraits-paired-comparisons \
+  --registry paper/weighttraits_paired_comparisons_registry.yaml \
+  --out reports/paper/weighttraits_paired_comparisons.json \
+  --csv-out reports/paper/weighttraits_paired_comparisons.csv
+PYTHONPATH=src python -m weighttraits.cli plot-weighttraits-paired-effects \
+  --comparisons reports/paper/weighttraits_paired_comparisons.json \
+  --group metric_cosine_vs_l2 \
+  --out reports/paper/weighttraits_paired_metric_cosine_vs_l2.svg
+```
+
+Every comparison requires the exact same topology-ID set on both sides. Effects are oriented so
+positive favors the first named side and include paired means, medians, 95% deterministic
+bootstrap intervals, win/tie/loss counts, and exact sign tests.
+
+Pulled Wright analysis directories can be re-rolled without editing their cluster-authored
+provenance paths:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli summarize-training-run-set-analysis \
+  --analysis-root outputs/analysis_v20260713/lora_qkv \
+  --artifact adapter_chain \
+  --truth-manifest-root examples/training/confirm_paper_numbers/assigned_manifests \
+  --out outputs/analysis_v20260713/lora_qkv_summary.json
+```
+
+Plot only the provenance-bearing native candidate JSON:
+
+```bash
+PYTHONPATH=src python -m weighttraits.cli plot-weighttraits-variants \
+  --table reports/paper/weighttraits_variants_rebuild.json \
+  --out reports/paper/weighttraits_variants_rebuild.svg
+```
+
+The run-set rollup computes ordering from saved metric matrices and truth manifests. Ordering uses
+the paper's direct-child-of-root branch definition, per-run rank-biserial effects, and Fisher-z mean
+for within-run correlations. Trees whose root has one child remain in recovery estimates but are
+reported as `missing_branch_class` and excluded from ordering estimates.
 
 The live draft `tab:behavior_holdout` table can be materialized as the current paper-grounded
 reference with:

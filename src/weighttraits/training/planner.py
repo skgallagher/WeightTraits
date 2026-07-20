@@ -26,6 +26,7 @@ class TrainingJob:
     depth: int
     path: tuple[str, ...]
     base_model: str
+    base_model_revision: str | None
     model_family: str
     method: str
     task_family: str | None
@@ -58,6 +59,7 @@ def build_training_jobs(
     training_config: dict[str, Any],
 ) -> list[TrainingJob]:
     base_model = _required_str(training_config, "base_model")
+    base_model_revision = _optional_str(training_config.get("base_model_revision"))
     model_family = str(training_config.get("model_family", base_model))
     method = str(training_config.get("method", training_config.get("adapter", "full"))).lower()
     if method in {"none", "full_finetune"}:
@@ -90,6 +92,7 @@ def build_training_jobs(
                 depth=int(row.get("depth", 0)),
                 path=tuple(str(item) for item in row.get("path", ["root", node_id])),
                 base_model=base_model,
+                base_model_revision=base_model_revision,
                 model_family=model_family,
                 method=method,
                 task_family=_optional_str(row.get("task_family")),

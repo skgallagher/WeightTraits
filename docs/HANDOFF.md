@@ -1,6 +1,6 @@
 # WeightTraits Handoff
 
-Last updated: 2026-07-09.
+Last updated: 2026-07-13.
 
 ## Project Intent
 
@@ -49,6 +49,17 @@ As of 2026-07-07, the project has a working end-to-end whitebox recovery spine:
   run lists unchanged.
 - Wright launch scripts for the confirm-paper run live under `scripts/slurm/` and run each tree
   sequentially inside one GPU job so parent checkpoints exist before child rows start.
+- Llama 3.2 1B now has independent full-FT and QKV LoRA r8/r64 scaffolds with an immutable base
+  revision, 50 matched run lists per condition, causal packing checks, and successful bounded Wright
+  root/dependency smokes. See `docs/LLAMA32_1B_EXPERIMENT_PLAN.md`; broad arrays remain gated by a
+  three-tree resource benchmark and checkpoint retention policy.
+- Llama full-FT child smoke `154473` proved local-parent initialization. Cleanup smoke `154474`
+  proved successful jobs discard the 7.0 GB Trainer resume checkpoint only after retaining the
+  2.4 GB final model; the removed path is persisted in backend metadata.
+- `prune-training-parent-artifact` and the opt-in sequential-wrapper retention hook now remove an
+  internal full model or LoRA merged model only after every direct child succeeds. The isolated
+  Llama Wright smoke removed 2,488,861,763 bytes from n0, preserved both leaf models, and wrote a
+  JSONL decision audit. Existing experiment wrappers remain pruning-off unless explicitly enabled.
 
 Latest verified paper outputs:
 
@@ -199,8 +210,12 @@ and keep any corrected `q,k,v,o,wi_0,wi_1,wo` experiment separate. The corrected
 row counts, and node/dataset order match q/v, and the cached tree-001 row-0 audit passed with 1 train
 / 1 eval record. A validation-only Wright copy at
 `/home/export/sgallagh/WeightTraits-validation-20260711` passed 28 focused tests. Corrected row-0
-smoke `154275` and dependent row-1 smoke `154277` are pending, each capped at 1 train / 1 eval row
-and 2 steps. It is not queue-ready until those jobs pass and their audits confirm 216 modules.
+smoke `154275` and dependent row-1 smoke `154277` both completed `0:0`, each capped at 1 train / 1
+eval row and 2 steps. Both audits report 216 resolved modules, 432 LoRA tensors, zero unmatched
+targets, and the requested `q,k,v,o,wi_0,wi_1,wo` scope. Bounded array `154446_[1-50%6]` is
+submitted after dependency on the final legacy `153912` tasks; its throttle was raised from four
+to six on 2026-07-13 without changing the `afterok:153912_*` dependency. The
+paper-facing-versus-appendix decision remains open.
 
 Versioned whitebox analysis began on Wright from the isolated validation checkout on 2026-07-11.
 The analysis wrapper now accepts a separate `PATH_BASE`, allowing reviewed code to read live
@@ -213,6 +228,40 @@ The scaled LoRA runs revealed that run-set aggregation carried Atteson margins b
 boolean theorem-certificate rate. `runset_results.py` now aggregates
 `atteson_theorem_certified_rate` plus binomial SE; existing per-tree analyses remain valid and need
 only a rollup refresh.
+
+On 2026-07-13, WeightTraits added the missing paper-table ordering bridge. Direct whitebox analyses
+now write per-metric `branch_ordering_*.json` audits using the active paper definition: leaves share
+a branch when their first ancestor below the root matches, rank-biserial is oriented so larger means
+cross-branch pairs are farther apart, and within-run correlation uses the same-branch indicator.
+`summarize-training-run-set-analysis` also backfills these fields from saved distance matrices for
+analysis directories produced before this change, then reports run-level rank-biserial mean/SE and
+Fisher-z-averaged within-run correlation. Trees with a one-child root are valid recovery trees but
+have no cross-branch class, so their ordering status is explicit and ordering/recovery sample counts
+remain separate. `paper/weighttraits_variants_registry.yaml` and
+`wt make-weighttraits-variants-table` map the versioned `analysis_v20260713` rollups into the exact
+legacy `tab:variants` artifact schema without recomputing checkpoint distances.
+
+Later on 2026-07-13, full fine-tuning direct analysis job `154440` completed and all 50 per-tree
+artifacts were pulled into ignored `outputs/analysis_v20260713/full_finetune/`. The local rollup was
+regenerated with the current code and relocated truth manifests, yielding 50 recovery trees and 26
+ordering-eligible trees (24 have `missing_branch_class`). The five currently complete fresh
+conditions now have native candidate artifacts under `reports/paper/weighttraits_completed_conditions.*`
+and multi-metric diagnostics under `reports/paper/weighttraits_runset_diagnostics.*`, with plots for
+metric robustness and cosine additivity/Atteson-versus-recovery. Their build path rejects any row
+whose analysis engine is not `direct`; old ELLMTrees outputs remain post-hoc references only.
+
+Same-tree paired analysis is now registered in
+`paper/weighttraits_paired_comparisons_registry.yaml`. It compares cosine with L2 and correlation
+within each completed condition, and compares k-only, q/k/v, full-attention, and full fine-tuning
+with q/v under cosine. The builder requires identical topology IDs, direct-analysis provenance,
+and registered artifact/representation/tree counts. It writes deterministic 10,000-resample
+bootstrap intervals plus exact sign-test summaries to ignored
+`reports/paper/weighttraits_paired_comparisons.*` and produces group-specific forest plots.
+
+At the same checkpoint, legacy-scope training array `153912` had 46/50 tasks complete and tasks
+3, 4, 29, and 50 still running. Dependent rollup `154445` and corrected-scope array
+`154446_[1-50%6]` remain pending on `afterok`, so raising the corrected array throttle to six did
+not weaken or change its dependency.
 
 On 2026-07-07, the `fig:overview` and `fig:coherence_recovery` digests in
 `paper/reference_registry.yaml` were refreshed to match the current sibling reference files after
@@ -257,13 +306,20 @@ Paper draft context:
 
 Recommended next slice:
 
-1. Monitor the two active Wright experiment sets: full-FT jobs `153745_1` and `153752_[2-50%5]`,
-   plus LoRA job `153785_[1-50%2]`. Both use offline W&B under
-   `/home/export/sgallagh/WeightTraits/wandb/`.
-2. After the first full-FT and LoRA trees complete, inspect the per-node training logs and confirm
-   downstream recovery tooling can consume the new output roots.
-3. Compare rebuilt recovery/behavior tables against the latest-paper-grounded references through
-   `paper/table_registry.yaml` and `wt run-table-comparisons`.
+1. Let versioned analysis jobs `154440`--`154445` finish; `154445` waits for the final legacy
+   `153912` tasks. Do not rerun model-distance analysis solely for ordering fields.
+2. Sync the tested ordering/rollup code to an isolated Wright checkout and rerun only
+   `summarize-training-run-set-analysis` for the five paper Flan conditions.
+3. Build `reports/paper/weighttraits_variants_rebuild.{json,csv}` with
+   `wt make-weighttraits-variants-table`, compare it with the pinned ELLMTrees reference, and record
+   distributional deviations before registering candidate digests.
+
+Local preparation on 2026-07-13 pulled the four completed native LoRA analysis directories (q/v,
+k-only, qkv, and full attention), re-rolled all three metrics with current WeightTraits ordering
+code, and exercised the provenance-gated candidate plotting path. For cosine, each condition has 50
+recovery trees and 26 ordering-eligible trees; the other 24 are explicitly
+`missing_branch_class`. No legacy ELLMTrees analysis code or derived CSV was used. The remaining
+paper candidate rows still wait on full-FT job `154440` and legacy-scope job `154445`.
 
 ## Git and Cluster Access
 

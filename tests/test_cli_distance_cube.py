@@ -188,6 +188,27 @@ def test_make_ellmtrees_variants_table_parser_accepts_registry_outputs():
     assert args.csv_out == Path("/tmp/variants.csv")
 
 
+def test_make_weighttraits_variants_table_parser_accepts_registry_outputs():
+    args = build_parser().parse_args(
+        [
+            "make-weighttraits-variants-table",
+            "--registry",
+            "paper/weighttraits_variants_registry.yaml",
+            "--base-dir",
+            "/tmp/run",
+            "--out",
+            "/tmp/variants.json",
+            "--csv-out",
+            "/tmp/variants.csv",
+        ]
+    )
+
+    assert args.registry == Path("paper/weighttraits_variants_registry.yaml")
+    assert args.base_dir == Path("/tmp/run")
+    assert args.out == Path("/tmp/variants.json")
+    assert args.csv_out == Path("/tmp/variants.csv")
+
+
 def test_make_behavior_holdout_table_parser_accepts_outputs():
     args = build_parser().parse_args(
         [

@@ -11,6 +11,7 @@ from typing import Any
 
 import numpy as np
 
+from weighttraits.analysis.branch_ordering import branch_ordering_stats
 from weighttraits.analysis.tree_diagnostics import TREE_DIAGNOSTICS, write_tree_diagnostics
 from weighttraits.distances.readers import (
     CumulativeLoraReader,
@@ -89,6 +90,7 @@ def analyze_training_ledger_direct(
         tree_path = out / f"tree_{metric}.newick"
         audit_path = out / f"tree_{metric}.audit.json"
         score_path = out / f"score_{metric}.json"
+        branch_ordering_path = out / f"branch_ordering_{metric}.json"
 
         np.save(matrix_path, matrix)
         newick = _neighbor_joining_newick(model_ids, matrix)
@@ -120,6 +122,14 @@ def analyze_training_ledger_direct(
             truth_newick=truth_newick,
             truth_splits=truth_splits,
         )
+        branch_ordering = branch_ordering_stats(
+            truth_path,
+            labels=model_ids,
+            distances=matrix,
+        )
+        branch_ordering_path.write_text(
+            json.dumps(branch_ordering, indent=2, sort_keys=True) + "\n"
+        )
         score_records.append(score)
         result_rows.append(
             {
@@ -138,6 +148,8 @@ def analyze_training_ledger_direct(
                 "distance_min": matrix_audit["distance_min"],
                 "distance_max": matrix_audit["distance_max"],
                 "distance_mean": matrix_audit["distance_mean"],
+                "branch_ordering": str(branch_ordering_path),
+                **branch_ordering,
                 **diagnostics,
             }
         )

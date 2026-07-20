@@ -8,6 +8,14 @@ import math
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+import numpy as np
+
+from weighttraits.analysis.branch_ordering import (
+    BRANCH_ORDERING_FIELDS,
+    aggregate_branch_ordering,
+    branch_ordering_stats,
+)
+
 
 RUN_SET_RESULT_COLUMNS = [
     "tree_id",
@@ -42,6 +50,7 @@ RUN_SET_RESULT_COLUMNS = [
     "atteson_bottleneck_margin",
     "atteson_internal_bottleneck_margin",
     "atteson_theorem_certified",
+    *BRANCH_ORDERING_FIELDS,
     "truth_manifest",
     "ledger",
     "summary",
@@ -56,6 +65,7 @@ def summarize_training_run_set_analysis(
     *,
     artifact: str,
     path_base: str | Path = ".",
+    truth_manifest_root: str | Path | None = None,
     tree_ids: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """Summarize every available direct-analysis summary under a run-set root."""
@@ -63,15 +73,28 @@ def summarize_training_run_set_analysis(
     root = _resolve_path(analysis_root, base)
     requested = set(tree_ids or [])
     summaries = _discover_summary_paths(root, artifact=artifact, tree_ids=tree_ids)
+    manifest_root = (
+        None
+        if truth_manifest_root is None
+        else _resolve_path(truth_manifest_root, base)
+    )
     rows = []
     for summary_path in summaries:
-        rows.extend(_rows_from_tree_summary(summary_path, base=base, root=root))
+        rows.extend(
+            _rows_from_tree_summary(
+                summary_path,
+                base=base,
+                root=root,
+                truth_manifest_root=manifest_root,
+            )
+        )
 
     found_tree_ids = {row["tree_id"] for row in rows}
     return {
         "valid": not requested - found_tree_ids,
         "analysis_root": str(root),
         "path_base": str(path_base),
+        "truth_manifest_root": None if manifest_root is None else str(manifest_root),
         "artifact": artifact,
         "n_tree_summaries": len(summaries),
         "n_rows": len(rows),
@@ -108,7 +131,13 @@ def _discover_summary_paths(
     return [path for path in candidates if path.exists()]
 
 
-def _rows_from_tree_summary(summary_path: Path, *, base: Path, root: Path) -> list[dict[str, Any]]:
+def _rows_from_tree_summary(
+    summary_path: Path,
+    *,
+    base: Path,
+    root: Path,
+    truth_manifest_root: Path | None,
+) -> list[dict[str, Any]]:
     summary = json.loads(summary_path.read_text())
     results = summary.get("results")
     if not isinstance(results, list):
@@ -120,6 +149,13 @@ def _rows_from_tree_summary(summary_path: Path, *, base: Path, root: Path) -> li
             raise ValueError(f"summary result rows must be mappings: {summary_path}")
         score = _load_score(result.get("score"), base=base, summary_dir=summary_path.parent)
         polytomy_aware_exact = _polytomy_aware_exact_recovery(result, score)
+        branch_ordering = _load_branch_ordering(
+            result,
+            summary,
+            base=base,
+            summary_dir=summary_path.parent,
+            truth_manifest_root=truth_manifest_root,
+        )
         rows.append(
             {
                 "tree_id": tree_id,
@@ -169,6 +205,7 @@ def _rows_from_tree_summary(summary_path: Path, *, base: Path, root: Path) -> li
                     "atteson_internal_bottleneck_margin"
                 ),
                 "atteson_theorem_certified": result.get("atteson_theorem_certified"),
+                **branch_ordering,
                 "truth_manifest": summary.get("truth_manifest"),
                 "ledger": summary.get("ledger"),
                 "summary": str(summary_path),
@@ -192,6 +229,69 @@ def _load_score(raw_path: object, *, base: Path, summary_dir: Path) -> dict[str,
                 raise ValueError(f"score file must contain a mapping: {candidate}")
             return loaded
     return {}
+
+
+def _load_branch_ordering(
+    result: Mapping[str, Any],
+    summary: Mapping[str, Any],
+    *,
+    base: Path,
+    summary_dir: Path,
+    truth_manifest_root: Path | None,
+) -> dict[str, Any]:
+    embedded = {key: result.get(key) for key in BRANCH_ORDERING_FIELDS}
+    if embedded.get("branch_ordering_status") is not None:
+        return embedded
+
+    metric = result.get("metric")
+    manifest = _resolve_existing_path(summary.get("truth_manifest"), base=base, summary_dir=summary_dir)
+    if manifest is None and truth_manifest_root is not None:
+        raw_manifest = summary.get("truth_manifest")
+        if raw_manifest is not None:
+            candidate = truth_manifest_root / Path(str(raw_manifest)).name
+            if candidate.exists():
+                manifest = candidate
+    matrix = summary_dir / f"distance_matrix_{metric}.npy"
+    model_ids = summary.get("model_ids")
+    if manifest is None:
+        return _missing_branch_ordering("missing_truth_manifest")
+    if not matrix.exists():
+        return _missing_branch_ordering("missing_distance_matrix")
+    if not isinstance(model_ids, list) or not model_ids:
+        return _missing_branch_ordering("missing_model_ids")
+    return branch_ordering_stats(
+        manifest,
+        labels=[str(model_id) for model_id in model_ids],
+        distances=np.load(matrix),
+    )
+
+
+def _resolve_existing_path(
+    raw_path: object,
+    *,
+    base: Path,
+    summary_dir: Path,
+) -> Path | None:
+    if raw_path is None:
+        return None
+    path = Path(str(raw_path))
+    candidates = [path] if path.is_absolute() else [base / path, summary_dir / path]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _missing_branch_ordering(status: str) -> dict[str, Any]:
+    return {
+        "branch_ordering_valid": False,
+        "branch_ordering_status": status,
+        "n_branch_pairs": 0,
+        "n_same_branch_pairs": 0,
+        "n_cross_branch_pairs": 0,
+        "branch_rank_biserial": None,
+        "branch_within_run_r": None,
+    }
 
 
 def _aggregate_by_metric(rows: Sequence[Mapping[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -291,6 +391,7 @@ def _aggregate_metric_rows(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
             "pooled_false_discovery_rate_se": _binomial_standard_error(fp, n_estimate),
         }
     )
+    out.update(aggregate_branch_ordering(rows))
     return out
 
 

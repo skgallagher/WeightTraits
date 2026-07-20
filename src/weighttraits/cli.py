@@ -9,6 +9,25 @@ from typing import Mapping, Sequence
 
 import yaml
 
+from weighttraits.paper.figures import (
+    load_weighttraits_paired_comparisons_artifact,
+    load_weighttraits_runset_diagnostics_artifact,
+    load_weighttraits_variants_artifact,
+    plot_weighttraits_additivity_recovery,
+    plot_weighttraits_metric_robustness,
+    plot_weighttraits_paired_effects,
+    plot_weighttraits_variants_diagnostics,
+)
+from weighttraits.paper.diagnostics import (
+    weighttraits_runset_diagnostic_rows,
+    write_weighttraits_runset_diagnostics_csv,
+    write_weighttraits_runset_diagnostics_json,
+)
+from weighttraits.paper.paired import (
+    weighttraits_paired_comparison_rows,
+    write_weighttraits_paired_comparisons_csv,
+    write_weighttraits_paired_comparisons_json,
+)
 from weighttraits.analysis.completion import (
     audit_training_run_set_completion,
     audit_training_tree_completion,
@@ -42,6 +61,9 @@ from weighttraits.paper.results import (
     write_ellmtrees_variants_table_json,
     write_recovery_table_csv,
     write_recovery_table_json,
+    weighttraits_variants_table_rows,
+    write_weighttraits_variants_table_csv,
+    write_weighttraits_variants_table_json,
 )
 from weighttraits.phylo.audit import audit_manifest_topology
 from weighttraits.phylo.reconstruct import reconstruct_tree_from_cube
@@ -89,6 +111,11 @@ from weighttraits.training.runlist import (
     write_slurm_array_script,
     write_training_run_list,
     write_training_run_report,
+)
+from weighttraits.training.retention import (
+    append_retention_audit,
+    default_retention_audit_path,
+    prune_completed_parent_artifact,
 )
 
 
@@ -329,6 +356,104 @@ def _make_ellmtrees_variants_table(args: argparse.Namespace) -> int:
     return 0
 
 
+def _make_weighttraits_variants_table(args: argparse.Namespace) -> int:
+    rows = weighttraits_variants_table_rows(args.registry, base_dir=args.base_dir)
+    if args.out:
+        write_weighttraits_variants_table_json(rows, args.out, registry=args.registry)
+    if args.csv_out:
+        write_weighttraits_variants_table_csv(rows, args.csv_out)
+    summary = {
+        "registry": str(args.registry),
+        "base_dir": str(args.base_dir),
+        "out": str(args.out) if args.out else None,
+        "csv_out": str(args.csv_out) if args.csv_out else None,
+        "n_rows": len(rows),
+        "variants": [str(row["variant_id"]) for row in rows],
+    }
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
+def _plot_weighttraits_variants(args: argparse.Namespace) -> int:
+    rows = load_weighttraits_variants_artifact(args.table)
+    summary = plot_weighttraits_variants_diagnostics(rows, args.out, title=args.title)
+    summary["table"] = str(args.table)
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
+def _make_weighttraits_runset_diagnostics(args: argparse.Namespace) -> int:
+    rows = weighttraits_runset_diagnostic_rows(args.registry, base_dir=args.base_dir)
+    if args.out:
+        write_weighttraits_runset_diagnostics_json(rows, args.out, registry=args.registry)
+    if args.csv_out:
+        write_weighttraits_runset_diagnostics_csv(rows, args.csv_out)
+    summary = {
+        "registry": str(args.registry),
+        "base_dir": str(args.base_dir),
+        "out": str(args.out) if args.out else None,
+        "csv_out": str(args.csv_out) if args.csv_out else None,
+        "n_rows": len(rows),
+        "conditions": list(dict.fromkeys(str(row["condition_id"]) for row in rows)),
+        "metrics": list(dict.fromkeys(str(row["metric"]) for row in rows)),
+    }
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
+def _plot_weighttraits_metric_robustness(args: argparse.Namespace) -> int:
+    rows = load_weighttraits_runset_diagnostics_artifact(args.diagnostics)
+    summary = plot_weighttraits_metric_robustness(rows, args.out, title=args.title)
+    summary["diagnostics"] = str(args.diagnostics)
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
+def _plot_weighttraits_additivity_recovery(args: argparse.Namespace) -> int:
+    rows = load_weighttraits_runset_diagnostics_artifact(args.diagnostics)
+    summary = plot_weighttraits_additivity_recovery(
+        rows,
+        args.out,
+        metric=args.metric,
+        title=args.title,
+    )
+    summary["diagnostics"] = str(args.diagnostics)
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
+def _make_weighttraits_paired_comparisons(args: argparse.Namespace) -> int:
+    rows = weighttraits_paired_comparison_rows(args.registry, base_dir=args.base_dir)
+    if args.out:
+        write_weighttraits_paired_comparisons_json(rows, args.out, registry=args.registry)
+    if args.csv_out:
+        write_weighttraits_paired_comparisons_csv(rows, args.csv_out)
+    summary = {
+        "registry": str(args.registry),
+        "base_dir": str(args.base_dir),
+        "out": str(args.out) if args.out else None,
+        "csv_out": str(args.csv_out) if args.csv_out else None,
+        "n_rows": len(rows),
+        "comparisons": list(dict.fromkeys(str(row["comparison_id"]) for row in rows)),
+        "outcomes": list(dict.fromkeys(str(row["outcome"]) for row in rows)),
+    }
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
+def _plot_weighttraits_paired_effects(args: argparse.Namespace) -> int:
+    rows = load_weighttraits_paired_comparisons_artifact(args.comparisons)
+    summary = plot_weighttraits_paired_effects(
+        rows,
+        args.out,
+        group=args.group,
+        title=args.title,
+    )
+    summary["comparisons"] = str(args.comparisons)
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
 def _make_behavior_holdout_table(args: argparse.Namespace) -> int:
     rows = behavior_holdout_draft_table_rows(args.draft)
     if args.out:
@@ -494,6 +619,7 @@ def _summarize_training_run_set_analysis(args: argparse.Namespace) -> int:
         args.analysis_root,
         artifact=args.artifact,
         path_base=args.path_base,
+        truth_manifest_root=args.truth_manifest_root,
         tree_ids=args.tree_id,
     )
     _emit_json(summary, args.out)
@@ -985,6 +1111,22 @@ def _run_training_row(args: argparse.Namespace) -> int:
     return 0
 
 
+def _prune_training_parent_artifact(args: argparse.Namespace) -> int:
+    runs = load_training_run_specs(args.run_list)
+    selected = select_training_run(runs, index=args.index, node_id=args.node_id)
+    result = prune_completed_parent_artifact(
+        runs,
+        selected_node_id=selected.node_id,
+        ledger_events=load_ledger_events(selected.ledger_path),
+        dry_run=args.dry_run,
+    )
+    if not args.dry_run:
+        audit_path = args.audit_out or default_retention_audit_path(selected.ledger_path)
+        append_retention_audit(audit_path, result)
+    print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    return 0
+
+
 def _parse_labeled_path(value: str) -> tuple[str | None, Path]:
     if ":" in value:
         label, raw_path = value.split(":", 1)
@@ -1264,6 +1406,110 @@ def build_parser() -> argparse.ArgumentParser:
     ellmtrees_variants_table.add_argument("--out", type=Path, help="Optional JSON table output")
     ellmtrees_variants_table.add_argument("--csv-out", type=Path, help="Optional CSV table output")
     ellmtrees_variants_table.set_defaults(func=_make_ellmtrees_variants_table)
+
+    weighttraits_variants_table = sub.add_parser(
+        "make-weighttraits-variants-table",
+        help="Build rebuilt tab:variants rows from WeightTraits run-set summaries",
+    )
+    weighttraits_variants_table.add_argument("--registry", type=Path, required=True)
+    weighttraits_variants_table.add_argument(
+        "--base-dir",
+        type=Path,
+        default=Path("."),
+        help="Base directory used to resolve relative run-set summary paths",
+    )
+    weighttraits_variants_table.add_argument("--out", type=Path, help="Optional JSON table output")
+    weighttraits_variants_table.add_argument("--csv-out", type=Path, help="Optional CSV table output")
+    weighttraits_variants_table.set_defaults(func=_make_weighttraits_variants_table)
+
+    weighttraits_variants_plot = sub.add_parser(
+        "plot-weighttraits-variants",
+        help="Plot fresh ordering and recovery diagnostics from a native WeightTraits table",
+    )
+    weighttraits_variants_plot.add_argument(
+        "--table",
+        type=Path,
+        required=True,
+        help="Provenance-bearing JSON from make-weighttraits-variants-table",
+    )
+    weighttraits_variants_plot.add_argument("--out", type=Path, required=True)
+    weighttraits_variants_plot.add_argument(
+        "--title",
+        default="Independent WeightTraits variant diagnostics",
+    )
+    weighttraits_variants_plot.set_defaults(func=_plot_weighttraits_variants)
+
+    runset_diagnostics = sub.add_parser(
+        "make-weighttraits-runset-diagnostics",
+        help="Build fresh multi-metric diagnostics from native WeightTraits run-set summaries",
+    )
+    runset_diagnostics.add_argument("--registry", type=Path, required=True)
+    runset_diagnostics.add_argument(
+        "--base-dir",
+        type=Path,
+        default=Path("."),
+        help="Base directory used to resolve relative native summary paths",
+    )
+    runset_diagnostics.add_argument("--out", type=Path, help="Optional provenance JSON output")
+    runset_diagnostics.add_argument("--csv-out", type=Path, help="Optional long-form CSV output")
+    runset_diagnostics.set_defaults(func=_make_weighttraits_runset_diagnostics)
+
+    metric_robustness_plot = sub.add_parser(
+        "plot-weighttraits-metric-robustness",
+        help="Plot recovery sensitivity across fresh L2, cosine, and correlation distances",
+    )
+    metric_robustness_plot.add_argument("--diagnostics", type=Path, required=True)
+    metric_robustness_plot.add_argument("--out", type=Path, required=True)
+    metric_robustness_plot.add_argument(
+        "--title",
+        default="Independent WeightTraits distance-metric robustness",
+    )
+    metric_robustness_plot.set_defaults(func=_plot_weighttraits_metric_robustness)
+
+    additivity_recovery_plot = sub.add_parser(
+        "plot-weighttraits-additivity-recovery",
+        help="Plot fresh additivity and Atteson diagnostics against recovery",
+    )
+    additivity_recovery_plot.add_argument("--diagnostics", type=Path, required=True)
+    additivity_recovery_plot.add_argument(
+        "--metric",
+        choices=["l2", "cosine", "correlation"],
+        default="cosine",
+    )
+    additivity_recovery_plot.add_argument("--out", type=Path, required=True)
+    additivity_recovery_plot.add_argument(
+        "--title",
+        default="Independent WeightTraits additivity and recovery",
+    )
+    additivity_recovery_plot.set_defaults(func=_plot_weighttraits_additivity_recovery)
+
+    paired_comparisons = sub.add_parser(
+        "make-weighttraits-paired-comparisons",
+        help="Compute paired same-topology effects from native WeightTraits run-set summaries",
+    )
+    paired_comparisons.add_argument("--registry", type=Path, required=True)
+    paired_comparisons.add_argument(
+        "--base-dir",
+        type=Path,
+        default=Path("."),
+        help="Base directory used to resolve relative native summary paths",
+    )
+    paired_comparisons.add_argument("--out", type=Path, help="Optional provenance JSON output")
+    paired_comparisons.add_argument("--csv-out", type=Path, help="Optional long-form CSV output")
+    paired_comparisons.set_defaults(func=_make_weighttraits_paired_comparisons)
+
+    paired_effects_plot = sub.add_parser(
+        "plot-weighttraits-paired-effects",
+        help="Plot paired mean effects with deterministic bootstrap confidence intervals",
+    )
+    paired_effects_plot.add_argument("--comparisons", type=Path, required=True)
+    paired_effects_plot.add_argument("--group", required=True)
+    paired_effects_plot.add_argument("--out", type=Path, required=True)
+    paired_effects_plot.add_argument(
+        "--title",
+        default="Independent WeightTraits paired same-tree effects",
+    )
+    paired_effects_plot.set_defaults(func=_plot_weighttraits_paired_effects)
 
     behavior_holdout_table = sub.add_parser(
         "make-behavior-holdout-table",
@@ -1572,6 +1818,14 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=Path("."),
         help="Base directory for relative analysis-root and score paths",
+    )
+    summarize_run_set_analysis.add_argument(
+        "--truth-manifest-root",
+        type=Path,
+        help=(
+            "Optional local directory used to relocate cluster-authored truth-manifest paths "
+            "by filename"
+        ),
     )
     summarize_run_set_analysis.add_argument(
         "--tree-id",
@@ -2037,6 +2291,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run_row.add_argument("--dry-run", action="store_true")
     run_row.set_defaults(func=_run_training_row)
+
+    prune_parent = sub.add_parser(
+        "prune-training-parent-artifact",
+        help="Prune a completed internal parent's model after all direct children succeed",
+    )
+    prune_parent.add_argument("--run-list", type=Path, required=True)
+    prune_selector = prune_parent.add_mutually_exclusive_group(required=True)
+    prune_selector.add_argument("--index", type=int)
+    prune_selector.add_argument("--node-id")
+    prune_parent.add_argument("--audit-out", type=Path)
+    prune_parent.add_argument("--dry-run", action="store_true")
+    prune_parent.set_defaults(func=_prune_training_parent_artifact)
 
     return parser
 

@@ -1,0 +1,144 @@
+version: 1
+id: weighttraits_same_tree_paired_comparisons
+title: Independent same-topology WeightTraits comparisons
+description: >
+  Paired effects across the same 50 freshly generated topology IDs. Inputs are
+  native WeightTraits direct-analysis summaries only; legacy analyses and old
+  aggregate tables are not valid inputs.
+n_bootstrap: 10000
+seed: 20260713
+
+conditions:
+  - id: lora_qv
+    summary: outputs/analysis_v20260713/lora_finetune_summary.json
+    artifact: adapter_chain
+    representation: lora_cumulative_delta
+    expected_trees: 50
+  - id: lora_k_only
+    summary: outputs/analysis_v20260713/lora_k_only_summary.json
+    artifact: adapter_chain
+    representation: lora_cumulative_delta
+    expected_trees: 50
+  - id: lora_qkv
+    summary: outputs/analysis_v20260713/lora_qkv_summary.json
+    artifact: adapter_chain
+    representation: lora_cumulative_delta
+    expected_trees: 50
+  - id: lora_full_attn
+    summary: outputs/analysis_v20260713/lora_full_attn_summary.json
+    artifact: adapter_chain
+    representation: lora_cumulative_delta
+    expected_trees: 50
+  - id: full_finetune
+    summary: outputs/analysis_v20260713/full_finetune_summary.json
+    artifact: model
+    representation: full_weight
+    expected_trees: 50
+
+outcomes:
+  - id: clade_recovery
+    field: clade_recovery
+    label: Clade recovery
+    units: percentage points
+    direction: higher
+    scale: 100
+  - id: exact_recovery
+    field: polytomy_aware_exact_recovery_numeric
+    label: Polytomy-aware exact recovery
+    units: percentage points
+    direction: higher
+    scale: 100
+  - id: rf
+    field: rf
+    label: Robinson-Foulds improvement
+    units: fewer RF splits
+    direction: lower
+  - id: false_negative
+    field: false_negative
+    label: False-negative improvement
+    units: fewer missed splits
+    direction: lower
+  - id: four_point_additivity
+    field: four_point_mean_additivity
+    label: Four-point additivity
+    units: score
+    direction: higher
+  - id: atteson_margin
+    field: atteson_bottleneck_margin
+    label: Oracle Atteson bottleneck margin
+    units: margin
+    direction: higher
+
+comparisons:
+  - id: qv_cosine_vs_l2
+    group: metric_cosine_vs_l2
+    label: LoRA q/v
+    left: {condition: lora_qv, metric: cosine}
+    right: {condition: lora_qv, metric: l2}
+  - id: k_cosine_vs_l2
+    group: metric_cosine_vs_l2
+    label: LoRA k-only
+    left: {condition: lora_k_only, metric: cosine}
+    right: {condition: lora_k_only, metric: l2}
+  - id: qkv_cosine_vs_l2
+    group: metric_cosine_vs_l2
+    label: LoRA q/k/v
+    left: {condition: lora_qkv, metric: cosine}
+    right: {condition: lora_qkv, metric: l2}
+  - id: full_attn_cosine_vs_l2
+    group: metric_cosine_vs_l2
+    label: LoRA full attention
+    left: {condition: lora_full_attn, metric: cosine}
+    right: {condition: lora_full_attn, metric: l2}
+  - id: full_ft_cosine_vs_l2
+    group: metric_cosine_vs_l2
+    label: Full fine-tuning
+    left: {condition: full_finetune, metric: cosine}
+    right: {condition: full_finetune, metric: l2}
+
+  - id: qv_cosine_vs_correlation
+    group: metric_cosine_vs_correlation
+    label: LoRA q/v
+    left: {condition: lora_qv, metric: cosine}
+    right: {condition: lora_qv, metric: correlation}
+  - id: k_cosine_vs_correlation
+    group: metric_cosine_vs_correlation
+    label: LoRA k-only
+    left: {condition: lora_k_only, metric: cosine}
+    right: {condition: lora_k_only, metric: correlation}
+  - id: qkv_cosine_vs_correlation
+    group: metric_cosine_vs_correlation
+    label: LoRA q/k/v
+    left: {condition: lora_qkv, metric: cosine}
+    right: {condition: lora_qkv, metric: correlation}
+  - id: full_attn_cosine_vs_correlation
+    group: metric_cosine_vs_correlation
+    label: LoRA full attention
+    left: {condition: lora_full_attn, metric: cosine}
+    right: {condition: lora_full_attn, metric: correlation}
+  - id: full_ft_cosine_vs_correlation
+    group: metric_cosine_vs_correlation
+    label: Full fine-tuning
+    left: {condition: full_finetune, metric: cosine}
+    right: {condition: full_finetune, metric: correlation}
+
+  - id: k_vs_qv_cosine
+    group: scope_cosine
+    label: k-only vs q/v
+    left: {condition: lora_k_only, metric: cosine}
+    right: {condition: lora_qv, metric: cosine}
+  - id: qkv_vs_qv_cosine
+    group: scope_cosine
+    label: q/k/v vs q/v
+    left: {condition: lora_qkv, metric: cosine}
+    right: {condition: lora_qv, metric: cosine}
+  - id: full_attn_vs_qv_cosine
+    group: scope_cosine
+    label: full attention vs q/v
+    left: {condition: lora_full_attn, metric: cosine}
+    right: {condition: lora_qv, metric: cosine}
+  - id: full_ft_vs_qv_cosine
+    group: scope_cosine
+    label: full fine-tuning vs q/v
+    left: {condition: full_finetune, metric: cosine}
+    right: {condition: lora_qv, metric: cosine}

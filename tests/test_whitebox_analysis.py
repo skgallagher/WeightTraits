@@ -61,6 +61,7 @@ def test_analyze_training_ledger_cli_writes_summary_scores_and_aggregate(tmp_pat
     assert (out / "tree_l2.audit.json").exists()
     assert (out / "four_point_additivity_l2.json").exists()
     assert (out / "atteson_margin_l2.json").exists()
+    assert (out / "branch_ordering_l2.json").exists()
     assert summary["artifact"] == "model"
     assert summary["representation"] == "full_weight"
     assert summary["n_models"] == 4
@@ -68,6 +69,8 @@ def test_analyze_training_ledger_cli_writes_summary_scores_and_aggregate(tmp_pat
     assert summary["diagnostics"] == ["four_point_additivity", "atteson_margin"]
     assert summary["results"][0]["four_point_mean_additivity"] is not None
     assert summary["results"][0]["atteson_bottleneck_margin"] is not None
+    assert summary["results"][0]["branch_ordering_valid"] is True
+    assert summary["results"][0]["branch_rank_biserial"] == 1.0
     assert summary["results"][0]["exact_tree_recovery"] is True
     assert summary["results"][0]["rf"] == 0
     assert summary["aggregate_recovery"]["exact_tree_recovery_rate"] == 1.0
@@ -249,6 +252,11 @@ def test_analyze_training_run_set_cli_writes_per_tree_analysis(tmp_path):
         == 1.0
     )
     assert rollup_payload["aggregate_by_metric"]["l2"]["pooled_clade_recovery"] == 1.0
+    assert rollup_payload["aggregate_by_metric"]["l2"]["n_ordering_trees"] == 1
+    assert rollup_payload["aggregate_by_metric"]["l2"]["n_branch_pairs"] == 6
+    assert rollup_payload["aggregate_by_metric"]["l2"][
+        "branch_rank_biserial_mean"
+    ] == 1.0
     assert rollup_payload["aggregate_by_metric"]["l2"][
         "atteson_theorem_certified_rate"
     ] in {0.0, 1.0}
@@ -260,6 +268,8 @@ def test_analyze_training_run_set_cli_writes_per_tree_analysis(tmp_path):
     assert rows[0]["tree_id"] == "tree_001"
     assert rows[0]["rf_engine"] == "dendropy_treecompare"
     assert rows[0]["polytomy_aware_exact_recovery"] == "true"
+    assert rows[0]["branch_ordering_valid"] == "true"
+    assert rows[0]["branch_ordering_status"] == "ok"
 
 
 def test_analyze_training_run_set_parser_accepts_options():
@@ -329,6 +339,8 @@ def test_summarize_training_run_set_analysis_parser_accepts_options():
             "merged",
             "--path-base",
             "/tmp/base",
+            "--truth-manifest-root",
+            "/tmp/manifests",
             "--tree-id",
             "tree_001",
             "--out",
@@ -342,10 +354,64 @@ def test_summarize_training_run_set_analysis_parser_accepts_options():
     assert args.analysis_root == Path("/tmp/analyses")
     assert args.artifact == "merged"
     assert args.path_base == Path("/tmp/base")
+    assert args.truth_manifest_root == Path("/tmp/manifests")
     assert args.tree_id == ["tree_001"]
     assert args.out == Path("/tmp/rollup.json")
     assert args.csv_out == Path("/tmp/rollup.csv")
     assert args.allow_empty
+
+
+def test_run_set_rollup_relocates_cluster_truth_manifest(tmp_path):
+    analysis = tmp_path / "analysis/tree_001/model_leaf_analysis"
+    manifests = tmp_path / "manifests"
+    analysis.mkdir(parents=True)
+    manifests.mkdir()
+    truth = manifests / "tree_001.manifest.jsonl"
+    _write_truth_manifest(truth)
+    labels = ["n2", "n3", "n4", "n5"]
+    distances = np.array(
+        [
+            [0.0, 1.0, 10.0, 11.0],
+            [1.0, 0.0, 9.0, 10.0],
+            [10.0, 9.0, 0.0, 1.0],
+            [11.0, 10.0, 1.0, 0.0],
+        ]
+    )
+    np.save(analysis / "distance_matrix_cosine.npy", distances)
+    (analysis / "summary.json").write_text(
+        json.dumps(
+            {
+                "artifact": "model",
+                "representation": "full_weight",
+                "truth_manifest": "/remote/checkout/manifests/tree_001.manifest.jsonl",
+                "model_ids": labels,
+                "n_models": 4,
+                "results": [{"metric": "cosine"}],
+            }
+        )
+        + "\n"
+    )
+    out = tmp_path / "rollup.json"
+
+    assert main(
+        [
+            "summarize-training-run-set-analysis",
+            "--analysis-root",
+            str(tmp_path / "analysis"),
+            "--artifact",
+            "model",
+            "--truth-manifest-root",
+            str(manifests),
+            "--out",
+            str(out),
+        ]
+    ) == 0
+
+    payload = json.loads(out.read_text())
+    aggregate = payload["aggregate_by_metric"]["cosine"]
+    assert payload["truth_manifest_root"] == str(manifests)
+    assert aggregate["n_ordering_trees"] == 1
+    assert aggregate["branch_rank_biserial_mean"] == 1.0
 
 
 def _write_truth_manifest(path) -> None:
