@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from weighttraits.behavior.distances import paired_cosine_distances
 from weighttraits.behavior.meta import CorrelationEffect, dersimonian_laird_correlations
@@ -191,6 +192,7 @@ def test_dersimonian_laird_pooling_preserves_identical_correlations() -> None:
 
 
 def test_phylolm_population_nei_distance_and_analysis_outputs(tmp_path: Path) -> None:
+    pytest.importorskip("Bio", reason="PhyloLM neighbor joining requires the analysis extra")
     left = compute_population([["aa", "aa", "bb", "bb"], ["cc", "cc", "cc", "cc"]])
     same = compute_population([["aa", "aa", "bb", "bb"], ["cc", "cc", "cc", "cc"]])
     other = compute_population([["xx", "xx", "yy", "yy"], ["zz", "zz", "zz", "zz"]])
@@ -366,7 +368,7 @@ def test_behavior_output_extraction_and_embedding_alignment() -> None:
 
 
 def test_seq2seq_generation_uses_direct_batched_generate() -> None:
-    import torch
+    torch = pytest.importorskip("torch", reason="generation helpers require optional torch")
 
     class Tokenizer:
         pad_token_id = 0
@@ -401,7 +403,7 @@ def test_seq2seq_generation_uses_direct_batched_generate() -> None:
 
 
 def test_causal_generation_decodes_only_new_tokens() -> None:
-    import torch
+    torch = pytest.importorskip("torch", reason="generation helpers require optional torch")
 
     class Tokenizer:
         pad_token_id = 0
