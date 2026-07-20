@@ -1,0 +1,17 @@
+method: phylolm
+upstream_commit: 8c70edf062a0adce2a3e6c8c79cd23a645fd0905
+gene_pool: ../ELLMTrees/codex/phylolm/genes_math.json
+gene_seed: 0
+n_genes: 128
+samples_per_gene: 32
+new_tokens: 4
+allele_characters: 4
+temperature: 1.0
+base_model: meta-llama/Llama-3.2-1B
+base_revision: 4e20de362430cd3b72f300e6b0f18e50e7166e08
+prompt_mode: raw_completion
+chat_template: false
+notes:
+  - The gene pool is an explicit external reference until its dataset license is recorded locally.
+  - Every model and tree must use the same sampled genome artifact.
+  - Analysis distance is -log(max(Nei similarity, 1e-3)).
