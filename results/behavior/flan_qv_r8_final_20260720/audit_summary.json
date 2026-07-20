@@ -1,0 +1,36 @@
+{
+  "condition": "flan_t5_base_lora_qv_r8",
+  "jobs": {
+    "mc_gate": 156398,
+    "dolly_gate": 156399,
+    "mc_array": 156411,
+    "dolly_array": 156412
+  },
+  "trees": 50,
+  "leaf_pairs_per_endpoint_probe": 1228,
+  "issues": [],
+  "multiple_choice": {
+    "records": 438000,
+    "preserved_empty_outputs": 4154,
+    "semantic_coverage": {
+      "hellaswag": {"valid": 108561, "expected": 109500, "fraction": 0.9914246575342466},
+      "arc_challenge": {"valid": 108947, "expected": 109500, "fraction": 0.9949497716894977},
+      "mmlu": {"valid": 109058, "expected": 109500, "fraction": 0.9959634703196347},
+      "truthfulqa": {"valid": 107280, "expected": 109500, "fraction": 0.9797260273972602}
+    }
+  },
+  "dolly_open_ended": {
+    "records": 32850,
+    "preserved_empty_outputs": 818,
+    "semantic_coverage": {"valid": 32032, "expected": 32850, "fraction": 0.9750989345509894}
+  },
+  "validated": {
+    "complete_three_draw_grids": true,
+    "finite_whitebox_cubes": true,
+    "finite_surface_cubes": true,
+    "finite_semantic_cubes": true,
+    "aligned_leaf_sets": true,
+    "dynamic_choose_l_2_pair_counts": true,
+    "all_r_runs_usable": true
+  }
+}

@@ -153,3 +153,19 @@ implementation. Set `MODEL_TASK=seq2seq`, `MANIFEST_ARTIFACT=merged`, and point 
 leaf checkpoints and uses `full_weight` for the white-box cube. Causal cumulative-LoRA runs retain
 the defaults `MODEL_TASK=causal_lm`, `MANIFEST_ARTIFACT=adapter_chain`, and
 `WEIGHT_REPRESENTATION=lora_cumulative_delta`.
+
+## Final Flan q/v rank-8 behavioral panel
+
+The 50-tree Flan panel completed in Wright jobs `156398`, `156399`, `156411`, and `156412`.
+All trees passed complete-grid, finite-cube, aligned-leaf, and dynamic `choose(L, 2)` pair-count
+audits. The multiple-choice panel retained 4,154 empty outputs among 438,000 records; semantic
+coverage ranged from 97.97% (TruthfulQA) to 99.60% (MMLU). Dolly retained 818 empty outputs among
+32,850 records and had 97.51% semantic coverage. These are observations, not silently discarded
+generation failures.
+
+The DerSimonian--Laird random-effects estimates relate weight distance to behavioral similarity,
+so the expected phylogenetic signal is negative. Across 50/50 usable trees, surface/semantic
+estimates were ARC-Challenge -0.230/-0.249, Dolly -0.156/-0.219, MMLU -0.230/-0.252, and
+TruthfulQA -0.128/-0.212. HellaSwag surface form was null (-0.008), while semantic similarity was
+weakly negative (-0.112). Compact audit and R outputs are versioned under
+`results/behavior/flan_qv_r8_final_20260720/`.
