@@ -146,3 +146,10 @@ convenient inside Slurm's comma-delimited `--export` argument.
 The resulting per-tree pair CSVs are the direct inputs to
 `scripts/behavior_meta_analysis.R`; do not report pooled inference until at least three tree jobs
 have passed their audits.
+
+The wrapper also supports the paper-matched Flan-T5 LoRA condition without a parallel analysis
+implementation. Set `MODEL_TASK=seq2seq`, `MANIFEST_ARTIFACT=merged`, and point `LEDGER_DIR` and
+`ARTIFACT_REPO` at the completed Flan q/v rank-8 run. The wrapper then loads the retained merged
+leaf checkpoints and uses `full_weight` for the white-box cube. Causal cumulative-LoRA runs retain
+the defaults `MODEL_TASK=causal_lm`, `MANIFEST_ARTIFACT=adapter_chain`, and
+`WEIGHT_REPRESENTATION=lora_cumulative_delta`.

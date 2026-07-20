@@ -14,7 +14,9 @@ set -euo pipefail
 # Run one complete behavioral panel for one production tree.  The array index is
 # the one-based tree number.  A prompt file may contain several probes; the
 # model is loaded only once per leaf, then output-surface cubes and pair tables
-# are split by PROBE_IDS during post-processing.
+# are split by PROBE_IDS during post-processing.  MODEL_TASK and
+# MANIFEST_ARTIFACT make the same audited path usable for causal adapter chains
+# and merged seq2seq checkpoints.
 
 REPO="${REPO:-/home/export/sgallagh/WeightTraits}"
 ARTIFACT_REPO="${ARTIFACT_REPO:-${REPO}}"
@@ -24,6 +26,22 @@ PYTHON_BIN="${PYTHON_BIN:-/home/export/sgallagh/.conda/envs/weighttraits/bin/pyt
 : "${PANEL_ID:?set PANEL_ID to the stable condition/prompt-panel identifier}"
 : "${OUTPUT_ROOT:?set OUTPUT_ROOT to the condition output directory}"
 
+MODEL_TASK="${MODEL_TASK:-causal_lm}"
+MANIFEST_ARTIFACT="${MANIFEST_ARTIFACT:-adapter_chain}"
+case "${MODEL_TASK}" in
+  causal_lm|seq2seq) ;;
+  *) echo "MODEL_TASK must be causal_lm or seq2seq" >&2; exit 2 ;;
+esac
+case "${MANIFEST_ARTIFACT}" in
+  model|merged|adapter_chain) ;;
+  *) echo "MANIFEST_ARTIFACT must be model, merged, or adapter_chain" >&2; exit 2 ;;
+esac
+if [[ "${MANIFEST_ARTIFACT}" == "adapter_chain" ]]; then
+  WEIGHT_REPRESENTATION="${WEIGHT_REPRESENTATION:-lora_cumulative_delta}"
+else
+  WEIGHT_REPRESENTATION="${WEIGHT_REPRESENTATION:-full_weight}"
+fi
+
 TREE_NUMBER="$(printf '%03d' "${SLURM_ARRAY_TASK_ID}")"
 TREE_ID="confirm_paper_tree_${TREE_NUMBER}"
 RUN_ID="${PANEL_ID}-tree${TREE_NUMBER}"
@@ -31,7 +49,7 @@ LEDGER_DIR="${LEDGER_DIR:-${ARTIFACT_REPO}/examples/training/confirm_paper_numbe
 TRUTH_DIR="${TRUTH_DIR:-${ARTIFACT_REPO}/examples/training/confirm_paper_numbers/assigned_manifests}"
 TREE_OUT="${OUTPUT_ROOT}/tree${TREE_NUMBER}"
 RESPONSES_DIR="${TREE_OUT}/responses"
-INPUT_MANIFEST="${TREE_OUT}/leaf_adapter_chains.yaml"
+INPUT_MANIFEST="${TREE_OUT}/leaf_models.yaml"
 
 cd "${REPO}"
 mkdir -p slurm_logs "${TREE_OUT}" "${RESPONSES_DIR}" "${TREE_OUT}/pairs"
@@ -41,7 +59,7 @@ export TOKENIZERS_PARALLELISM=false
 PYTHONPATH=src "${PYTHON_BIN}" -m weighttraits.cli make-distance-input-manifest \
   --ledger "${LEDGER_DIR}/${TREE_ID}.training_ledger.jsonl" \
   --truth-manifest "${TRUTH_DIR}/${TREE_ID}.manifest.jsonl" \
-  --artifact adapter_chain \
+  --artifact "${MANIFEST_ARTIFACT}" \
   --path-base "${ARTIFACT_REPO}" \
   --out "${INPUT_MANIFEST}"
 
@@ -60,7 +78,7 @@ for ((model_index = 0; model_index < N_MODELS; model_index++)); do
     --run-id "${RUN_ID}"
     --prompts "${BEHAVIOR_PROMPTS}"
     --out-dir "${RESPONSES_DIR}"
-    --model-task causal_lm
+    --model-task "${MODEL_TASK}"
     --samples-per-prompt "${BEHAVIOR_SAMPLES_PER_PROMPT:-3}"
     --min-new-tokens "${BEHAVIOR_MIN_NEW_TOKENS:-0}"
     --max-new-tokens "${BEHAVIOR_MAX_NEW_TOKENS:-64}"
@@ -69,11 +87,15 @@ for ((model_index = 0; model_index < N_MODELS; model_index++)); do
     --batch-size "${BEHAVIOR_BATCH_SIZE:-32}"
     --seed "${BEHAVIOR_SEED:-42}"
     --empty-policy preserve
-    --base-model "${BASE_MODEL:-meta-llama/Llama-3.2-1B}"
-    --base-revision "${BASE_REVISION:-4e20de362430cd3b72f300e6b0f18e50e7166e08}"
     --do-sample
     --local-files-only
   )
+  if [[ -n "${BASE_MODEL:-}" ]]; then
+    ARGS+=(--base-model "${BASE_MODEL}")
+  fi
+  if [[ -n "${BASE_REVISION:-}" ]]; then
+    ARGS+=(--base-revision "${BASE_REVISION}")
+  fi
   if [[ "${BEHAVIOR_OVERWRITE:-false}" == "true" ]]; then
     ARGS+=(--overwrite)
   fi
@@ -90,7 +112,7 @@ PYTHONPATH=src "${PYTHON_BIN}" -m weighttraits.cli build-distance-cube \
   --checkpoint-manifest "${INPUT_MANIFEST}" \
   --metric cosine \
   --out "${TREE_OUT}/whitebox_cumulative" \
-  --representation lora_cumulative_delta
+  --representation "${WEIGHT_REPRESENTATION}"
 
 IFS=',:' read -r -a PROBES <<< "${PROBE_IDS}"
 for probe_id in "${PROBES[@]}"; do
