@@ -2,6 +2,8 @@ import json
 from dataclasses import replace
 from pathlib import Path
 
+import pytest
+
 from weighttraits.cli import build_parser
 from weighttraits.training.data_formats import DatasetFormatSpec
 from weighttraits.training.datasets import DatasetRegistryEntry, dataset_cache_split_path
@@ -830,6 +832,7 @@ def test_causal_completion_loss_masks_prompt_and_preserves_completion():
     assert all(label != -100 for label in encoded["labels"][0][prompt_length:])
     assert len(encoded["input_ids"][0]) == 10
 
+    pytest.importorskip("torch", reason="the causal collator requires the optional torch extra")
     batch = _CausalDataCollator(tokenizer)(
         [{key: rows[index] for key, rows in encoded.items()} for index in range(2)]
     )
