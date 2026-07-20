@@ -560,9 +560,14 @@ def _build_behavior_surface_distances(args: argparse.Namespace) -> int:
     files = sorted(args.responses_dir.glob("*.jsonl"))
     if not files:
         raise ValueError(f"no behavior response JSONL files found in {args.responses_dir}")
-    result = paired_surface_distances(
-        [record for path in files for record in load_behavior_responses(path)]
-    )
+    records = [record for path in files for record in load_behavior_responses(path)]
+    if args.probe_id is not None:
+        records = [record for record in records if record.probe_id == args.probe_id]
+        if not records:
+            raise ValueError(
+                f"no behavior responses for probe {args.probe_id!r} in {args.responses_dir}"
+            )
+    result = paired_surface_distances(records)
     if result.audit["n_pairs_without_shared_observations"] and not args.allow_incomplete_pairs:
         raise ValueError(
             "one or more model pairs have no shared surface observations; "
@@ -1941,6 +1946,10 @@ def build_parser() -> argparse.ArgumentParser:
     behavior_surface.add_argument("--responses-dir", type=Path, required=True)
     behavior_surface.add_argument("--out", type=Path, required=True)
     behavior_surface.add_argument("--traits-out", type=Path)
+    behavior_surface.add_argument(
+        "--probe-id",
+        help="Select one probe when response files contain a multi-probe collection",
+    )
     behavior_surface.add_argument("--allow-incomplete-pairs", action="store_true")
     behavior_surface.set_defaults(func=_build_behavior_surface_distances)
 

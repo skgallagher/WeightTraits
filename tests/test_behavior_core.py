@@ -563,6 +563,47 @@ def test_behavior_and_phylolm_cli_parsers(tmp_path: Path) -> None:
         ]
     )
     assert not surface.allow_incomplete_pairs
+    assert surface.probe_id is None
+
+
+def test_behavior_surface_cli_selects_one_probe(tmp_path: Path) -> None:
+    responses = tmp_path / "responses"
+    rows = []
+    for model_id, text in (("n1", "A"), ("n2", "A complete answer.")):
+        first = _response(model_id, "p1", 0, response=text)
+        second = BehaviorResponse(
+            run_id=first.run_id,
+            model_id=first.model_id,
+            probe_id="second_probe",
+            prompt_id="q1",
+            sample_id=0,
+            prompt="Other prompt",
+            response="Other response",
+            reference=None,
+            status="completed",
+            reason=None,
+            seed=first.seed,
+            metadata=first.metadata,
+        )
+        write_behavior_responses([first, second], responses / f"{model_id}.jsonl")
+        rows.extend((first, second))
+
+    output = tmp_path / "surface"
+    args = build_parser().parse_args(
+        [
+            "build-behavior-surface-distances",
+            "--responses-dir",
+            str(responses),
+            "--probe-id",
+            rows[0].probe_id,
+            "--out",
+            str(output),
+        ]
+    )
+    assert args.func(args) == 0
+    audit = json.loads((output / "audit.json").read_text())
+    assert audit["probe_id"] == rows[0].probe_id
+    assert audit["n_observations"] == 1
 
 
 def test_behavior_cli_audits_a_response_directory(tmp_path: Path) -> None:

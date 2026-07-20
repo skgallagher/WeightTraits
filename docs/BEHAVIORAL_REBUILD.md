@@ -133,3 +133,12 @@ Atteson scoring commands. These leaf-array indices are also zero-based.
 4. Run the three-draw, 100-prompt protocol on the first completed production Llama tree, inspect
    per-model output and within-prompt draw diversity, then cross-check behavioral regression
    coefficients with `scripts/regression_r_check.R`.
+
+After a one-tree output-surface gate passes, `scripts/slurm/behavior_condition_tree.sbatch`
+provides the full-condition path. Its Slurm array index is the one-based production tree number.
+It rematerializes each leaf once for a prompt JSONL that may contain multiple probes, preserves
+empty generations as observed behavior, then emits a separate surface cube and regression pair
+table for every comma-separated `PROBE_IDS` entry. This avoids reloading every leaf once per probe.
+The resulting per-tree pair CSVs are the direct inputs to
+`scripts/behavior_meta_analysis.R`; do not report pooled inference until at least three tree jobs
+have passed their audits.
