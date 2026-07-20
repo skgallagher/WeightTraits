@@ -95,6 +95,8 @@ PYTHONPATH=src "${PYTHON_BIN}" -m weighttraits.cli build-distance-cube \
 IFS=',:' read -r -a PROBES <<< "${PROBE_IDS}"
 for probe_id in "${PROBES[@]}"; do
   surface_dir="${TREE_OUT}/${probe_id}_surface_distances"
+  embeddings="${TREE_OUT}/${probe_id}_embeddings.npz"
+  semantic_dir="${TREE_OUT}/${probe_id}_semantic_distances"
   PYTHONPATH=src "${PYTHON_BIN}" -m weighttraits.cli build-behavior-surface-distances \
     --responses-dir "${RESPONSES_DIR}" \
     --probe-id "${probe_id}" \
@@ -106,4 +108,21 @@ for probe_id in "${PROBES[@]}"; do
     --weight-metric cosine \
     --behavior-metric output_surface_paired \
     --out "${TREE_OUT}/pairs/${probe_id}.csv"
+  PYTHONPATH=src "${PYTHON_BIN}" -m weighttraits.cli embed-behavior-responses \
+    --responses-dir "${RESPONSES_DIR}" \
+    --probe-id "${probe_id}" \
+    --embedding-model "${BEHAVIOR_EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}" \
+    --batch-size "${BEHAVIOR_EMBEDDING_BATCH_SIZE:-64}" \
+    --local-files-only \
+    --out "${embeddings}"
+  PYTHONPATH=src "${PYTHON_BIN}" -m weighttraits.cli build-behavior-embedding-distances \
+    --embeddings "${embeddings}" \
+    --out "${semantic_dir}"
+  PYTHONPATH=src "${PYTHON_BIN}" -m weighttraits.cli make-behavior-regression-pairs \
+    --run-id "tree${TREE_NUMBER}" \
+    --weight-cube "${TREE_OUT}/whitebox_cumulative" \
+    --behavior-cube "${semantic_dir}" \
+    --weight-metric cosine \
+    --behavior-metric semantic_paired \
+    --out "${TREE_OUT}/pairs/${probe_id}_semantic.csv"
 done

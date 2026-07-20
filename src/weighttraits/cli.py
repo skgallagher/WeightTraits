@@ -760,6 +760,12 @@ def _embed_behavior_responses(args: argparse.Namespace) -> int:
     if not files:
         raise ValueError(f"no behavior response JSONL files found in {args.responses_dir}")
     records = [record for file in files for record in load_behavior_responses(file)]
+    if args.probe_id is not None:
+        records = [record for record in records if record.probe_id == args.probe_id]
+        if not records:
+            raise ValueError(
+                f"no behavior responses for probe {args.probe_id!r} in {args.responses_dir}"
+            )
     embeddings, model_ids, observation_ids, valid_mask, metadata = (
         sentence_transformer_embedding_tensor(
             records,
@@ -1933,6 +1939,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     behavior_embed.add_argument("--out", type=Path, required=True)
     behavior_embed.add_argument("--metadata-out", type=Path)
+    behavior_embed.add_argument(
+        "--probe-id",
+        help="Select one probe when response files contain a multi-probe collection",
+    )
     behavior_embed.add_argument(
         "--natural-language-only", action="store_true",
         help="Embed only outputs classified as natural language and report semantic coverage",

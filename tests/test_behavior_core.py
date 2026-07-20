@@ -552,6 +552,7 @@ def test_behavior_and_phylolm_cli_parsers(tmp_path: Path) -> None:
     )
     assert behavior_embed.local_files_only
     assert not behavior_embed.natural_language_only
+    assert behavior_embed.probe_id is None
 
     surface = parser.parse_args(
         [

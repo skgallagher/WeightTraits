@@ -136,10 +136,13 @@ Atteson scoring commands. These leaf-array indices are also zero-based.
 
 After a one-tree output-surface gate passes, `scripts/slurm/behavior_condition_tree.sbatch`
 provides the full-condition path. Its Slurm array index is the one-based production tree number.
-It rematerializes each leaf once for a prompt JSONL that may contain multiple probes, preserves
-empty generations as observed behavior, then emits a separate surface cube and regression pair
-table for every comma- or colon-separated `PROBE_IDS` entry. This avoids reloading every leaf once
-per probe. The colon form is convenient inside Slurm's comma-delimited `--export` argument.
+It rematerializes each leaf once for a prompt JSONL that may contain multiple probes and preserves
+empty generations as observed behavior. For every comma- or colon-separated `PROBE_IDS` entry it
+emits two parallel endpoints: a surface cube/pair table for output form and a paired
+sentence-embedding cube/pair table for semantic similarity. Semantic metadata records coverage;
+empty strings remain part of the surface endpoint but, lacking linguistic content, are excluded
+from the semantic endpoint. This avoids reloading every leaf once per probe. The colon form is
+convenient inside Slurm's comma-delimited `--export` argument.
 The resulting per-tree pair CSVs are the direct inputs to
 `scripts/behavior_meta_analysis.R`; do not report pooled inference until at least three tree jobs
 have passed their audits.
