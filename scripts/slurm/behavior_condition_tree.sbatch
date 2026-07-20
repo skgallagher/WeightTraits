@@ -20,7 +20,7 @@ REPO="${REPO:-/home/export/sgallagh/WeightTraits}"
 ARTIFACT_REPO="${ARTIFACT_REPO:-${REPO}}"
 PYTHON_BIN="${PYTHON_BIN:-/home/export/sgallagh/.conda/envs/weighttraits/bin/python}"
 : "${BEHAVIOR_PROMPTS:?set BEHAVIOR_PROMPTS to one prepared JSONL, optionally multi-probe}"
-: "${PROBE_IDS:?set PROBE_IDS to a comma-separated list of probe IDs}"
+: "${PROBE_IDS:?set PROBE_IDS to a comma- or colon-separated list of probe IDs}"
 : "${PANEL_ID:?set PANEL_ID to the stable condition/prompt-panel identifier}"
 : "${OUTPUT_ROOT:?set OUTPUT_ROOT to the condition output directory}"
 
@@ -92,7 +92,7 @@ PYTHONPATH=src "${PYTHON_BIN}" -m weighttraits.cli build-distance-cube \
   --out "${TREE_OUT}/whitebox_cumulative" \
   --representation lora_cumulative_delta
 
-IFS=',' read -r -a PROBES <<< "${PROBE_IDS}"
+IFS=',:' read -r -a PROBES <<< "${PROBE_IDS}"
 for probe_id in "${PROBES[@]}"; do
   surface_dir="${TREE_OUT}/${probe_id}_surface_distances"
   PYTHONPATH=src "${PYTHON_BIN}" -m weighttraits.cli build-behavior-surface-distances \
