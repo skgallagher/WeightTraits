@@ -103,6 +103,34 @@ def test_parent_model_is_pruned_after_all_children_succeed(tmp_path: Path) -> No
     assert repeated.action == "already_absent"
 
 
+def test_parent_artifact_ignores_stale_successes_from_an_earlier_attempt(
+    tmp_path: Path,
+) -> None:
+    runs = _branching_runs(tmp_path)
+    parent_model = Path(runs[0].expected_artifacts["model"])
+    parent_model.mkdir(parents=True)
+    events = [
+        TrainingLedgerEvent(
+            node_id="n1", status="completed", timestamp="2026-07-16T10:00:00+00:00"
+        ),
+        TrainingLedgerEvent(
+            node_id="n2", status="completed", timestamp="2026-07-20T10:01:00+00:00"
+        ),
+    ]
+
+    result = prune_completed_parent_artifact(
+        runs,
+        selected_node_id="n2",
+        ledger_events=events,
+        success_not_before="2026-07-20T10:00:00+00:00",
+    )
+
+    assert result.action == "not_ready"
+    assert result.incomplete_child_ids == ("n1",)
+    assert "current attempt" in result.reason
+    assert parent_model.exists()
+
+
 def test_lora_pruning_retains_parent_adapter(tmp_path: Path) -> None:
     runs = _branching_runs(tmp_path, method="lora")
     parent_adapter = Path(runs[0].expected_artifacts["adapter"])
@@ -189,3 +217,19 @@ def test_prune_parent_cli_parser_requires_a_row_selector() -> None:
 
     assert args.node_id == "n2"
     assert args.dry_run
+
+
+def test_prune_parent_cli_accepts_attempt_boundary() -> None:
+    args = build_parser().parse_args(
+        [
+            "prune-training-parent-artifact",
+            "--run-list",
+            "/tmp/runs.jsonl",
+            "--index",
+            "2",
+            "--success-not-before",
+            "2026-07-20T10:00:00+00:00",
+        ]
+    )
+
+    assert args.success_not_before == "2026-07-20T10:00:00+00:00"

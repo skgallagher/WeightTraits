@@ -1118,6 +1118,7 @@ def _prune_training_parent_artifact(args: argparse.Namespace) -> int:
         runs,
         selected_node_id=selected.node_id,
         ledger_events=load_ledger_events(selected.ledger_path),
+        success_not_before=args.success_not_before,
         dry_run=args.dry_run,
     )
     if not args.dry_run:
@@ -2301,6 +2302,10 @@ def build_parser() -> argparse.ArgumentParser:
     prune_selector.add_argument("--index", type=int)
     prune_selector.add_argument("--node-id")
     prune_parent.add_argument("--audit-out", type=Path)
+    prune_parent.add_argument(
+        "--success-not-before",
+        help="Require every direct child's success event to be from this attempt or later",
+    )
     prune_parent.add_argument("--dry-run", action="store_true")
     prune_parent.set_defaults(func=_prune_training_parent_artifact)
 
