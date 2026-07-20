@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from weighttraits.cli import build_parser
@@ -177,6 +178,8 @@ def test_render_slurm_script_calls_training_runner_when_configured(tmp_path):
         runner_options={
             "registry_path": "configs/task_data_candidates.yaml",
             "formats_path": "examples/training/dataset_formats_smoke.yaml",
+            "data_cache_root": "data/cache",
+            "require_data_cache": True,
             "max_train_samples": 2,
             "allow_missing_eval": True,
         },
@@ -191,6 +194,8 @@ def test_render_slurm_script_calls_training_runner_when_configured(tmp_path):
     assert "run-training-row" in script
     assert "--registry configs/task_data_candidates.yaml" in script
     assert "--formats examples/training/dataset_formats_smoke.yaml" in script
+    assert "--data-cache-root data/cache" in script
+    assert "--require-data-cache" in script
     assert "--max-train-samples 2" in script
     assert "--allow-missing-eval" in script
 
@@ -248,6 +253,110 @@ def test_make_training_run_list_parser_accepts_outputs():
     assert args.registry == Path("/tmp/task_data.yaml")
     assert args.formats == Path("/tmp/formats.yaml")
     assert args.max_concurrent == 3
+    assert args.runner_dry_run
+    assert args.allow_existing_artifacts
+    assert args.allow_issues
+
+
+def test_make_training_run_list_set_writes_per_tree_run_lists(tmp_path):
+    manifests = []
+    for tree_id in ("tree_a", "tree_b"):
+        manifest = tmp_path / f"{tree_id}.manifest.jsonl"
+        manifest.write_text(
+            "\n".join(
+                json.dumps(dict(row, tree_id=tree_id))
+                for row in _rows()
+            )
+            + "\n"
+        )
+        manifests.append({"tree_id": tree_id, "assigned_manifest": str(manifest)})
+    assignment_summary = tmp_path / "assignment_summary.json"
+    assignment_summary.write_text(json.dumps({"assignments": manifests}) + "\n")
+    config = tmp_path / "training.yaml"
+    config.write_text(
+        f"""
+training:
+  base_model: google/flan-t5-small
+  method: full
+  output_root: {tmp_path / "outputs"}
+  trainer:
+    max_steps: 2
+  prompt:
+    default_template: "Question: {{question}}\\nAnswer: {{answer}}"
+  stopping:
+    early_stopping:
+      patience: 1
+    plateau:
+      window: 2
+    warnings:
+      loss_increase_relative: 0.1
+"""
+    )
+    args = build_parser().parse_args(
+        [
+            "make-training-run-list-set",
+            "--assignment-summary",
+            str(assignment_summary),
+            "--config",
+            str(config),
+            "--out-dir",
+            str(tmp_path / "runlists"),
+            "--runner-dry-run",
+        ]
+    )
+
+    assert args.func(args) == 0
+    summary = json.loads((tmp_path / "runlists/run_list_summary.json").read_text())
+    tree_a_runs = load_training_run_specs(tmp_path / "runlists/run_lists/tree_a.runs.jsonl")
+    tree_b_runs = load_training_run_specs(tmp_path / "runlists/run_lists/tree_b.runs.jsonl")
+
+    assert summary["valid"]
+    assert summary["n_trees"] == 2
+    assert summary["n_runs"] == 4
+    assert summary["runner_entrypoint"] == "weighttraits.cli run-training-row"
+    assert summary["runner_options"] == {"dry_run": True}
+    assert tree_a_runs[0].output_dir == str(tmp_path / "outputs/tree_a/n0")
+    assert tree_b_runs[0].output_dir == str(tmp_path / "outputs/tree_b/n0")
+    assert tree_a_runs[0].ledger_path.endswith("ledgers/tree_a.training_ledger.jsonl")
+    assert tree_b_runs[0].runner["run_list_path"].endswith("run_lists/tree_b.runs.jsonl")
+
+
+def test_make_training_run_list_set_parser_accepts_batch_options():
+    args = build_parser().parse_args(
+        [
+            "make-training-run-list-set",
+            "--assignment-summary",
+            "/tmp/assignment_summary.json",
+            "--config",
+            "/tmp/training.yaml",
+            "--out-dir",
+            "/tmp/runlists",
+            "--summary-out",
+            "/tmp/summary.json",
+            "--registry",
+            "/tmp/task_data.yaml",
+            "--formats",
+            "/tmp/formats.yaml",
+            "--max-train-samples",
+            "16",
+            "--data-cache-root",
+            "/tmp/cache",
+            "--require-data-cache",
+            "--runner-dry-run",
+            "--allow-existing-artifacts",
+            "--allow-issues",
+        ]
+    )
+
+    assert args.assignment_summary == Path("/tmp/assignment_summary.json")
+    assert args.config == Path("/tmp/training.yaml")
+    assert args.out_dir == Path("/tmp/runlists")
+    assert args.summary_out == Path("/tmp/summary.json")
+    assert args.registry == Path("/tmp/task_data.yaml")
+    assert args.formats == Path("/tmp/formats.yaml")
+    assert args.max_train_samples == 16
+    assert args.data_cache_root == Path("/tmp/cache")
+    assert args.require_data_cache
     assert args.runner_dry_run
     assert args.allow_existing_artifacts
     assert args.allow_issues

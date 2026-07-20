@@ -3,9 +3,10 @@
 The trainer is not allowed to be a pile of one-off scripts. WeightTraits splits training into two layers:
 
 1. A testable control plane that plans jobs, prompt templates, artifacts, and stopping rules.
-2. A later execution layer that turns each planned job into a Hugging Face / PEFT training run.
+2. An execution layer that turns each planned job into a Hugging Face / PEFT training run.
 
-The current implementation is the control plane.
+Both layers are implemented; the control plane remains usable without importing the optional
+Hugging Face/PEFT training stack.
 
 ## Job Planning
 
@@ -199,6 +200,32 @@ output_root/<node_id>/training_log.jsonl
 ```
 
 The downstream distance code can then compare cumulative adapter deltas without needing to load full merged weights.
+
+The Hugging Face run seed is read from `trainer.seed` (default `42`) and applied before tokenizer,
+base-model, and PEFT adapter construction. This makes the random LoRA A/B initialization repeatable,
+not just the later Trainer sampler. Record the seed explicitly in paper-facing configs when varying
+initialization is part of the design.
+
+LoRA target-module lists are resolved against `model.named_modules()` using PEFT's list-style exact
+name/suffix behavior before adapter construction. Every requested target must match at least one
+module; a partially matched list is an error rather than a silent scope change. After PEFT wrapping,
+the executor audits the actual adapter layers again and writes `<output_dir>/lora_target_audit.json`.
+The same audit is included in the terminal ledger event under `backend_metadata`. It records the
+requested targets, resolved module names by target, exact LoRA parameter tensor names, and trainable
+parameter counts.
+
+## Causal-LM Loss Scope
+
+Causal jobs support two explicit supervision policies:
+
+```yaml
+trainer:
+  causal_loss_scope: completion  # default
+```
+
+`completion` masks prompt tokens with `-100` and trains only on the target completion, matching the
+legacy ELLMTrees instruction-tuning setup. `all_tokens` trains on the concatenated prompt and target.
+The causal collator preserves either label policy while padding. Encoder-decoder jobs are unchanged.
 
 ## Loss Warnings And Stopping
 

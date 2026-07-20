@@ -32,19 +32,31 @@ def assign_task_data(
 ) -> list[dict[str, Any]]:
     """Assign task family and dataset id to each train row in a topology manifest."""
 
-    if policy not in {"per_node", "per_edge", "per_depth"}:
+    if policy not in {"per_node", "per_node_without_replacement", "per_edge", "per_depth"}:
         raise ValueError(f"unsupported assignment policy: {policy}")
     candidates = _candidate_families(task_families_config, task_families)
     rng = np.random.default_rng(seed)
     assigned: list[dict[str, Any]] = []
     depth_cache: dict[int, tuple[str, str]] = {}
+    train_rows = [row for row in topology_rows if row.get("grow", "train") == "train"]
+    no_replacement_pool = _candidate_pairs(candidates) if policy == "per_node_without_replacement" else []
+    no_replacement_order = []
+    if no_replacement_pool:
+        if len(train_rows) > len(no_replacement_pool):
+            raise ValueError(
+                f"cannot assign {len(train_rows)} train rows without replacement "
+                f"from {len(no_replacement_pool)} candidate datasets"
+            )
+        no_replacement_order = list(rng.permutation(len(no_replacement_pool)))
 
     for row in topology_rows:
         out = dict(row)
         if out.get("grow", "train") != "train":
             assigned.append(out)
             continue
-        if policy == "per_depth":
+        if policy == "per_node_without_replacement":
+            family, dataset = no_replacement_pool[int(no_replacement_order.pop(0))]
+        elif policy == "per_depth":
             depth = int(out.get("depth", 0))
             if depth not in depth_cache:
                 depth_cache[depth] = _draw_family_dataset(candidates, rng)
@@ -85,6 +97,14 @@ def _candidate_families(
     return candidates
 
 
+def _candidate_pairs(candidates: dict[str, list[str]]) -> list[tuple[str, str]]:
+    return [
+        (family, dataset)
+        for family in sorted(candidates)
+        for dataset in sorted(candidates[family])
+    ]
+
+
 def _draw_family_dataset(
     candidates: dict[str, list[str]],
     rng: np.random.Generator,
@@ -93,4 +113,3 @@ def _draw_family_dataset(
     family = str(rng.choice(family_names))
     dataset = str(rng.choice(candidates[family]))
     return family, dataset
-

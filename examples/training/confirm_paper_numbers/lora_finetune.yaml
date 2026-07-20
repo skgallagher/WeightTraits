@@ -1,0 +1,55 @@
+training:
+  model_family: flan_t5_lora
+  base_model: google/flan-t5-base
+  method: lora
+  output_root: outputs/confirm_paper_numbers/lora_finetune
+  trainer:
+    model_task: seq2seq
+    max_steps: 2000
+    per_device_train_batch_size: 8
+    per_device_eval_batch_size: 8
+    gradient_accumulation_steps: 4
+    learning_rate: 0.0003
+    warmup_steps: 200
+    weight_decay: 0.01
+    eval_steps: 250
+    save_steps: 500
+    save_total_limit: 2
+    bf16: true
+    target_field: target
+    max_source_length: 512
+    max_target_length: 128
+    report_to: []
+  lora:
+    r: 8
+    lora_alpha: 16
+    lora_dropout: 0.05
+    target_modules:
+      - q
+      - v
+    merge_after_train: true
+  prompt:
+    default_template: "{input}"
+    task_templates:
+      summarization: "Summarize the following document.\n\n{document}\n\nSummary:"
+      classification: "Classify the following text.\n\n{text}\n\nLabel:"
+      qa: "Question: {question}\nContext: {context}\nAnswer:"
+      translation: "Translate this English text.\n\n{source_text}\n\nTranslation:"
+    dataset_templates:
+      mnli: "Premise: {premise}\nHypothesis: {hypothesis}\nLabel:"
+      rte: "Sentence 1: {sentence1}\nSentence 2: {sentence2}\nLabel:"
+      qnli: "Question: {question}\nSentence: {sentence}\nLabel:"
+      trivia_qa: "Question: {question}\nAnswer:"
+      arc_easy: "Question: {question}\nChoices: {choices}\nAnswer:"
+      arc_challenge: "Question: {question}\nChoices: {choices}\nAnswer:"
+  stopping:
+    metric: eval_loss
+    early_stopping:
+      patience: 4
+      min_delta: 0.0
+    plateau:
+      window: 5
+      min_delta: 0.0002
+    warnings:
+      loss_increase_relative: 0.05
+      loss_increase_patience: 2

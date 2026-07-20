@@ -1,0 +1,73 @@
+version: 1
+id: ellmtrees_variants_reference
+title: Legacy ELLMTrees tab:variants reference
+description: >
+  Source mapping for the active ICLR v2 `tab:variants` table. The table combines
+  old ELLMTrees recovery rescoring with same-branch/cross-branch ordering
+  statistics computed from pairwise branch-distance CSVs.
+recovery_source: ../ELLMTrees/results/aggregate/recovery_rescore/by_group_cosine.csv
+per_run_recovery_source: ../ELLMTrees/results/aggregate/recovery_rescore/per_run_cosine.csv
+
+variants:
+  - id: flan_lora_k_only
+    section: "Encoder--decoder: Flan-T5-base"
+    model: Flan-T5-base
+    label: "LoRA k_only"
+    recovery_group: runs_lora_k_only
+    branch_source: ../ELLMTrees/results/aggregate/lora_k_only_branch_structure.csv
+
+  - id: flan_lora_qkv
+    section: "Encoder--decoder: Flan-T5-base"
+    model: Flan-T5-base
+    label: "LoRA qkv"
+    recovery_group: runs_lora_qkv
+    branch_source: ../ELLMTrees/results/aggregate/lora_qkv_branch_structure.csv
+
+  - id: flan_lora_full_attn
+    section: "Encoder--decoder: Flan-T5-base"
+    model: Flan-T5-base
+    label: "LoRA full_attn"
+    recovery_group: runs_lora_full_attn
+    branch_source: ../ELLMTrees/results/aggregate/lora_full_attn_branch_structure.csv
+
+  - id: flan_lora_full_ft_approx
+    section: "Encoder--decoder: Flan-T5-base"
+    model: Flan-T5-base
+    label: "LoRA full_ft_approx"
+    declared_target_modules: [q, k, v, o, wi, wo]
+    resolved_target_modules: [q, k, v, o, wo]
+    resolved_module_count: 168
+    semantic_status: legacy_executable_scope
+    semantic_note: >
+      Gated Flan-T5 exposes wi_0 and wi_1 rather than wi. The legacy PEFT list therefore adapted
+      attention projections plus FFN wo, but neither FFN input projection.
+    recovery_group: runs_lora_full_ft_approx
+    branch_source: ../ELLMTrees/results/aggregate/lora_full_ft_approx_branch_structure.csv
+
+  - id: flan_full_ft_tree_sample
+    section: "Encoder--decoder: Flan-T5-base"
+    model: Flan-T5-base
+    label: "Full fine-tuning Tree sample"
+    recovery_group: runs_branching_v3
+    branch_source: ../ELLMTrees/results/aggregate/branch_structure.csv
+
+  - id: llama1b_lora_qkv_r8
+    section: "Decoder-only: Llama-3.2-1B"
+    model: Llama-3.2-1B
+    label: "LoRA qkv r8"
+    recovery_group: runs_llama1b_base_qkv
+    branch_source: ../ELLMTrees/results/aggregate/runs_llama1b_base_qkv_branch_structure.csv
+
+  - id: llama1b_lora_qkv_r64
+    section: "Decoder-only: Llama-3.2-1B"
+    model: Llama-3.2-1B
+    label: "LoRA qkv r64"
+    recovery_group: runs_llama1b_base_qkv_r64
+    branch_source: ../ELLMTrees/results/aggregate/runs_llama1b_base_qkv_r64_branch_structure.csv
+
+  - id: llama1b_full_ft
+    section: "Decoder-only: Llama-3.2-1B"
+    model: Llama-3.2-1B
+    label: "Full fine-tuning"
+    recovery_group: runs_llama1b_base_full_ft
+    branch_source: ../ELLMTrees/results/aggregate/llama1b_base_full_ft_branch_structure.csv

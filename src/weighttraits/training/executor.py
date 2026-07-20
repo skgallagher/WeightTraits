@@ -4,11 +4,19 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 import inspect
+import json
 from pathlib import Path
+import shutil
 from typing import Any, Callable, Mapping, Protocol, Sequence
 
 from weighttraits.training.data_formats import DatasetFormatSpec
-from weighttraits.training.datasets import DatasetLoader, DatasetRegistryEntry
+from weighttraits.training.datasets import (
+    DatasetLoader,
+    DatasetRegistryEntry,
+    canonical_dataset_example,
+    dataset_example_passes_filter,
+    load_cached_dataset_splits,
+)
 from weighttraits.training.ledger import TrainingLedgerEvent, append_ledger_event
 from weighttraits.training.monitor import (
     LossMonitor,
@@ -65,6 +73,7 @@ class BackendTrainResult:
     train_loss: float | None = None
     eval_loss: float | None = None
     artifacts: dict[str, str] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     message: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -77,6 +86,8 @@ class TrainingRunResult:
     status: str
     data: dict[str, Any]
     artifacts: dict[str, str]
+    execution_overrides: dict[str, Any] = field(default_factory=dict)
+    backend_metadata: dict[str, Any] = field(default_factory=dict)
     step: int | None = None
     train_loss: float | None = None
     eval_loss: float | None = None
@@ -107,6 +118,8 @@ def prepare_training_data(
     format_specs: Mapping[str, DatasetFormatSpec],
     *,
     loader: DatasetLoader | None = None,
+    data_cache_root: str | Path | None = None,
+    require_data_cache: bool = False,
     max_train_samples: int | None = None,
     max_eval_samples: int | None = None,
     allow_missing_eval: bool = True,
@@ -120,10 +133,22 @@ def prepare_training_data(
     spec = format_specs.get(run.dataset_id)
     if spec is None:
         raise ValueError(f"dataset id not found in format specs: {run.dataset_id}")
-    dataset_loader = loader or _default_hf_loader()
-    dataset = dataset_loader(*entry.hf_args, **(entry.hf_kwargs or {}))
     train_split = spec.train_split or entry.train_split or "train"
     eval_split = spec.eval_split or entry.eval_split
+    dataset = None
+    if data_cache_root is not None:
+        dataset = load_cached_dataset_splits(
+            data_cache_root,
+            dataset_id=run.dataset_id,
+            train_split=train_split,
+            eval_split=eval_split,
+            require=require_data_cache,
+        )
+    if dataset is None:
+        if require_data_cache:
+            raise FileNotFoundError(f"missing cached dataset for {run.dataset_id}")
+        dataset_loader = loader or _default_hf_loader()
+        dataset = dataset_loader(*entry.hf_args, **(entry.hf_kwargs or {}))
 
     train_dataset = _required_split(dataset, train_split)
     eval_dataset = _optional_split(dataset, eval_split) if eval_split else None
@@ -134,6 +159,7 @@ def prepare_training_data(
         train_dataset,
         run=run,
         spec=spec,
+        filter_spec=entry.filter,
         max_samples=max_train_samples,
         split_name=train_split,
     )
@@ -145,6 +171,7 @@ def prepare_training_data(
             eval_dataset,
             run=run,
             spec=spec,
+            filter_spec=entry.filter,
             max_samples=max_eval_samples,
             split_name=eval_split,
         )
@@ -169,28 +196,36 @@ def run_training_run(
     *,
     backend: TrainingBackend | None = None,
     loader: DatasetLoader | None = None,
+    data_cache_root: str | Path | None = None,
+    require_data_cache: bool = False,
     max_train_samples: int | None = None,
     max_eval_samples: int | None = None,
     allow_missing_eval: bool = True,
+    execution_overrides: Mapping[str, Any] | None = None,
     write_ledger: bool = True,
 ) -> TrainingRunResult:
     """Run one training row and write ledger events for lifecycle and monitor state."""
+    overrides = _execution_overrides(execution_overrides)
     if write_ledger:
-        append_ledger_event(
-            run.ledger_path,
-            TrainingLedgerEvent(
-                node_id=run.node_id,
-                status="started",
-                message="training row started",
-                extra={"run_id": run.run_id, "array_index": run.array_index},
-            ),
+        extra = {"run_id": run.run_id, "array_index": run.array_index}
+        if overrides:
+            extra["execution_overrides"] = overrides
+        started_event = TrainingLedgerEvent(
+            node_id=run.node_id,
+            status="started",
+            message="training row started",
+            extra=extra,
         )
+        append_ledger_event(run.ledger_path, started_event)
+        _append_training_log(run, started_event)
     try:
         data = prepare_training_data(
             run,
             registry,
             format_specs,
             loader=loader,
+            data_cache_root=data_cache_root,
+            require_data_cache=require_data_cache,
             max_train_samples=max_train_samples,
             max_eval_samples=max_eval_samples,
             allow_missing_eval=allow_missing_eval,
@@ -198,15 +233,14 @@ def run_training_run(
         if not data.valid:
             raise ValueError(f"training data is not valid for {run.node_id}: {data.issues}")
         if write_ledger:
-            append_ledger_event(
-                run.ledger_path,
-                TrainingLedgerEvent(
-                    node_id=run.node_id,
-                    status="running",
-                    message="training data prepared",
-                    extra=data.summary(),
-                ),
+            prepared_event = TrainingLedgerEvent(
+                node_id=run.node_id,
+                status="running",
+                message="training data prepared",
+                extra=data.summary(),
             )
+            append_ledger_event(run.ledger_path, prepared_event)
+            _append_training_log(run, prepared_event)
 
         monitor = LossMonitor(_monitor_config(run.job.get("stopping", {})))
         decisions: list[MonitorDecision] = []
@@ -215,20 +249,19 @@ def run_training_run(
             decision = monitor.update(event)
             decisions.append(decision)
             if write_ledger:
-                append_ledger_event(
-                    run.ledger_path,
-                    TrainingLedgerEvent(
-                        node_id=run.node_id,
-                        status="running",
-                        step=event.step,
-                        train_loss=event.train_loss,
-                        eval_loss=event.eval_loss,
-                        warnings=tuple(decision.warnings),
-                        stop_reasons=tuple(decision.reasons),
-                        message="training monitor update",
-                        extra=decision.state,
-                    ),
+                monitor_event = TrainingLedgerEvent(
+                    node_id=run.node_id,
+                    status="running",
+                    step=event.step,
+                    train_loss=event.train_loss,
+                    eval_loss=event.eval_loss,
+                    warnings=tuple(decision.warnings),
+                    stop_reasons=tuple(decision.reasons),
+                    message="training monitor update",
+                    extra=decision.state,
                 )
+                append_ledger_event(run.ledger_path, monitor_event)
+                _append_training_log(run, monitor_event)
             return decision
 
         train_backend = backend or HfPeftTrainingBackend()
@@ -246,6 +279,8 @@ def run_training_run(
             status=status,
             data=data.summary(),
             artifacts=artifacts,
+            execution_overrides=overrides,
+            backend_metadata=dict(backend_result.metadata),
             step=backend_result.step,
             train_loss=backend_result.train_loss,
             eval_loss=backend_result.eval_loss,
@@ -254,43 +289,61 @@ def run_training_run(
             message=backend_result.message,
         )
         if write_ledger:
-            append_ledger_event(
-                run.ledger_path,
-                TrainingLedgerEvent(
-                    node_id=run.node_id,
-                    status=status,
-                    step=result.step,
-                    train_loss=result.train_loss,
-                    eval_loss=result.eval_loss,
-                    warnings=result.warnings,
-                    stop_reasons=result.stop_reasons,
-                    message=result.message or "training row finished",
-                    extra={"artifacts": artifacts, "data": data.summary()},
-                ),
+            finished_event = TrainingLedgerEvent(
+                node_id=run.node_id,
+                status=status,
+                step=result.step,
+                train_loss=result.train_loss,
+                eval_loss=result.eval_loss,
+                warnings=result.warnings,
+                stop_reasons=result.stop_reasons,
+                message=result.message or "training row finished",
+                extra={
+                    "artifacts": artifacts,
+                    "data": data.summary(),
+                    "execution_overrides": overrides,
+                    "backend_metadata": backend_result.metadata,
+                },
             )
+            append_ledger_event(run.ledger_path, finished_event)
+            _append_training_log(run, finished_event)
         return result
     except Exception as exc:
         if write_ledger:
-            append_ledger_event(
-                run.ledger_path,
-                TrainingLedgerEvent(
-                    node_id=run.node_id,
-                    status="failed",
-                    message=str(exc),
-                ),
+            failed_event = TrainingLedgerEvent(
+                node_id=run.node_id,
+                status="failed",
+                message=str(exc),
             )
+            append_ledger_event(run.ledger_path, failed_event)
+            _append_training_log(run, failed_event)
         raise
 
 
-def dry_run_training_row(run: TrainingRunSpec) -> TrainingRunResult:
+def dry_run_training_row(
+    run: TrainingRunSpec,
+    *,
+    execution_overrides: Mapping[str, Any] | None = None,
+) -> TrainingRunResult:
     """Return the selected row without loading datasets or models."""
     return TrainingRunResult(
         node_id=run.node_id,
         status="dry_run",
         data={},
         artifacts=dict(run.expected_artifacts),
+        execution_overrides=_execution_overrides(execution_overrides),
         message="selected training row without loading datasets or models",
     )
+
+
+def _append_training_log(run: TrainingRunSpec, event: TrainingLedgerEvent) -> None:
+    path = run.expected_artifacts.get("training_log")
+    if not path:
+        return
+    log = Path(path)
+    log.parent.mkdir(parents=True, exist_ok=True)
+    with log.open("a") as handle:
+        handle.write(json.dumps(event.to_dict(), sort_keys=True) + "\n")
 
 
 class HfPeftTrainingBackend:
@@ -303,8 +356,10 @@ class HfPeftTrainingBackend:
         event_callback: MonitorEventCallback,
     ) -> BackendTrainResult:
         deps = _load_hf_deps()
+        _set_training_seed(deps, run.job)
         model_task = _model_task(run.job)
-        tokenizer = deps["AutoTokenizer"].from_pretrained(run.init_from)
+        pretrained_kwargs = _pretrained_kwargs(run)
+        tokenizer = deps["AutoTokenizer"].from_pretrained(run.init_from, **pretrained_kwargs)
         if getattr(tokenizer, "pad_token", None) is None and getattr(tokenizer, "eos_token", None):
             tokenizer.pad_token = tokenizer.eos_token
         model_cls = (
@@ -312,9 +367,18 @@ class HfPeftTrainingBackend:
             if model_task == "seq2seq"
             else deps["AutoModelForCausalLM"]
         )
-        model = model_cls.from_pretrained(run.init_from)
+        model = model_cls.from_pretrained(run.init_from, **pretrained_kwargs)
+        backend_metadata: dict[str, Any] = {
+            "base_model": str(run.job.get("base_model", "")),
+            "base_model_revision": run.job.get("base_model_revision"),
+            "init_from": run.init_from,
+        }
+        preflight_artifacts: dict[str, str] = {}
         if run.method == "lora":
-            model = self._wrap_lora(model, run, deps, model_task)
+            model, lora_audit = self._wrap_lora(model, run, deps, model_task)
+            audit_path = _write_lora_target_audit(run, lora_audit)
+            backend_metadata["lora_target_audit"] = lora_audit
+            preflight_artifacts["lora_target_audit"] = str(audit_path)
 
         train_dataset = _hf_dataset_from_records(
             deps,
@@ -348,6 +412,10 @@ class HfPeftTrainingBackend:
         )
         output = trainer.train()
         artifacts = self._save_artifacts(run, trainer, model, tokenizer)
+        artifacts.update(preflight_artifacts)
+        removed_checkpoints = _cleanup_trainer_checkpoints(run)
+        if removed_checkpoints:
+            backend_metadata["removed_trainer_checkpoints"] = removed_checkpoints
         train_loss = _metric_value(getattr(output, "metrics", {}), "train_loss")
         eval_loss = _metric_value(getattr(trainer.state, "log_history", []), "eval_loss")
         status = "stopped_early" if callback.stopped else "completed"
@@ -357,6 +425,7 @@ class HfPeftTrainingBackend:
             train_loss=train_loss,
             eval_loss=eval_loss,
             artifacts=artifacts,
+            metadata=backend_metadata,
         )
 
     def _wrap_lora(
@@ -365,8 +434,10 @@ class HfPeftTrainingBackend:
         run: TrainingRunSpec,
         deps: dict[str, Any],
         model_task: str,
-    ) -> Any:
+    ) -> tuple[Any, dict[str, Any]]:
         lora = dict(run.job.get("lora") or {})
+        requested_targets = _requested_lora_targets(lora)
+        _resolve_lora_target_modules(model, requested_targets)
         task_type = (
             deps["TaskType"].SEQ_2_SEQ_LM
             if model_task == "seq2seq"
@@ -376,10 +447,11 @@ class HfPeftTrainingBackend:
             r=int(lora.get("r", 8)),
             lora_alpha=int(lora.get("lora_alpha", 16)),
             lora_dropout=float(lora.get("lora_dropout", 0.05)),
-            target_modules=list(lora.get("target_modules", [])),
+            target_modules=requested_targets,
             task_type=task_type,
         )
-        return deps["get_peft_model"](model, config)
+        wrapped = deps["get_peft_model"](model, config)
+        return wrapped, _audit_wrapped_lora_model(wrapped, requested_targets)
 
     def _save_artifacts(
         self,
@@ -410,6 +482,121 @@ class HfPeftTrainingBackend:
         tokenizer.save_pretrained(model_path)
         artifacts["model"] = model_path
         return artifacts
+
+
+def _requested_lora_targets(lora: Mapping[str, Any]) -> list[str]:
+    raw_targets = lora.get("target_modules")
+    if not isinstance(raw_targets, Sequence) or isinstance(raw_targets, (str, bytes)):
+        raise ValueError("LoRA target_modules must be a non-empty sequence of module names")
+    targets = [str(target).strip() for target in raw_targets]
+    if not targets or any(not target for target in targets):
+        raise ValueError("LoRA target_modules must be a non-empty sequence of module names")
+    if len(targets) != len(set(targets)):
+        raise ValueError(f"LoRA target_modules contains duplicates: {targets}")
+    return targets
+
+
+def _resolve_lora_target_modules(
+    model: Any,
+    requested_targets: Sequence[str],
+) -> dict[str, tuple[str, ...]]:
+    """Resolve PEFT list-style target suffixes and reject every unmatched request."""
+    module_names = [str(name) for name, _ in model.named_modules() if name]
+    matches = {
+        target: tuple(
+            sorted(name for name in module_names if _module_name_matches_target(name, target))
+        )
+        for target in requested_targets
+    }
+    missing = [target for target, names in matches.items() if not names]
+    if missing:
+        suggestions = {
+            target: sorted(
+                name
+                for name in module_names
+                if name.rsplit(".", 1)[-1].startswith(f"{target}_")
+            )[:8]
+            for target in missing
+        }
+        suggestion_text = "; ".join(
+            f"{target} -> {names}" for target, names in suggestions.items() if names
+        )
+        detail = f" Close model-name matches: {suggestion_text}." if suggestion_text else ""
+        raise ValueError(
+            "LoRA target modules matched no model modules: "
+            f"{missing}. Requested targets: {list(requested_targets)}.{detail}"
+        )
+    return matches
+
+
+def _audit_wrapped_lora_model(
+    model: Any,
+    requested_targets: Sequence[str],
+) -> dict[str, Any]:
+    adapter_module_names = sorted(
+        str(name)
+        for name, module in model.named_modules()
+        if name and _module_has_lora_factors(module)
+    )
+    matched_by_target = {
+        target: [
+            name
+            for name in adapter_module_names
+            if _module_name_matches_target(name, target)
+        ]
+        for target in requested_targets
+    }
+    missing = [target for target, names in matched_by_target.items() if not names]
+    if missing:
+        raise ValueError(
+            "PEFT created no adapter layers for requested LoRA targets: "
+            f"{missing}. Resolved adapter modules: {adapter_module_names}"
+        )
+
+    lora_parameter_names: list[str] = []
+    n_trainable_lora_parameters = 0
+    n_trainable_model_parameters = 0
+    for name, parameter in model.named_parameters():
+        if not getattr(parameter, "requires_grad", False):
+            continue
+        n_parameters = int(parameter.numel())
+        n_trainable_model_parameters += n_parameters
+        if ".lora_" in str(name):
+            lora_parameter_names.append(str(name))
+            n_trainable_lora_parameters += n_parameters
+
+    return {
+        "schema_version": 1,
+        "requested_target_modules": list(requested_targets),
+        "matched_module_names_by_target": matched_by_target,
+        "resolved_module_names": adapter_module_names,
+        "n_resolved_modules": len(adapter_module_names),
+        "n_trainable_lora_parameters": n_trainable_lora_parameters,
+        "n_trainable_model_parameters": n_trainable_model_parameters,
+        "n_lora_parameter_tensors": len(lora_parameter_names),
+        "lora_parameter_names": sorted(lora_parameter_names),
+        "unmatched_target_modules": [],
+    }
+
+
+def _module_name_matches_target(module_name: str, target: str) -> bool:
+    return module_name == target or module_name.endswith(f".{target}")
+
+
+def _module_has_lora_factors(module: Any) -> bool:
+    return hasattr(module, "lora_A") and hasattr(module, "lora_B")
+
+
+def _write_lora_target_audit(run: TrainingRunSpec, audit: Mapping[str, Any]) -> Path:
+    path = Path(
+        run.expected_artifacts.get(
+            "lora_target_audit",
+            str(Path(run.output_dir) / "lora_target_audit.json"),
+        )
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(dict(audit), indent=2, sort_keys=True) + "\n")
+    return path
 
 
 def _make_loss_monitor_callback(callback_base: type, event_callback: MonitorEventCallback) -> Any:
@@ -446,6 +633,7 @@ def _render_dataset_split(
     *,
     run: TrainingRunSpec,
     spec: DatasetFormatSpec,
+    filter_spec: Mapping[str, Any] | None,
     max_samples: int | None,
     split_name: str | None,
 ) -> tuple[tuple[RenderedTrainingRecord, ...], int, tuple[str, ...]]:
@@ -453,7 +641,7 @@ def _render_dataset_split(
     issues: list[str] = []
     dropped = 0
     for index, row in enumerate(dataset_split):
-        if max_samples is not None and index >= max_samples:
+        if max_samples is not None and len(records) >= max_samples:
             break
         if not isinstance(row, Mapping) and not hasattr(row, "items"):
             dropped += 1
@@ -461,6 +649,10 @@ def _render_dataset_split(
             continue
         try:
             canonical = _canonical_example(row, spec)
+            keep, _ = dataset_example_passes_filter(canonical, filter_spec)
+            if not keep:
+                dropped += 1
+                continue
             text = render_prompt(str(run.job["prompt_template"]), canonical)
             target = _render_target(run.job, canonical, text)
         except Exception as exc:
@@ -488,12 +680,7 @@ def _render_target(job: Mapping[str, Any], example: dict[str, Any], rendered_pro
 
 
 def _canonical_example(row: Any, spec: DatasetFormatSpec) -> dict[str, Any]:
-    row_map = {str(key): value for key, value in row.items()}
-    canonical = dict(row_map)
-    for prompt_field, raw_field in (spec.field_map or {}).items():
-        if raw_field in row_map:
-            canonical[prompt_field] = row_map[raw_field]
-    return canonical
+    return canonical_dataset_example(row, spec)
 
 
 def _required_split(dataset: Any, split_name: str) -> Any:
@@ -533,13 +720,13 @@ def _load_hf_deps() -> dict[str, Any]:
             AutoModelForCausalLM,
             AutoModelForSeq2SeqLM,
             AutoTokenizer,
-            DataCollatorForLanguageModeling,
             DataCollatorForSeq2Seq,
             Seq2SeqTrainer,
             Seq2SeqTrainingArguments,
             Trainer,
             TrainerCallback,
             TrainingArguments,
+            set_seed,
         )
     except ImportError as exc:  # pragma: no cover - exercised only without optional deps.
         raise RuntimeError(
@@ -553,13 +740,13 @@ def _load_hf_deps() -> dict[str, Any]:
         "AutoModelForCausalLM": AutoModelForCausalLM,
         "AutoModelForSeq2SeqLM": AutoModelForSeq2SeqLM,
         "AutoTokenizer": AutoTokenizer,
-        "DataCollatorForLanguageModeling": DataCollatorForLanguageModeling,
         "DataCollatorForSeq2Seq": DataCollatorForSeq2Seq,
         "Seq2SeqTrainer": Seq2SeqTrainer,
         "Seq2SeqTrainingArguments": Seq2SeqTrainingArguments,
         "Trainer": Trainer,
         "TrainerCallback": TrainerCallback,
         "TrainingArguments": TrainingArguments,
+        "set_seed": set_seed,
     }
 
 
@@ -574,6 +761,10 @@ def _hf_dataset_from_records(
     trainer = dict(job.get("trainer", {}))
     source_len = int(trainer.get("max_source_length", trainer.get("max_length", 512)))
     target_len = int(trainer.get("max_target_length", 128))
+    causal_len = int(
+        trainer.get("max_seq_length", trainer.get("max_length", source_len))
+    )
+    causal_loss_scope = _causal_loss_scope(trainer)
 
     def tokenize(batch: dict[str, list[str]]) -> dict[str, Any]:
         if model_task == "seq2seq":
@@ -589,13 +780,13 @@ def _hf_dataset_from_records(
             )
             model_inputs["labels"] = labels["input_ids"]
             return model_inputs
-        full_text = [
-            text if text == target else f"{text}\n{target}"
-            for text, target in zip(batch["text"], batch["target"])
-        ]
-        model_inputs = tokenizer(full_text, max_length=source_len, truncation=True)
-        model_inputs["labels"] = [list(ids) for ids in model_inputs["input_ids"]]
-        return model_inputs
+        return _tokenize_causal_batch(
+            tokenizer,
+            batch["text"],
+            batch["target"],
+            max_length=causal_len,
+            loss_scope=causal_loss_scope,
+        )
 
     return dataset.map(tokenize, batched=True, remove_columns=["text", "target"])
 
@@ -615,7 +806,10 @@ def _training_arguments(
         "max_source_length",
         "max_target_length",
         "max_length",
+        "max_seq_length",
         "model_task",
+        "causal_loss_scope",
+        "cleanup_checkpoints_on_success",
     }
     kwargs = {key: value for key, value in trainer.items() if key not in ignored}
     kwargs["output_dir"] = run.output_dir
@@ -641,7 +835,130 @@ def _training_arguments(
 def _data_collator(deps: dict[str, Any], tokenizer: Any, model: Any, model_task: str) -> Any:
     if model_task == "seq2seq":
         return deps["DataCollatorForSeq2Seq"](tokenizer=tokenizer, model=model)
-    return deps["DataCollatorForLanguageModeling"](tokenizer=tokenizer, mlm=False)
+    return _CausalDataCollator(tokenizer)
+
+
+def _cleanup_trainer_checkpoints(run: TrainingRunSpec) -> list[str]:
+    """Remove resumable Trainer checkpoints only after final artifacts were saved."""
+
+    trainer = dict(run.job.get("trainer", {}))
+    if not bool(trainer.get("cleanup_checkpoints_on_success", False)):
+        return []
+    removed: list[str] = []
+    for checkpoint in sorted(Path(run.output_dir).glob("checkpoint-*")):
+        if not checkpoint.is_dir():
+            continue
+        shutil.rmtree(checkpoint)
+        removed.append(str(checkpoint))
+    return removed
+
+
+class _CausalDataCollator:
+    """Pad causal examples without replacing prompt-masked labels."""
+
+    def __init__(self, tokenizer: Any) -> None:
+        self.tokenizer = tokenizer
+
+    def __call__(self, features: list[dict[str, Any]]) -> dict[str, Any]:
+        import torch
+
+        labels = [list(feature["labels"]) for feature in features]
+        inputs = [
+            {key: value for key, value in feature.items() if key != "labels"}
+            for feature in features
+        ]
+        batch = self.tokenizer.pad(inputs, padding=True, return_tensors="pt")
+        sequence_length = int(batch["input_ids"].shape[1])
+        padding_side = getattr(self.tokenizer, "padding_side", "right")
+        padded_labels = []
+        for row in labels:
+            padding = [-100] * (sequence_length - len(row))
+            padded_labels.append(padding + row if padding_side == "left" else row + padding)
+        batch["labels"] = torch.tensor(padded_labels, dtype=torch.long)
+        return batch
+
+
+def _set_training_seed(deps: Mapping[str, Any], job: Mapping[str, Any]) -> int:
+    """Seed RNGs before model and PEFT adapter construction."""
+    trainer = dict(job.get("trainer", {}))
+    seed = int(trainer.get("seed", 42))
+    deps["set_seed"](seed)
+    return seed
+
+
+def _pretrained_kwargs(run: TrainingRunSpec) -> dict[str, str]:
+    """Pin remote root initialization while leaving local lineage paths untouched."""
+
+    base_model = str(run.job.get("base_model", ""))
+    revision = run.job.get("base_model_revision")
+    if run.init_from != base_model or revision is None:
+        return {}
+    revision_text = str(revision).strip()
+    return {"revision": revision_text} if revision_text else {}
+
+
+def _causal_loss_scope(trainer: Mapping[str, Any]) -> str:
+    scope = str(trainer.get("causal_loss_scope", "completion"))
+    if scope not in {"completion", "all_tokens"}:
+        raise ValueError("trainer.causal_loss_scope must be 'completion' or 'all_tokens'")
+    return scope
+
+
+def _tokenize_causal_batch(
+    tokenizer: Any,
+    texts: Sequence[str],
+    targets: Sequence[str],
+    *,
+    max_length: int,
+    loss_scope: str,
+) -> dict[str, list[list[int]]]:
+    if max_length < 1:
+        raise ValueError("causal max sequence length must be positive")
+    if loss_scope == "all_tokens":
+        full_text = [
+            text if text == target else f"{text}\n{target}"
+            for text, target in zip(texts, targets)
+        ]
+        model_inputs = tokenizer(full_text, max_length=max_length, truncation=True)
+        model_inputs["labels"] = [list(ids) for ids in model_inputs["input_ids"]]
+        return model_inputs
+
+    input_ids: list[list[int]] = []
+    attention_mask: list[list[int]] = []
+    labels: list[list[int]] = []
+    eos_token_id = getattr(tokenizer, "eos_token_id", None)
+    for text, target in zip(texts, targets):
+        if text == target:
+            encoded = tokenizer(text, max_length=max_length, truncation=True)
+            ids = _single_input_ids(encoded)
+            row_labels = list(ids)
+        else:
+            prompt = tokenizer(f"{text}\n", add_special_tokens=True, truncation=False)
+            completion = tokenizer(target, add_special_tokens=False, truncation=False)
+            prompt_ids = _single_input_ids(prompt)
+            completion_ids = _single_input_ids(completion)
+            if eos_token_id is not None and (
+                not completion_ids or completion_ids[-1] != eos_token_id
+            ):
+                completion_ids.append(int(eos_token_id))
+            completion_ids = completion_ids[:max_length]
+            prompt_budget = max_length - len(completion_ids)
+            prompt_ids = prompt_ids[:prompt_budget]
+            ids = prompt_ids + completion_ids
+            row_labels = [-100] * len(prompt_ids) + completion_ids
+        input_ids.append(ids)
+        attention_mask.append([1] * len(ids))
+        labels.append(row_labels)
+    return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": labels}
+
+
+def _single_input_ids(encoded: Mapping[str, Any]) -> list[int]:
+    ids = encoded["input_ids"]
+    if ids and isinstance(ids[0], list):
+        if len(ids) != 1:
+            raise ValueError("expected a single tokenized example")
+        ids = ids[0]
+    return [int(token_id) for token_id in ids]
 
 
 def _trainer_tokenizer_kwargs(trainer_cls: Any, tokenizer: Any) -> dict[str, Any]:
@@ -683,6 +1000,12 @@ def _maybe_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _execution_overrides(overrides: Mapping[str, Any] | None) -> dict[str, Any]:
+    if not overrides:
+        return {}
+    return {str(key): value for key, value in overrides.items()}
 
 
 def _unique_items(items: Sequence[Sequence[str]]) -> list[str]:

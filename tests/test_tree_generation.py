@@ -3,6 +3,7 @@ import json
 from weighttraits.trees.generate import (
     generate_tree,
     generate_tree_from_config,
+    generate_tree_set,
     leaf_ids,
     manifest_rows,
     tree_stats,
@@ -59,6 +60,26 @@ def test_poisson_constraints_resample_until_minimums():
 
     assert stats["max_depth"] >= 3
     assert stats["n_leaves"] >= 4
+
+
+def test_generate_tree_set_rejection_samples_minimum_leaves():
+    generated = generate_tree_set(
+        {
+            "generator": "poisson_branching",
+            "n_nodes": 14,
+            "max_depth": 4,
+            "branch_lambda": 1.5,
+        },
+        n_trees=10,
+        seed_start=20260707,
+        min_leaves=4,
+    )
+
+    assert len(generated) == 10
+    assert generated[0].tree_id == "tree_001"
+    assert len({item.seed for item in generated}) == 10
+    assert all(item.stats["n_leaves"] >= 4 for item in generated)
+    assert all(item.stats["max_depth"] <= 4 for item in generated)
 
 
 def test_ellmtrees_balanced_default_has_polytomy_and_requested_leaves():

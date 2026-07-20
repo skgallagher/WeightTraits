@@ -1,0 +1,24 @@
+example: confirm_paper_numbers
+description: >
+  Clean topology draws for confirming paper-scale numbers without reusing the exact
+  old ELLMTrees tree seeds. This matches the active draft's topology distribution:
+  Poisson branching with lambda 1.5, 14 training nodes, maximum depth 4, and
+  rejection of trees with fewer than four leaves.
+tree:
+  generator: poisson_branching
+  n_nodes: 14
+  max_depth: 4
+  branch_lambda: 1.5
+  min_leaves: 4
+  seed: 20260707
+tree_set:
+  n_trees: 50
+  seed_start: 20260707
+  min_leaves: 4
+  max_candidates: 10000
+  tree_id_prefix: confirm_paper_tree
+expect:
+  min_nodes: 4
+  max_nodes: 14
+  min_leaves: 4
+  max_depth: 4

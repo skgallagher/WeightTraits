@@ -1,0 +1,7 @@
+{"depth": 1, "grow": "train", "node_id": "n0", "parent_id": "root", "path": ["root", "n0"]}
+{"depth": 2, "grow": "train", "node_id": "n1", "parent_id": "n0", "path": ["root", "n0", "n1"]}
+{"depth": 3, "grow": "train", "node_id": "n2", "parent_id": "n1", "path": ["root", "n0", "n1", "n2"]}
+{"depth": 3, "grow": "train", "node_id": "n3", "parent_id": "n1", "path": ["root", "n0", "n1", "n3"]}
+{"depth": 3, "grow": "train", "node_id": "n4", "parent_id": "n1", "path": ["root", "n0", "n1", "n4"]}
+{"depth": 4, "grow": "train", "node_id": "n5", "parent_id": "n4", "path": ["root", "n0", "n1", "n4", "n5"]}
+{"depth": 4, "grow": "train", "node_id": "n6", "parent_id": "n4", "path": ["root", "n0", "n1", "n4", "n6"]}

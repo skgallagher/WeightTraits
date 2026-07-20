@@ -1,0 +1,56 @@
+version: 1
+id: weighttraits_variants_rebuild
+title: WeightTraits rebuild of the Flan-T5 tab:variants rows
+description: >
+  Maps the versioned confirm-paper direct-analysis rollups into the active
+  paper's variants-table schema. LoRA rows use cumulative adapter-chain
+  distances, matching the paper's trained-only representation; the full-FT
+  row uses full model weights. Rerun the lightweight rollups with the current
+  WeightTraits code before building this table so ordering fields are present.
+metric: cosine
+
+variants:
+  - id: flan_lora_k_only
+    section: "Encoder--decoder: Flan-T5-base"
+    model: Flan-T5-base
+    label: "LoRA k_only"
+    recovery_group: weighttraits_lora_k_only
+    summary: outputs/analysis_v20260713/lora_k_only_summary.json
+    artifact: adapter_chain
+    representation: lora_cumulative_delta
+
+  - id: flan_lora_qkv
+    section: "Encoder--decoder: Flan-T5-base"
+    model: Flan-T5-base
+    label: "LoRA qkv"
+    recovery_group: weighttraits_lora_qkv
+    summary: outputs/analysis_v20260713/lora_qkv_summary.json
+    artifact: adapter_chain
+    representation: lora_cumulative_delta
+
+  - id: flan_lora_full_attn
+    section: "Encoder--decoder: Flan-T5-base"
+    model: Flan-T5-base
+    label: "LoRA full_attn"
+    recovery_group: weighttraits_lora_full_attn
+    summary: outputs/analysis_v20260713/lora_full_attn_summary.json
+    artifact: adapter_chain
+    representation: lora_cumulative_delta
+
+  - id: flan_lora_full_ft_approx
+    section: "Encoder--decoder: Flan-T5-base"
+    model: Flan-T5-base
+    label: "LoRA full_ft_approx"
+    recovery_group: weighttraits_lora_full_ft_approx
+    summary: outputs/analysis_v20260713/lora_full_ft_approx_summary.json
+    artifact: adapter_chain
+    representation: lora_cumulative_delta
+
+  - id: flan_full_ft_tree_sample
+    section: "Encoder--decoder: Flan-T5-base"
+    model: Flan-T5-base
+    label: "Full fine-tuning Tree sample"
+    recovery_group: weighttraits_full_finetune
+    summary: outputs/analysis_v20260713/full_finetune_summary.json
+    artifact: model
+    representation: full_weight

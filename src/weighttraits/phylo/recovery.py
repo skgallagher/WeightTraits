@@ -51,6 +51,10 @@ def score_split_recovery(
         truth_leaf_set == estimate_leaf_set
         and truth_projected == estimate_projected
     )
+    polytomy_aware_exact_recovery = (
+        truth_leaf_set == estimate_leaf_set
+        and not false_negative
+    )
 
     return {
         "n_truth_leaves": len(truth_leaf_set),
@@ -71,6 +75,10 @@ def score_split_recovery(
         "false_discovery_rate": _safe_divide(fp, n_estimate, default=0.0),
         "exact_tree_recovery": exact_tree_recovery,
         "exact_tree_recovery_numeric": 1.0 if exact_tree_recovery else 0.0,
+        "polytomy_aware_exact_recovery": polytomy_aware_exact_recovery,
+        "polytomy_aware_exact_recovery_numeric": (
+            1.0 if polytomy_aware_exact_recovery else 0.0
+        ),
         "false_negative_splits": [serialize_split(split) for split in sorted(false_negative, key=sorted)],
         "false_positive_splits": [serialize_split(split) for split in sorted(false_positive, key=sorted)],
     }
@@ -106,6 +114,9 @@ def aggregate_recovery(records: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
     n_truth = sum(int(row.get("n_truth_splits", 0)) for row in rows)
     n_estimate = sum(int(row.get("n_estimate_splits", 0)) for row in rows)
     exact = sum(float(row.get("exact_tree_recovery_numeric", 0.0)) for row in rows)
+    polytomy_aware_exact = sum(
+        float(row.get("polytomy_aware_exact_recovery_numeric", 0.0)) for row in rows
+    )
 
     out.update(
         {
@@ -124,6 +135,10 @@ def aggregate_recovery(records: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
             "pooled_false_discovery_rate_se": binomial_standard_error(fp, n_estimate),
             "exact_tree_recovery_rate": exact / len(rows),
             "exact_tree_recovery_rate_se": binomial_standard_error(int(exact), len(rows)),
+            "polytomy_aware_exact_recovery_rate": polytomy_aware_exact / len(rows),
+            "polytomy_aware_exact_recovery_rate_se": binomial_standard_error(
+                int(polytomy_aware_exact), len(rows)
+            ),
         }
     )
     return out
@@ -152,4 +167,3 @@ def _safe_divide(numerator: float, denominator: float, *, default: float) -> flo
 
 def _is_number(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
-

@@ -1,0 +1,14 @@
+{"depth": 1, "grow": "train", "node_id": "n0", "parent_id": "root", "path": ["root", "n0"]}
+{"depth": 2, "grow": "train", "node_id": "n1", "parent_id": "n0", "path": ["root", "n0", "n1"]}
+{"depth": 2, "grow": "train", "node_id": "n2", "parent_id": "n0", "path": ["root", "n0", "n2"]}
+{"depth": 3, "grow": "train", "node_id": "n3", "parent_id": "n1", "path": ["root", "n0", "n1", "n3"]}
+{"depth": 3, "grow": "train", "node_id": "n4", "parent_id": "n1", "path": ["root", "n0", "n1", "n4"]}
+{"depth": 3, "grow": "train", "node_id": "n5", "parent_id": "n1", "path": ["root", "n0", "n1", "n5"]}
+{"depth": 3, "grow": "train", "node_id": "n6", "parent_id": "n2", "path": ["root", "n0", "n2", "n6"]}
+{"depth": 3, "grow": "train", "node_id": "n7", "parent_id": "n2", "path": ["root", "n0", "n2", "n7"]}
+{"depth": 4, "grow": "train", "node_id": "n8", "parent_id": "n3", "path": ["root", "n0", "n1", "n3", "n8"]}
+{"depth": 4, "grow": "train", "node_id": "n9", "parent_id": "n3", "path": ["root", "n0", "n1", "n3", "n9"]}
+{"depth": 4, "grow": "train", "node_id": "n10", "parent_id": "n3", "path": ["root", "n0", "n1", "n3", "n10"]}
+{"depth": 4, "grow": "train", "node_id": "n11", "parent_id": "n3", "path": ["root", "n0", "n1", "n3", "n11"]}
+{"depth": 4, "grow": "train", "node_id": "n12", "parent_id": "n4", "path": ["root", "n0", "n1", "n4", "n12"]}
+{"depth": 4, "grow": "train", "node_id": "n13", "parent_id": "n4", "path": ["root", "n0", "n1", "n4", "n13"]}

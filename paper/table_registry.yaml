@@ -24,3 +24,68 @@ tables:
     expected_rows: 18
     paper_location: provisional-smoke-registry
     verification_status: wright_smoke_verified
+
+  - id: ellmtrees_variants_reference
+    title: Legacy ELLMTrees tab:variants reference
+    status: reference_pinned
+    registry: paper/ellmtrees_variants_registry.yaml
+    source_command: >
+      PYTHONPATH=src python -m weighttraits.cli make-ellmtrees-variants-table
+      --registry paper/ellmtrees_variants_registry.yaml
+      --out reports/paper/ellmtrees_variants_reference.json
+      --csv-out reports/paper/ellmtrees_variants_reference.csv
+    source_inputs:
+      - paper/ellmtrees_variants_registry.yaml
+      - ../ELLMTrees/results/aggregate/recovery_rescore/by_group_cosine.csv
+      - ../ELLMTrees/results/aggregate/recovery_rescore/per_run_cosine.csv
+      - ../ELLMTrees/results/aggregate/branch_structure.csv
+      - ../ELLMTrees/results/aggregate/lora_k_only_branch_structure.csv
+      - ../ELLMTrees/results/aggregate/lora_qkv_branch_structure.csv
+      - ../ELLMTrees/results/aggregate/lora_full_attn_branch_structure.csv
+      - ../ELLMTrees/results/aggregate/lora_full_ft_approx_branch_structure.csv
+      - ../ELLMTrees/results/aggregate/runs_llama1b_base_qkv_branch_structure.csv
+      - ../ELLMTrees/results/aggregate/runs_llama1b_base_qkv_r64_branch_structure.csv
+      - ../ELLMTrees/results/aggregate/llama1b_base_full_ft_branch_structure.csv
+    outputs:
+      - path: reports/paper/ellmtrees_variants_reference.json
+        sha256: a6f23d45a7451da2ae784996278971ee02420291c372d520482366a31d5fe8c7
+      - path: reports/paper/ellmtrees_variants_reference.csv
+        sha256: 26a142a7cc9b58bea7e750260b264960a159615caef6949bc2afffe8cdbe977c
+    expected_rows: 8
+    paper_location: iclr_draft_v2 tab:variants reference
+    verification_status: local_reference_verified
+    comparisons:
+      - id: ellmtrees_variants_reference_json_csv
+        reference: reports/paper/ellmtrees_variants_reference.csv
+        candidate: reports/paper/ellmtrees_variants_reference.json
+        key_columns:
+          - variant_id
+        out: reports/paper/ellmtrees_variants_reference_compare.json
+
+  - id: behavior_holdout_reference
+    title: Live-draft behavior holdout table reference
+    status: live_draft_reference
+    source_command: >
+      PYTHONPATH=src python -m weighttraits.cli make-behavior-holdout-table
+      --draft ../ELLMTrees-paper/iclr_draft_v2.tex
+      --out reports/paper/behavior_holdout_reference.json
+      --csv-out reports/paper/behavior_holdout_reference.csv
+    source_inputs:
+      - ../ELLMTrees-paper/iclr_draft_v2.tex
+    outputs:
+      - path: reports/paper/behavior_holdout_reference.json
+        sha256: 04e5fe9bd798ba8bef477007eecc9a648c9ab7fb2b8cf5b40122ebb22ead8d2d
+      - path: reports/paper/behavior_holdout_reference.csv
+        sha256: d5a89b6e3581e4770ab4107eb95a7ec44d3bd0ca443f744c2f968c762b07e349
+    expected_rows: 12
+    paper_location: iclr_draft_v2 tab:behavior_holdout reference
+    verification_status: local_live_draft_extracted
+    comparisons:
+      - id: behavior_holdout_reference_json_csv
+        reference: reports/paper/behavior_holdout_reference.csv
+        candidate: reports/paper/behavior_holdout_reference.json
+        key_columns:
+          - model
+          - probe
+          - condition
+        out: reports/paper/behavior_holdout_reference_compare.json

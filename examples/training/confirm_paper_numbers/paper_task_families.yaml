@@ -1,0 +1,45 @@
+task_families:
+  summarization:
+    datasets:
+      - id: cnn_dailymail
+      - id: xsum
+      - id: samsum
+      - id: billsum
+      - id: pubmed
+      - id: govreport
+      - id: arxiv_summ
+      - id: bigpatent
+      - id: dialogsum
+  classification:
+    datasets:
+      - id: sst2
+      - id: ag_news
+      - id: mnli
+      - id: imdb
+      - id: rte
+      - id: cola
+      - id: qnli
+      - id: yelp_polarity
+      - id: dbpedia_14
+      - id: trec
+  qa:
+    datasets:
+      - id: squad
+      - id: squad_v2
+      - id: trivia_qa
+      - id: boolq
+      - id: quartz
+      - id: arc_easy
+      - id: arc_challenge
+      - id: sciq
+  translation:
+    datasets:
+      - id: wmt14_en_fr
+      - id: wmt14_en_de
+      - id: opus_en_de
+      - id: opus_en_fr
+      - id: opus_en_es
+      - id: opus_en_it
+      - id: opus_en_ru
+      - id: opus_en_zh
+      - id: opus_en_ja

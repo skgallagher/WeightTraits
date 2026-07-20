@@ -27,6 +27,15 @@ class TreeNode:
         self.children.append(child)
 
 
+@dataclass(frozen=True)
+class GeneratedTree:
+    tree_id: str
+    seed: int
+    candidate_index: int
+    root: TreeNode
+    stats: dict[str, Any]
+
+
 def iter_nodes(root: TreeNode, include_root: bool = False) -> Iterable[tuple[TreeNode, int, tuple[str, ...]]]:
     """Yield nodes in breadth-first order as ``(node, depth, path)``."""
 
@@ -186,6 +195,60 @@ def generate_tree_from_config(config: dict[str, Any]) -> TreeNode:
     if generator == "fixed":
         kwargs["fixed_root"] = kwargs.pop("root")
     return generate_tree(generator, **kwargs)
+
+
+def generate_tree_set(
+    config: dict[str, Any],
+    *,
+    n_trees: int,
+    seed_start: int = 0,
+    min_leaves: int | None = None,
+    min_depth: int | None = None,
+    max_candidates: int = 10_000,
+    tree_id_prefix: str = "tree",
+) -> list[GeneratedTree]:
+    """Generate a set of independent accepted topology draws from one config."""
+
+    if n_trees <= 0:
+        raise ValueError("n_trees must be positive")
+    if max_candidates < n_trees:
+        raise ValueError("max_candidates must be at least n_trees")
+
+    draw_config = dict(config)
+    draw_config.pop("min_leaves", None)
+    draw_config.pop("min_depth", None)
+    draw_config.pop("max_attempts", None)
+
+    accepted: list[GeneratedTree] = []
+    for candidate_index in range(max_candidates):
+        seed = seed_start + candidate_index
+        candidate_config = dict(draw_config)
+        candidate_config["seed"] = seed
+        root = generate_tree_from_config(candidate_config)
+        stats = tree_stats(root)
+        if min_leaves is not None and stats["n_leaves"] < min_leaves:
+            continue
+        if min_depth is not None and stats["max_depth"] < min_depth:
+            continue
+        tree_id = f"{tree_id_prefix}_{len(accepted) + 1:03d}"
+        root.attrs["tree_set_id"] = tree_id
+        root.attrs["candidate_index"] = candidate_index
+        accepted.append(
+            GeneratedTree(
+                tree_id=tree_id,
+                seed=seed,
+                candidate_index=candidate_index,
+                root=root,
+                stats=stats,
+            )
+        )
+        if len(accepted) >= n_trees:
+            return accepted
+
+    raise ValueError(
+        f"accepted {len(accepted)} trees, expected {n_trees}, "
+        f"after scanning {max_candidates} candidate seeds"
+    )
 
 
 @dataclass(frozen=True)
