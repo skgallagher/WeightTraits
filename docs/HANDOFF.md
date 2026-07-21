@@ -12,8 +12,8 @@ WeightTraits is a private, cleaner rebuild of ELLMTrees under `/Users/shannon/De
 
 - PRs 1-3 are merged to `main`: the confirm-paper rebuild, corrected all-projection results, and
   attempt-aware artifact retention.
-- PR #4, `Add free-text behavioral and PhyloLM analyses`, is open and merge-clean at commit
-  `536b827` on `agent/free-text-behavior`:
+- PR #4, `Add free-text behavioral and PhyloLM analyses`, is open on
+  `agent/free-text-behavior`; the latest pushed commit is `3df6356`:
   <https://github.com/skgallagher/WeightTraits/pull/4>.
 - The local PR #4 worktree is `/Users/shannon/Desktop/phylo/WeightTraits-free-text`.
 - The Wright Llama recovery worktree is
@@ -24,6 +24,16 @@ WeightTraits is a private, cleaner rebuild of ELLMTrees under `/Users/shannon/De
   training artifacts and ledgers as read-only; write new behavioral outputs only in the behavioral
   worktree.
 - Wright is normally reached through the persistent control socket `/tmp/wright-codex.sock`.
+
+### Behavioral review hardening
+
+PR #4 now fails closed on behavior/weight model-set mismatches, validates cached response artifacts
+against a SHA-256 fingerprint of prompts and generation provenance before skipping, records the exact
+per-pair behavioral observation denominator in regression CSVs, and pins every held-out dataset plus
+`sentence-transformers/all-MiniLM-L6-v2` to the commits used by the completed Flan panel. The encoder
+revision is `1110a243fdf4706b3f48f1d95db1a4f5529b4d41`; dataset pins live beside each declaration in
+`src/weighttraits/behavior/probes.py`. Focused tests pass in Wright's production `weighttraits`
+environment at commit `3df6356`.
 
 ### Completed Flan q/v LoRA rank-8 behavior panel
 
