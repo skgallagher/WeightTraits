@@ -69,7 +69,12 @@ from weighttraits.phylo.audit import audit_manifest_topology
 from weighttraits.phylo.reconstruct import reconstruct_tree_from_cube
 from weighttraits.phylo.recovery import aggregate_recovery, score_split_recovery
 from weighttraits.phylo.splits import splits_from_manifest_path, splits_from_newick_text
-from weighttraits.taskdata.assignment import assign_task_data, load_manifest_rows, write_manifest_rows
+from weighttraits.taskdata.assignment import (
+    assign_task_data,
+    audit_paired_assignment_set,
+    load_manifest_rows,
+    write_manifest_rows,
+)
 from weighttraits.trees.generate import (
     generate_tree_from_config,
     generate_tree_set,
@@ -277,6 +282,18 @@ def _assign_task_data_set(args: argparse.Namespace) -> int:
     _emit_json(summary, args.summary_out or args.out_dir / "assignment_summary.json")
     print(json.dumps({"out_dir": str(args.out_dir), "n_trees": len(assignments)}, indent=2))
     return 0
+
+
+def _audit_paired_assignment_set(args: argparse.Namespace) -> int:
+    report = audit_paired_assignment_set(
+        args.tree_set,
+        args.reference_assignment_summary,
+        args.candidate_assignment_summary,
+        forbidden_task_families=args.forbid_task_family,
+        path_base=args.path_base,
+    )
+    _emit_json(report, args.out)
+    return 0 if report["ok"] else 1
 
 
 def _topology_audit(args: argparse.Namespace) -> int:
@@ -1359,6 +1376,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="Restrict to one or more task families; repeat flag for multiple families",
     )
     assign_set.set_defaults(func=_assign_task_data_set)
+
+    audit_assignment_set = sub.add_parser(
+        "audit-paired-assignment-set",
+        help="Verify reassigned manifests preserve a reference topology set",
+    )
+    audit_assignment_set.add_argument("--tree-set", type=Path, required=True)
+    audit_assignment_set.add_argument("--reference-assignment-summary", type=Path, required=True)
+    audit_assignment_set.add_argument("--candidate-assignment-summary", type=Path, required=True)
+    audit_assignment_set.add_argument("--path-base", type=Path, default=Path("."))
+    audit_assignment_set.add_argument("--forbid-task-family", action="append", default=[])
+    audit_assignment_set.add_argument("--out", type=Path)
+    audit_assignment_set.set_defaults(func=_audit_paired_assignment_set)
 
     audit_topology = sub.add_parser("topology-audit", help="Audit topology size, depth, leaves, and polytomies")
     audit_topology.add_argument("--manifest", type=Path, required=True)
