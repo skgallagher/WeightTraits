@@ -1,10 +1,156 @@
 # WeightTraits Handoff
 
-Last updated: 2026-07-13.
+Last updated: 2026-07-21.
 
 ## Project Intent
 
 WeightTraits is a private, cleaner rebuild of ELLMTrees under `/Users/shannon/Desktop/phylo/WeightTraits`. It should remain maintainable, tested, auditable, and suitable for local smoke runs plus cluster-scale training. The main scientific targets are to independently rebuild and verify the ELLMTrees results, including the ICLR draft tables/figures, while fixing weak spots around flexible topology generation, LoRA semantics, distance computation, tree reconstruction scoring, and trainer reliability.
+
+## Live Handoff: 2026-07-21 (Read First)
+
+### Git and worktrees
+
+- PRs 1-3 are merged to `main`: the confirm-paper rebuild, corrected all-projection results, and
+  attempt-aware artifact retention.
+- PR #4, `Add free-text behavioral and PhyloLM analyses`, is open and merge-clean at commit
+  `536b827` on `agent/free-text-behavior`:
+  <https://github.com/skgallagher/WeightTraits/pull/4>.
+- The local PR #4 worktree is `/Users/shannon/Desktop/phylo/WeightTraits-free-text`.
+- The Wright Llama recovery worktree is
+  `/home/export/sgallagh/WeightTraits-llama32-20260713`.
+- The Wright behavioral worktree is
+  `/home/export/sgallagh/WeightTraits-behavior-20260720`.
+- The original Wright Flan training tree is `/home/export/sgallagh/WeightTraits`. Treat its
+  training artifacts and ledgers as read-only; write new behavioral outputs only in the behavioral
+  worktree.
+- Wright is normally reached through the persistent control socket `/tmp/wright-codex.sock`.
+
+### Completed Flan q/v LoRA rank-8 behavior panel
+
+The paper-matched Flan-T5-base q/v LoRA rank-8 panel is complete. Gate jobs `156398` and `156399`
+and production arrays `156411` and `156412` all completed successfully. All 50 trees passed the
+complete three-draw grid, finite white-box/surface/semantic cube, aligned-leaf, and dynamic
+`choose(L, 2)` pair-count audits. Trees have 4-10 leaves; never assume 36 pairs globally.
+
+The multiple-choice panel contains 438,000 outputs and preserves 4,154 empty outputs. Semantic
+coverage is 99.14% for HellaSwag, 99.49% for ARC-Challenge, 99.60% for MMLU, and 97.97% for
+TruthfulQA. Dolly contains 32,850 outputs, preserves 818 empty outputs, and has 97.51% semantic
+coverage. Empty, label-only, fragmentary, repetitive, and collapsed generations are observations
+in the surface endpoint rather than hidden failures. Empty strings alone are excluded from the
+sentence-embedding endpoint.
+
+Final DerSimonian-Laird Fisher-z random-effects correlations between weight distance and behavioral
+similarity are:
+
+| Probe | Surface r (95% CI) | Semantic r (95% CI) |
+|---|---|---|
+| ARC-Challenge | -0.230 (-0.301, -0.156) | -0.249 (-0.327, -0.167) |
+| Dolly | -0.156 (-0.223, -0.088) | -0.219 (-0.296, -0.138) |
+| HellaSwag | -0.008 (-0.075, 0.059) | -0.112 (-0.194, -0.028) |
+| MMLU | -0.230 (-0.301, -0.156) | -0.252 (-0.332, -0.169) |
+| TruthfulQA | -0.128 (-0.190, -0.064) | -0.212 (-0.275, -0.148) |
+
+All entries use 50/50 usable trees. The compact tracked results are under
+`results/behavior/flan_qv_r8_final_20260720/`; `paper_summary.csv` is the canonical short table and
+`audit_summary.json` records the complete-panel audit. Full Wright outputs are under
+`outputs/behavior/flan_qv_r8_final_20260720` in the behavioral worktree.
+
+HellaSwag's null surface result is not explained by greater degeneration. Across all 365 leaves,
+65.1% of its outputs are natural language and 26.1% are label-only; its median unique-response
+fraction is 90.7% and median dominant-response fraction is 5.7%. ARC-Challenge and MMLU are each
+about 81% label-only, 14% natural language, 4% median unique responses, and 32% median dominant
+response. The working interpretation is that stable label-format habits retain lineage signal in
+the surface endpoint, whereas diverse HellaSwag prose adds surface-form noise. Its significant
+semantic estimate recovers some content-level lineage signal. Present this as an interpretation,
+not a demonstrated mechanism.
+
+### Uncommitted Flan collapse appendix diagnostic
+
+An appendix diagnostic was generated after commit `536b827` but has not been committed. The local
+worktree currently has the untracked script `scripts/flan_degeneracy_diagnostics.py`. The compact
+generated outputs were pulled to the ignored directory
+`results/behavior/flan_qv_r8_degeneracy_appendix/`; use `git add -f` only if these are intentionally
+versioned. The same outputs are on Wright under
+`outputs/behavior/flan_qv_r8_degeneracy_appendix/` in the behavioral worktree.
+
+The diagnostic joins every retained leaf to its terminal training task, classifies output form,
+and reports exact-response concentration plus nonempty embedding coverage. Its audit passed over
+50 trees, 365 unique leaves, five probes, and 1,825 leaf-probe rows with no issues. It produced:
+
+- `leaf_probe_diagnostics.csv` and `task_family_probe_summary.csv`;
+- `collapse_examples.csv`;
+- `flan-output-composition.{pdf,svg}`;
+- `flan-semantic-coverage-diagnostic.{pdf,svg}`; and
+- `flan-dominant-response.{pdf,svg}`.
+
+Pooled across probes, terminal classification leaves produced 78.9% label-only and 10.8%
+natural-language outputs. Natural-language fractions were 41.2% for QA, 48.8% for summarization,
+and 31.4% for translation terminal leaves. Nonempty embedding coverage remained 96.8-99.7% by
+terminal family, which demonstrates that successful embedding coverage does not imply a healthy
+natural-language response. Terminal task family is descriptive: each leaf inherits its complete
+root-to-leaf training path, so this does not identify a causal effect of the last task.
+
+Before committing this appendix work, add a focused section to `docs/BEHAVIORAL_REBUILD.md`, check
+the script with the project formatter/linter, rerun or retain the successful Wright integration
+audit, and stage only the script plus compact paper-facing outputs. Do not stage raw responses.
+
+### Active Llama recovery and dependent behavior work
+
+The attempt-aware retention bug is fixed on `main` by PR #3. Recovery is running from
+`/home/export/sgallagh/WeightTraits-llama32-20260713`:
+
+- `156246`: r8 canary tree; running at the 2026-07-21 00:08 EDT snapshot.
+- `156247`: r8 recovery array. Task 4 was running; remaining tasks were pending under the array
+  throttle/priority.
+- `156248`: r64 recovery array. Tasks 2 and 3 completed `0:0`, task 1 was running, and remaining
+  tasks were pending.
+
+Jobs `156246` and `156247_0` each experienced one scheduler preemption/requeue. Treat those events
+as scheduler events unless a terminal nonzero exit and log evidence establish a code failure. The
+active log tails showed normal forward training progress and no code error at the snapshot.
+
+The Llama r8 behavioral arrays in `/home/export/sgallagh/WeightTraits-behavior-20260720` are held on
+the r8 recovery dependency:
+
+- `156351`: HellaSwag, ARC-Challenge, MMLU, and TruthfulQA;
+- `156352`: Dolly open-ended.
+
+Both arrays use the same generations for two endpoints: paired output-surface distance and paired
+all-MiniLM-L6-v2 semantic distance. Do not release or replace the dependency manually. After r8
+recovery succeeds, Slurm should release them automatically.
+
+### Required completion sequence
+
+1. Continue monitoring `156246`, `156247`, and `156248` with both `squeue` and `sacct`. Diagnose a
+   terminal failure from its log before retrying; do not retry an ordinary preemption/requeue.
+2. After the recovery arrays finish, audit all 50 r8 and all 50 r64 ledgers under
+   `examples/training/confirm_paper_numbers/llama32_1b_lora_qkv_r{8,64}_training_runlists/ledgers/`.
+   Require successful terminal state for every planned node and a retained adapter for every leaf.
+   Audit retention decisions as attempt-aware rather than merely checking that a path once existed.
+3. Run the required white-box recovery/additivity/Atteson and polytomy-aware exact-recovery analyses
+   for both ranks. Polytomy-aware exact recovery is the agreed fair comparison to neighbor joining.
+4. Monitor `156351` and `156352` after dependency release. For every tree/probe require the complete
+   prompt-by-three-draw grid, finite white-box/surface/semantic cubes, aligned leaf sets, honest
+   semantic coverage, and exactly `choose(L, 2)` rows in both pair tables using that tree's manifest
+   leaf count.
+5. When all 50 Llama trees pass, run `scripts/behavior_meta_analysis.R` separately for each probe
+   and endpoint. Report within-tree correlations, Fisher-z pooling with `1/(n_pairs-3)`,
+   DerSimonian-Laird random effects, and raw/semi/standardized run-fixed-effect coefficients.
+6. Pull only compact paper-facing audits and R summaries locally, then make a reviewable results
+   commit/PR. Never pull or commit adapters, merged checkpoints, raw response panels, or caches.
+
+### Scientific scope notes
+
+- The training task/dataset assignments are sampled without replacement within each tree. They are
+  not error-adaptive and do not resample examples the model misses. An AdaBoost analogy is useful
+  only as inspiration for a future adaptive branching experiment; the present design has neither
+  error-based reweighting nor an ensemble vote.
+- The surface endpoint is paired mean absolute distance over auditable output-form features: empty,
+  label-only, repetition, natural language, fragment, length, token count, character composition,
+  and lexical diversity. It intentionally does not compare semantic content.
+- The semantic endpoint embeds every nonempty output. A label such as `A`, `0`, or `True` can
+  therefore have valid embedding coverage while remaining task-format collapse. Always report
+  surface composition and semantic coverage together.
 
 ## Current Checkpoint
 
