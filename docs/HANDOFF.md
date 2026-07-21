@@ -1,6 +1,6 @@
 # WeightTraits Handoff
 
-Last updated: 2026-07-13.
+Last updated: 2026-07-14.
 
 ## Project Intent
 
@@ -60,6 +60,27 @@ As of 2026-07-07, the project has a working end-to-end whitebox recovery spine:
   internal full model or LoRA merged model only after every direct child succeeds. The isolated
   Llama Wright smoke removed 2,488,861,763 bytes from n0, preserved both leaf models, and wrote a
   JSONL decision audit. Existing experiment wrappers remain pruning-off unless explicitly enabled.
+- `prune-training-lora-tree-materializations` and `PRUNE_LORA_MERGED_AFTER_TREE=true` add an
+  adapter-preserving end-of-tree gate. It requires successful terminal status plus an existing
+  adapter for every node before removing remaining merged models. Wright tree-002 validation
+  removed 17,421,998,790 bytes from each LoRA benchmark while retaining all 14 adapters.
+- The WeightTraits-native behavioral rebuild now supports deterministic HellaSwag prompt artifacts,
+  greedy seq2seq/causal collection, cumulative-LoRA leaves, complete-grid audits and quality health
+  signals, aligned sentence embeddings, and paired semantic distance cubes. Wright jobs `154614` and
+  `154621` passed the full eight-leaf/two-prompt Flan tree smoke with a finite 8x8 cube.
+- The follow-up 100-prompt Flan diagnostic (`154624`) completed 800/800 records but exposed severe
+  response collapse in three leaves (2, 2, and 11 unique outputs). Mean reference ROUGE-L was 0.037.
+  Do not spend the 50-tree budget on Flan/HellaSwag; repeat on causal Llama production trees.
+- The archived causal r8 leaf diagnostic (`154633`) produced 100/100 unique HellaSwag responses,
+  dominant-response fraction 0.01, and mean reference ROUGE-L 0.122 after cumulative adapter
+  rematerialization. This supports the Llama pivot; the remaining gate is a complete production tree.
+- The complete archived r8 tree diagnostic (`154635` -> `154636`) then passed 700/700 records across
+  seven leaves. Every leaf produced 100 unique outputs with 0.01 dominant-response fraction; the
+  100-prompt semantic cube was finite and non-degenerate with maximum distance 0.1031. Repeat on the
+  first completed production r8/r64 tree before launching the full behavioral run set.
+- The faithful PhyloLM rebuild pins upstream commit `8c70edf`, keeps the GPLv3 gene artifact external
+  and checksum-pinned, and rematerializes cumulative adapters only in memory. Wright job `154601`
+  passed the two-gene/two-sample `n0 -> n2 -> n7` r8 smoke with zero empty alleles.
 
 Latest verified paper outputs:
 
@@ -1384,6 +1405,34 @@ Building, reconstructing, and scoring from that generated manifest passed with:
 n_models=4, n_layers=30, l2 distance_mean=0.00041895296848211915
 score rf=0, false_negative=0, false_positive=0, exact_tree_recovery=true
 ```
+
+## 2026-07-14 Wright Launch Update
+
+- Corrected Flan array `154446` was raised from `%6` to `%20`, matching the 20 L40 GPUs exposed by
+  Wright's `all` partition.
+- Llama 3.2 1B adapter-only production arrays are queued as `154594_[1-50%20]` for QKV LoRA r8 and
+  `154595_[1-50%20]` for QKV LoRA r64. Slurm arbitrates them against the older Flan work.
+- Both Llama arrays use the pinned base revision, offline HF execution, Trainer-checkpoint cleanup,
+  internal-parent pruning, and audited end-of-tree merged-model cleanup. Durable artifacts are the
+  base revision, adapters, run lists, ledgers, and audits.
+- The broad full-FT array was deliberately not submitted because base-plus-adapters cannot
+  reconstruct full fine-tuning. Its 10-step benchmark evidence is archived while a leaf-weight or
+  delta retention policy is decided.
+
+## Behavioral and PhyloLM Rebuild
+
+The model-independent behavioral spine now has a stable response JSONL schema, explicit
+dropped/empty/duplicate/repeat-grid audits, paired per-prompt embedding cosine distances with
+per-pair denominators, and DerSimonian-Laird pooling for per-run correlations. HellaSwag on the
+completed Flan full-FT trees is the first valid probe target. Translation is not held out in the
+confirm-paper trees and cannot support the held-out claim without a new training assignment set.
+
+The faithful PhyloLM core and GPU collector are reimplemented under `weighttraits.behavior`. They pin
+upstream commit `8c70edf062a0adce2a3e6c8c79cd23a645fd0905`, preserve the raw-prompt 128-gene / 32-sample /
+four-token / four-character contract, compute Nei distance, and emit a native distance cube plus NJ
+tree. Adapter-only leaves are rematerialized in memory by merging the complete adapter chain onto the
+pinned base. Generic leaf-array and post-analysis wrappers are ready; the next gate is a tiny causal
+smoke after a production Llama tree finishes. See `docs/BEHAVIORAL_REBUILD.md`.
 
 ## Next Best Steps
 

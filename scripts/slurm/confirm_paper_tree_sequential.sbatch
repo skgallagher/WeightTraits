@@ -33,6 +33,7 @@ expanded_run_name_prefix="${expanded_run_name_prefix//\{TREE_ID\}/${TREE_ID}}"
 RUN_NAME_PREFIX="${RUN_NAME_PREFIX:-${expanded_run_name_prefix}}"
 WANDB_PROJECT="${WANDB_PROJECT:-weighttraits-confirm-paper}"
 PRUNE_INTERNAL_PARENTS="${PRUNE_INTERNAL_PARENTS:-false}"
+PRUNE_LORA_MERGED_AFTER_TREE="${PRUNE_LORA_MERGED_AFTER_TREE:-false}"
 RETENTION_AUDIT="${RETENTION_AUDIT:-}"
 
 cd "${REPO}"
@@ -107,3 +108,21 @@ for row_index in $(seq "${ROW_START}" "${ROW_END}"); do
       ;;
   esac
 done
+
+case "${PRUNE_LORA_MERGED_AFTER_TREE}" in
+  1|true|TRUE|yes|YES)
+    cleanup_cmd=(
+      env
+      PYTHONPATH=src
+      "${PYTHON_BIN}" -m weighttraits.cli prune-training-lora-tree-materializations
+      --run-list "${RUN_LIST}"
+    )
+    if [[ -n "${RETENTION_AUDIT}" ]]; then
+      cleanup_cmd+=(--audit-out "${RETENTION_AUDIT}")
+    fi
+    printf 'Pruning completed LoRA tree materializations for tree %s:' "${TREE_ID}"
+    printf ' %q' "${cleanup_cmd[@]}"
+    printf '\n'
+    "${cleanup_cmd[@]}"
+    ;;
+esac

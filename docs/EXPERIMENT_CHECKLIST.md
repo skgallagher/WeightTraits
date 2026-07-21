@@ -56,7 +56,7 @@ Before a paper artifact changes:
 
 ## Current Wright Board
 
-Last manually checked: 2026-07-13 10:12 EDT.
+Last manually checked: 2026-07-14 08:45 EDT.
 
 | ID | Status | Paper Target | Wright Job | Notes |
 | --- | --- | --- | --- | --- |
@@ -69,7 +69,7 @@ Last manually checked: 2026-07-13 10:12 EDT.
 | `cp-first-tree-analysis` | done | Recovery pipeline gate | `153902`, `153903`, `153904` | Direct full, merged-LoRA, and cumulative-LoRA analyses completed successfully; PAER rollups validated. |
 | `cp-versioned-analysis-v20260711` | done | whitebox recovery, additivity, Atteson, variant rollups | `154287`--`154292` | All six jobs completed `0:0`; rollups exist in the isolated checkout. |
 | `cp-versioned-analysis-v20260713` | running | final whitebox recovery and paper variants rollups | `154440`--`154445` | LoRA jobs `154441`--`154444` completed `0:0`; full-FT `154440` is running; legacy `154445` waits for training. |
-| `cp-flan-lora-all-projections-corrected` | running | corrected sensitivity beyond the legacy row | `154275`, `154277`, `154446_[1-50%6]` | Both smokes passed with 216 resolved modules; bounded array retains its dependency on legacy training. |
+| `cp-flan-lora-all-projections-corrected` | running | corrected sensitivity beyond the legacy row | `154275`, `154277`, `154446_[1-50%20]` | Both smokes passed with 216 resolved modules; throttle raised to the partition's 20-GPU capacity on 2026-07-14. |
 | `paper-reference-validation` | ready | all live-draft labels and pinned references | local/Wright command | Run after paper edits or reference-surface changes. |
 
 Current queue snapshot command:
@@ -542,7 +542,7 @@ to six on 2026-07-13; the dependency expression was unchanged.
 
 ### `llama1b-variants`
 
-Status: `ready` for a three-tree benchmark; broad arrays remain blocked on retention policy.
+Status: LoRA r8/r64 production arrays queued with adapter-only retention; full FT remains held.
 
 Paper target:
 
@@ -580,19 +580,29 @@ Completed gates:
   2,488,861,763 bytes from n0 while preserving n1/n2 leaf models. Successful jobs also remove
   Trainer resume checkpoints only after final artifact save; job `154474` verified a 9.3 GB node
   falls to 2.4 GB and records the removed path in backend metadata.
+- [x] Run one complete 14-node benchmark tree per condition: `154555`--`154557` completed `0:0`.
+- [x] Add end-of-tree LoRA cleanup that requires every successful node adapter before removing all
+  remaining merged models. Tree-002 validation retained 14/14 adapters and removed 17.42 GB per
+  LoRA condition.
+- [x] Submit r8 `154594_[1-50%20]` and r64 `154595_[1-50%20]` with internal-parent and end-of-tree
+  merged-model pruning enabled.
+- [ ] Define a reconstructable leaf-weight or delta policy before submitting broad full FT.
 
 Guardrail:
 
-- Do not queue Llama broad arrays from the current Flan run-list assumptions. Treat Llama as a new model family.
-- Do not retain every merged 1B checkpoint by default. The root rank-64 smoke produced a 53 MB
-  adapter and a 2.4 GB merged model; 641 merged models would be roughly 1.5 TB per condition.
+- Treat Llama as a separate model family with its own validated run lists and causal-LM settings.
+- Do not retain merged 1B LoRA checkpoints after a tree completes. The root rank-64 smoke produced
+  a 53 MB adapter and a 2.4 GB merged model; production jobs retain adapters and audited lineage,
+  then remove all merged materializations after every node succeeds.
 - Wright has a cached gated checkpoint, but offline execution is intentional until authenticated
   Hugging Face access is verified. The pinned revision prevents silent model drift.
 - Do not pursue `runs_llama8b_full_ft_approx` unless deliberately revisited.
 
 ### `behavior-holdout-rebuild`
 
-Status: `scaffold`.
+Status: generic probe collection and analysis passed complete-tree Wright smokes. HellaSwag on Flan
+is blocked for broad use by the 100-prompt collapse diagnostic; pivot to causal Llama after production
+trees complete.
 
 Paper target:
 
@@ -610,12 +620,49 @@ Known reference surface:
 
 Do before queueing:
 
-- [ ] Decide which trained WeightTraits outputs are the first behavior-eval inputs.
-- [ ] Port or wrap behavioral probe generation.
-- [ ] Define probe output schema and dropped-record audit.
-- [ ] Add a small probe smoke on one completed tree.
+- [x] Use HellaSwag on the completed Flan full-FT trees as the first behavior-eval input. Translation
+  is present in the confirm-paper training mix and therefore requires a new held-out assignment set.
+- [x] Implement the generic seq2seq/causal probe inference and sentence-embedding collector.
+- [x] Define the JSONL response schema, dropped/empty/duplicate/grid audit, aligned embedding NPZ,
+  and paired per-prompt cosine distance builder.
+- [x] Match the paper runner's greedy one-completion-per-prompt default; keep stochastic repeats an
+  explicit opt-in estimator.
+- [x] Add a small probe smoke on one completed tree. Wright jobs `154614` and `154621` completed an
+  eight-leaf greedy HellaSwag response/embedding/distance path with 16/16 valid observations and a
+  finite non-degenerate 8x8 cube.
+- [x] Run the 100-prompt diagnostic before broad launch. Wright array `154624` produced 800/800 valid
+  responses, but `n11` and `n3` each produced only 2 unique responses and `n12` only 11; mean reference
+  ROUGE-L was 0.037. Do not launch this Flan/HellaSwag pairing broadly.
+- [x] Add zero-based leaf-array and dependent embedding/distance Slurm wrappers.
+- [x] Add audited model-ID-aligned weight/behavior pair-table export for the independent R check.
 - [ ] Add R regression cross-check target before paper-facing coefficients change.
-- [ ] Only then launch broad behavioral probes.
+- [ ] Run the same 100-prompt diagnostic on the first completed causal Llama r8/r64 tree.
+- [x] Confirm the causal prompt/model contract on an archived r8 leaf. Wright job `154633` produced
+  100/100 unique responses, dominant-response fraction 0.01, and mean reference ROUGE-L 0.122 after
+  cumulative `n0 -> n2 -> n7` rematerialization.
+- [x] Confirm complete-tree causal alignment on the archived r8 benchmark. Wright jobs `154635` and
+  `154636` produced 700/700 valid responses; every one of 7 leaves had 100 unique outputs and 0.01
+  dominant-response fraction. The 7x7 semantic cube was finite and non-degenerate (max 0.1031).
+- [ ] Repeat across every leaf of the first completed causal Llama r8/r64 production tree.
+- [ ] Only then launch a broad causal behavioral probe.
+
+### `phylolm-controlled-rebuild`
+
+Status: collector and analysis ready; cumulative-LoRA Wright smoke passed, full production trees
+remain pending.
+
+- [x] Pin the faithful upstream commit and implement population frequencies, Nei similarity,
+  `-log(max(sim, 1e-3))` distance, native distance-cube output, and neighbor joining.
+- [x] Implement raw-prompt fixed-token allele collection for full checkpoints and cumulative LoRA
+  adapter chains rematerialized from the pinned base.
+- [x] Add shared-genome provenance, leaf-array and post-analysis Slurm wrappers, and local tests.
+- [x] Record the released math gene pool's dataset/license provenance and checksum. Keep it external
+  pending GPLv3/MIT redistribution review; see `docs/PHYLOLM_PROVENANCE.md`.
+- [x] Run a two-gene/two-sample smoke on one cached Llama leaf. Wright job `154601` rematerialized
+  archived r8 adapters `n0 -> n2 -> n7`, generated the population with zero empty alleles, and retained
+  only the compact JSON artifact.
+- [ ] Run the full 128-gene/32-sample contract on the first completed r8 and r64 trees.
+- [ ] Score with the same recovery, additivity, and Atteson pipeline as whitebox analysis.
 
 ### `coherence-and-atteson`
 
