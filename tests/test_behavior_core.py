@@ -16,12 +16,16 @@ from weighttraits.behavior.phylolm import (
 )
 from weighttraits.behavior.phylolm_inference import extract_pipeline_alleles
 from weighttraits.behavior.probe_inference import (
+    DEFAULT_SENTENCE_EMBEDDING_REVISION,
+    audit_cached_behavior_responses,
+    behavior_collection_provenance,
     build_embedding_tensor,
     extract_behavior_pipeline_outputs,
     generate_causal_responses,
     generate_seq2seq_responses,
 )
 from weighttraits.behavior.probes import (
+    HELDOUT_PROBE_DATASETS,
     heldout_probe_prompts_from_rows,
     hellaswag_prompts_from_rows,
 )
@@ -38,6 +42,7 @@ from weighttraits.behavior.surface import (
 )
 from weighttraits.cli import build_parser
 from weighttraits.distances.streaming import DistanceCube, write_distance_cube
+from weighttraits.distances.manifest import DistanceInputSpec
 from weighttraits.phylo.newick import leaf_names, parse_newick
 
 
@@ -553,6 +558,7 @@ def test_behavior_and_phylolm_cli_parsers(tmp_path: Path) -> None:
         ]
     )
     assert behavior_embed.local_files_only
+    assert behavior_embed.embedding_revision == DEFAULT_SENTENCE_EMBEDDING_REVISION
     assert not behavior_embed.natural_language_only
     assert behavior_embed.probe_id is None
 
@@ -656,11 +662,23 @@ def test_behavior_regression_pairs_align_model_ids(tmp_path: Path) -> None:
         ),
         behavior_dir,
     )
+    np.save(
+        behavior_dir / "observation_counts.npy",
+        np.asarray([[10, 7, 6], [7, 10, 5], [6, 5, 10]]),
+    )
+    with pytest.raises(ValueError, match="identical model IDs"):
+        paired_distance_rows(
+            run_id="tree-001",
+            weight_cube=weight_dir,
+            behavior_cube=behavior_dir,
+            weight_metric="cosine",
+        )
     rows, audit = paired_distance_rows(
         run_id="tree-001",
         weight_cube=weight_dir,
         behavior_cube=behavior_dir,
         weight_metric="cosine",
+        allow_model_subset=True,
     )
     assert rows == [
         {
@@ -671,8 +689,82 @@ def test_behavior_regression_pairs_align_model_ids(tmp_path: Path) -> None:
             "weight_distance": 0.4,
             "behavior_distance": 0.7,
             "behavior_similarity": 0.30000000000000004,
+            "behavior_observations": 7,
         }
     ]
     assert audit["n_common_models"] == 2
     assert audit["weight_only_model_ids"] == ["n2"]
     assert audit["behavior_only_model_ids"] == ["n4"]
+    assert audit["allow_model_subset"] is True
+
+
+def test_behavior_response_cache_requires_exact_provenance_and_grid(tmp_path: Path) -> None:
+    prompt = heldout_probe_prompts_from_rows(
+        [{"question": "What is true?", "best_answer": "This."}],
+        probe_id="truthfulqa",
+        model_task="seq2seq",
+        n_prompts=1,
+        seed=42,
+    )[0]
+    spec = DistanceInputSpec(model_id="n1", checkpoint=tmp_path / "checkpoint")
+    provenance = behavior_collection_provenance(
+        spec,
+        run_id="tree-001",
+        prompts=[prompt],
+        model_task="seq2seq",
+        base_model=None,
+        base_revision=None,
+        samples_per_prompt=2,
+        min_new_tokens=0,
+        max_new_tokens=64,
+        do_sample=True,
+        temperature=1.0,
+        top_p=1.0,
+        batch_size=32,
+        seed=42,
+        empty_policy="preserve",
+    )
+    records = [
+        BehaviorResponse(
+            run_id="tree-001",
+            model_id="n1",
+            probe_id=prompt.probe_id,
+            prompt_id=prompt.prompt_id,
+            sample_id=sample_id,
+            prompt=prompt.prompt,
+            response="answer",
+            metadata={"collection_provenance": provenance},
+        )
+        for sample_id in range(2)
+    ]
+
+    valid = audit_cached_behavior_responses(
+        records,
+        provenance=provenance,
+        prompts=[prompt],
+        samples_per_prompt=2,
+        allow_empty_completed=True,
+    )
+    assert valid["valid"]
+
+    changed = {**provenance, "sha256": "different"}
+    invalid = audit_cached_behavior_responses(
+        records[:-1],
+        provenance=changed,
+        prompts=[prompt],
+        samples_per_prompt=2,
+        allow_empty_completed=True,
+    )
+    assert not invalid["valid"]
+    assert {issue["issue"] for issue in invalid["issues"]} >= {
+        "collection_provenance_mismatch",
+        "response_grid_mismatch",
+    }
+
+
+def test_behavior_dependencies_are_revision_pinned() -> None:
+    assert all(
+        len(str(config["revision"])) == 40
+        for config in HELDOUT_PROBE_DATASETS.values()
+    )
+    assert len(DEFAULT_SENTENCE_EMBEDDING_REVISION) == 40

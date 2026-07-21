@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import gc
+import hashlib
+import json
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
@@ -11,6 +13,119 @@ import numpy as np
 from weighttraits.behavior.probes import BehaviorPrompt
 from weighttraits.behavior.responses import BehaviorResponse, audit_behavior_responses
 from weighttraits.distances.manifest import DistanceInputSpec
+
+
+DEFAULT_SENTENCE_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+DEFAULT_SENTENCE_EMBEDDING_REVISION = "1110a243fdf4706b3f48f1d95db1a4f5529b4d41"
+
+
+def behavior_collection_provenance(
+    spec: DistanceInputSpec,
+    *,
+    run_id: str,
+    prompts: Sequence[BehaviorPrompt],
+    model_task: str,
+    base_model: str | None,
+    base_revision: str | None,
+    samples_per_prompt: int,
+    min_new_tokens: int,
+    max_new_tokens: int,
+    do_sample: bool,
+    temperature: float,
+    top_p: float,
+    batch_size: int,
+    seed: int,
+    empty_policy: str,
+) -> dict[str, Any]:
+    """Return a stable fingerprint for one model's response artifact."""
+
+    prompt_json = json.dumps(
+        [prompt.to_dict() for prompt in prompts],
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    payload = {
+        "schema_version": 1,
+        "run_id": run_id,
+        "model_id": spec.model_id,
+        "checkpoint": None if spec.checkpoint is None else str(spec.checkpoint.resolve()),
+        "adapter_chain": [str(path.resolve()) for path in spec.adapter_chain],
+        "model_task": model_task,
+        "base_model": base_model,
+        "base_revision": base_revision,
+        "prompt_sha256": hashlib.sha256(prompt_json).hexdigest(),
+        "n_prompts": len(prompts),
+        "samples_per_prompt": samples_per_prompt,
+        "min_new_tokens": min_new_tokens,
+        "max_new_tokens": max_new_tokens,
+        "do_sample": do_sample,
+        "temperature": temperature if do_sample else None,
+        "top_p": top_p if do_sample else None,
+        "batch_size": batch_size,
+        "seed": seed,
+        "empty_policy": empty_policy,
+    }
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return {**payload, "sha256": hashlib.sha256(canonical).hexdigest()}
+
+
+def audit_cached_behavior_responses(
+    records: Sequence[BehaviorResponse],
+    *,
+    provenance: dict[str, Any],
+    prompts: Sequence[BehaviorPrompt],
+    samples_per_prompt: int,
+    allow_empty_completed: bool,
+) -> dict[str, Any]:
+    """Fail closed unless a cached response file exactly matches the requested run."""
+
+    expected_keys = {
+        (
+            str(provenance["run_id"]),
+            str(provenance["model_id"]),
+            prompt.probe_id,
+            prompt.prompt_id,
+            sample_id,
+        )
+        for prompt in prompts
+        for sample_id in range(samples_per_prompt)
+    }
+    observed_keys = {record.key for record in records}
+    observed_hashes = {
+        str(record.metadata.get("collection_provenance", {}).get("sha256"))
+        for record in records
+    }
+    issues = []
+    if observed_keys != expected_keys:
+        issues.append(
+            {
+                "issue": "response_grid_mismatch",
+                "missing_keys": [list(key) for key in sorted(expected_keys - observed_keys)],
+                "unexpected_keys": [list(key) for key in sorted(observed_keys - expected_keys)],
+            }
+        )
+    if observed_hashes != {str(provenance["sha256"])}:
+        issues.append(
+            {
+                "issue": "collection_provenance_mismatch",
+                "expected_sha256": provenance["sha256"],
+                "observed_sha256": sorted(observed_hashes),
+            }
+        )
+    response_audit = audit_behavior_responses(
+        records,
+        expected_samples_per_prompt=samples_per_prompt,
+        allow_empty_completed=allow_empty_completed,
+    )
+    if not response_audit["valid"]:
+        issues.append({"issue": "cached_response_audit_failed", "details": response_audit["issues"]})
+    return {
+        "valid": not issues,
+        "issues": issues,
+        "expected_provenance": provenance,
+        "response_audit": response_audit,
+    }
 
 
 def load_behavior_leaf_model(
@@ -196,6 +311,7 @@ def collect_behavior_model_responses(
     seed: int,
     empty_policy: str = "drop",
     local_files_only: bool = True,
+    collection_provenance: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if samples_per_prompt <= 0 or max_new_tokens <= 0 or batch_size <= 0:
         raise ValueError("samples_per_prompt, max_new_tokens, and batch_size must be positive")
@@ -209,6 +325,23 @@ def collect_behavior_model_responses(
         raise ValueError("behavior sampling top_p must be in (0, 1]")
     if empty_policy not in {"drop", "preserve"}:
         raise ValueError("empty_policy must be drop or preserve")
+    provenance = collection_provenance or behavior_collection_provenance(
+        spec,
+        run_id=run_id,
+        prompts=prompts,
+        model_task=model_task,
+        base_model=base_model,
+        base_revision=base_revision,
+        samples_per_prompt=samples_per_prompt,
+        min_new_tokens=min_new_tokens,
+        max_new_tokens=max_new_tokens,
+        do_sample=do_sample,
+        temperature=temperature,
+        top_p=top_p,
+        batch_size=batch_size,
+        seed=seed,
+        empty_policy=empty_policy,
+    )
     model, tokenizer, model_metadata = load_behavior_leaf_model(
         spec,
         model_task=model_task,
@@ -289,6 +422,7 @@ def collect_behavior_model_responses(
                         "min_new_tokens": min_new_tokens,
                         "max_new_tokens": max_new_tokens,
                         "empty_policy": empty_policy,
+                        "collection_provenance": provenance,
                     },
                 )
             )
@@ -361,6 +495,7 @@ def sentence_transformer_embedding_tensor(
     records: Sequence[BehaviorResponse],
     *,
     model_name: str,
+    model_revision: str,
     batch_size: int = 64,
     local_files_only: bool = True,
     natural_language_only: bool = False,
@@ -369,7 +504,11 @@ def sentence_transformer_embedding_tensor(
         from sentence_transformers import SentenceTransformer
     except ImportError as exc:
         raise ImportError("behavior embedding export requires sentence-transformers") from exc
-    model = SentenceTransformer(model_name, local_files_only=local_files_only)
+    model = SentenceTransformer(
+        model_name,
+        revision=model_revision,
+        local_files_only=local_files_only,
+    )
     return build_embedding_tensor(
         records,
         encode=lambda texts: model.encode(

@@ -17,6 +17,12 @@ valid for both models and persist the exact per-pair denominator. The response a
 length, uniqueness, and reference ROUGE-L health signals without turning them into arbitrary validity
 thresholds.
 
+Collection artifacts carry a SHA-256 provenance fingerprint over the prompt records, model source,
+base revision, seeds, sampling controls, token limits, and batch size. An existing response JSONL is
+skipped only when both that fingerprint and the complete prompt-by-draw grid match; otherwise resume
+fails and requires an explicit `--overwrite`. The five held-out datasets and the sentence encoder are
+pinned to the exact Hugging Face commits cached for the production Flan panel.
+
 When the scientific endpoint is the emitted text itself, use `--empty-policy preserve`. Immediate
 EOS is then retained as a completed empty string rather than discarded. The
 `build-behavior-surface-distances` command classifies every aligned output as empty, label-only,
@@ -93,9 +99,10 @@ The regression export includes both `behavior_distance` and `behavior_similarity
 the paper's negative coefficients use similarity. One greedy completion remains a sensitivity
 analysis, not a repeated-draw estimator. The archived jobs above predate this decision and are
 health diagnostics rather than final paper estimates.
-The regression-pair command aligns cubes by model ID rather than matrix position, records excluded
-models and layer selections in an audit, and emits the stable columns expected by the independent R
-cross-check.
+The regression-pair command aligns cubes by model ID rather than matrix position and requires exact
+model-set equality. `--allow-model-subset` is an audit-only escape hatch. Pair rows carry
+`behavior_observations`, the exact shared-output denominator, alongside the stable columns expected
+by the independent R cross-check.
 
 ## Faithful PhyloLM path
 

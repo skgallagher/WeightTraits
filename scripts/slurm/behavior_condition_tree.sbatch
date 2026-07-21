@@ -134,6 +134,7 @@ for probe_id in "${PROBES[@]}"; do
     --responses-dir "${RESPONSES_DIR}" \
     --probe-id "${probe_id}" \
     --embedding-model "${BEHAVIOR_EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}" \
+    --embedding-revision "${BEHAVIOR_EMBEDDING_REVISION:-1110a243fdf4706b3f48f1d95db1a4f5529b4d41}" \
     --batch-size "${BEHAVIOR_EMBEDDING_BATCH_SIZE:-64}" \
     --local-files-only \
     --out "${embeddings}"

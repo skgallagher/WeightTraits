@@ -14,26 +14,31 @@ import numpy as np
 HELDOUT_PROBE_DATASETS: dict[str, dict[str, Any]] = {
     "hellaswag": {
         "dataset_args": ("Rowan/hellaswag",),
+        "revision": "218ec52e09a7e7462a5400043bb9a69a41d06b76",
         "split": "validation",
         "max_new_tokens": 64,
     },
     "arc_challenge": {
         "dataset_args": ("allenai/ai2_arc", "ARC-Challenge"),
+        "revision": "210d026faf9955653af8916fad021475a3f00453",
         "split": "test",
         "max_new_tokens": 64,
     },
     "mmlu": {
         "dataset_args": ("cais/mmlu", "all"),
+        "revision": "c30699e8356da336a370243923dbaf21066bb9fe",
         "split": "test",
         "max_new_tokens": 64,
     },
     "truthfulqa": {
         "dataset_args": ("truthful_qa", "generation"),
+        "revision": "741b8276f2d1982aa3d5b832d3ee81ed3b896490",
         "split": "validation",
         "max_new_tokens": 64,
     },
     "dolly_open_ended": {
         "dataset_args": ("databricks/databricks-dolly-15k",),
+        "revision": "bdd27f4d94b9c1f951818a7da7fd7aeea5dbff1a",
         "split": "train",
         "max_new_tokens": 96,
     },
@@ -138,6 +143,7 @@ def hellaswag_prompts_from_rows(
                 reference=str(endings[label]),
                 metadata={
                     "dataset": "Rowan/hellaswag",
+                    "dataset_revision": HELDOUT_PROBE_DATASETS["hellaswag"]["revision"],
                     "split": "validation",
                     "source_index": int(source_index),
                     "model_task": model_task,
@@ -264,6 +270,7 @@ def heldout_probe_prompts_from_rows(
                 config["dataset_args"][1] if len(config["dataset_args"]) > 1 else None
             ),
             "split": config["split"],
+            "dataset_revision": config["revision"],
             "source_index": source_index,
             "model_task": model_task,
             "seed": seed,
@@ -307,6 +314,7 @@ def load_heldout_probe_prompts(
     dataset = load_dataset(
         *config["dataset_args"],
         split=config["split"],
+        revision=config["revision"],
         download_config=DownloadConfig(local_files_only=local_files_only),
     )
     return heldout_probe_prompts_from_rows(

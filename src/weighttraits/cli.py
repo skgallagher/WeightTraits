@@ -18,6 +18,10 @@ from weighttraits.behavior.phylolm import (
 )
 from weighttraits.behavior.phylolm_inference import collect_phylolm_population
 from weighttraits.behavior.probe_inference import (
+    DEFAULT_SENTENCE_EMBEDDING_MODEL,
+    DEFAULT_SENTENCE_EMBEDDING_REVISION,
+    audit_cached_behavior_responses,
+    behavior_collection_provenance,
     collect_behavior_model_responses,
     sentence_transformer_embedding_tensor,
 )
@@ -619,6 +623,7 @@ def _make_behavior_regression_pairs(args: argparse.Namespace) -> int:
         behavior_layer=args.behavior_layer,
         weight_aggregate=args.weight_aggregate,
         behavior_aggregate=args.behavior_aggregate,
+        allow_model_subset=args.allow_model_subset,
     )
     write_paired_distance_rows(rows, args.out)
     audit_path = args.audit_out or args.out.with_suffix(".audit.json")
@@ -726,14 +731,53 @@ def _collect_behavior_responses(args: argparse.Namespace) -> int:
         if len(matches) != 1:
             raise ValueError(f"expected one input model named {args.model_id!r}, found {len(matches)}")
         spec = matches[0]
+    prompts = load_behavior_prompts(args.prompts)
+    provenance = behavior_collection_provenance(
+        spec,
+        run_id=args.run_id,
+        prompts=prompts,
+        model_task=args.model_task,
+        base_model=args.base_model,
+        base_revision=args.base_revision,
+        samples_per_prompt=args.samples_per_prompt,
+        min_new_tokens=args.min_new_tokens,
+        max_new_tokens=args.max_new_tokens,
+        do_sample=args.do_sample,
+        temperature=args.temperature,
+        top_p=args.top_p,
+        batch_size=args.batch_size,
+        seed=args.seed,
+        empty_policy=args.empty_policy,
+    )
     output = args.out_dir / f"{spec.model_id}.jsonl"
     if output.exists() and not args.overwrite:
-        print(json.dumps({"status": "skipped", "model_id": spec.model_id, "out": str(output)}))
+        cached_audit = audit_cached_behavior_responses(
+            load_behavior_responses(output),
+            provenance=provenance,
+            prompts=prompts,
+            samples_per_prompt=args.samples_per_prompt,
+            allow_empty_completed=args.empty_policy == "preserve",
+        )
+        if not cached_audit["valid"]:
+            raise ValueError(
+                "existing behavior responses do not match the requested collection; "
+                f"pass --overwrite after reviewing this audit: {cached_audit['issues']}"
+            )
+        print(
+            json.dumps(
+                {
+                    "status": "skipped_validated",
+                    "model_id": spec.model_id,
+                    "out": str(output),
+                    "provenance_sha256": provenance["sha256"],
+                }
+            )
+        )
         return 0
     report = collect_behavior_model_responses(
         spec,
         run_id=args.run_id,
-        prompts=load_behavior_prompts(args.prompts),
+        prompts=prompts,
         out_path=output,
         model_task=args.model_task,
         base_model=args.base_model,
@@ -748,6 +792,7 @@ def _collect_behavior_responses(args: argparse.Namespace) -> int:
         seed=args.seed,
         empty_policy=args.empty_policy,
         local_files_only=args.local_files_only,
+        collection_provenance=provenance,
     )
     print(json.dumps({"out": str(output), **report}, indent=2, sort_keys=True))
     return 0 if report["valid"] else 1
@@ -770,6 +815,7 @@ def _embed_behavior_responses(args: argparse.Namespace) -> int:
         sentence_transformer_embedding_tensor(
             records,
             model_name=args.embedding_model,
+            model_revision=args.embedding_revision,
             batch_size=args.batch_size,
             local_files_only=args.local_files_only,
             natural_language_only=args.natural_language_only,
@@ -789,6 +835,7 @@ def _embed_behavior_responses(args: argparse.Namespace) -> int:
             {
                 **metadata,
                 "embedding_model": args.embedding_model,
+                "embedding_revision": args.embedding_revision,
                 "source_files": [str(file) for file in files],
                 "out": str(args.out),
             },
@@ -1931,7 +1978,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     behavior_embed.add_argument("--responses-dir", type=Path, required=True)
     behavior_embed.add_argument(
-        "--embedding-model", default="sentence-transformers/all-MiniLM-L6-v2"
+        "--embedding-model", default=DEFAULT_SENTENCE_EMBEDDING_MODEL
+    )
+    behavior_embed.add_argument(
+        "--embedding-revision", default=DEFAULT_SENTENCE_EMBEDDING_REVISION
     )
     behavior_embed.add_argument("--batch-size", type=int, default=64)
     behavior_embed.add_argument(
@@ -1988,6 +2038,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     behavior_regression.add_argument(
         "--behavior-aggregate", choices=("mean", "median"), default="mean"
+    )
+    behavior_regression.add_argument(
+        "--allow-model-subset",
+        action="store_true",
+        help="Audit-only override permitting the two cubes to contain different model sets",
     )
     behavior_regression.add_argument("--out", type=Path, required=True)
     behavior_regression.add_argument("--audit-out", type=Path)
