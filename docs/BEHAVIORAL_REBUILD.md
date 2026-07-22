@@ -224,6 +224,22 @@ exploratory continuity statistics, not independent-pair inference.
 The full appendix writeup and exact ten-row summary are in
 `docs/LLAMA32_R8_BEHAVIOR_BRANCH_ORDERING_2026-07-22.md` and
 `results/behavior/llama32_r8_branch_ordering_20260722/paper_summary.csv`.
+Rebuild an endpoint directly from the per-tree pair tables with:
+
+```bash
+python scripts/behavior_branch_ordering.py \
+  --condition llama32_1b_qkv_lora_r8 \
+  --probe hellaswag \
+  --endpoint surface \
+  --pairs-glob 'outputs/behavior/llama32_r8_mc_four_s3_all50/tree*/pairs/hellaswag.csv' \
+  --manifest-dir examples/training/confirm_paper_numbers/assigned_manifests \
+  --expected-trees 50 \
+  --out-dir outputs/behavior/llama32_r8_branch_ordering/hellaswag_surface
+```
+
+The script fails on duplicate/incomplete pair grids, non-finite distances, unknown/nonleaf models,
+or a missing expected tree. It writes the pooled legacy statistics, per-tree effects, labeled pair
+audit, and tree-level robustness tests separately.
 
 For every future behavioral table, retain separate surface and semantic rows and report: model
 condition and weight representation; probe/endpoint; total, DL-usable, and ordering-valid trees;

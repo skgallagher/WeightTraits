@@ -81,6 +81,8 @@ surface-form behavioral trace.
   in the Wright Llama worktree.
 - Compact machine-readable values:
   `results/behavior/llama32_r8_branch_ordering_20260722/paper_summary.csv`.
+- Reproducible analysis entry point: `scripts/behavior_branch_ordering.py`; it writes summary JSON
+  and CSV, per-tree effects, and the fully labeled pair audit.
 - The pooled calculation matches the legacy `ELLMTrees/scripts/analyze_branch_structure.py`
   direction and rank-biserial definition.
 
