@@ -1,0 +1,46 @@
+{
+  "condition": "llama_3_2_1b_instruct_lora_qkv_r8",
+  "jobs": {
+    "recovery_canary": 156246,
+    "recovery_array": 156247,
+    "multiple_choice_array": 156351,
+    "dolly_array": 156352
+  },
+  "recovery": {
+    "trees": 50,
+    "planned_nodes": 641,
+    "leaf_nodes": 365,
+    "terminal_statuses": {"completed": 165, "stopped_early": 476},
+    "retained_adapters": 641,
+    "retained_leaf_adapters": 365,
+    "issues": []
+  },
+  "behavior": {
+    "trees": 50,
+    "leaf_pairs_per_endpoint_probe": 1228,
+    "multiple_choice": {
+      "records_per_probe": 109500,
+      "semantic_coverage": {
+        "hellaswag": {"valid": 68070, "expected": 109500, "fraction": 0.6216438356164383, "preserved_empty_outputs": 41430},
+        "arc_challenge": {"valid": 109229, "expected": 109500, "fraction": 0.9975251141552511, "preserved_empty_outputs": 271},
+        "mmlu": {"valid": 109122, "expected": 109500, "fraction": 0.9965479452054794, "preserved_empty_outputs": 378},
+        "truthfulqa": {"valid": 108848, "expected": 109500, "fraction": 0.9940456621004566, "preserved_empty_outputs": 652}
+      }
+    },
+    "dolly_open_ended": {
+      "records": 32850,
+      "preserved_empty_outputs": 556,
+      "semantic_coverage": {"valid": 32294, "expected": 32850, "fraction": 0.9830745814307458}
+    },
+    "validated": {
+      "complete_three_draw_grids": true,
+      "finite_whitebox_cubes": true,
+      "finite_surface_cubes": true,
+      "finite_semantic_cubes": true,
+      "aligned_leaf_sets": true,
+      "dynamic_choose_l_2_pair_counts": true,
+      "all_r_runs_usable": true
+    },
+    "issues": []
+  }
+}

@@ -176,3 +176,37 @@ estimates were ARC-Challenge -0.230/-0.249, Dolly -0.156/-0.219, MMLU -0.230/-0.
 TruthfulQA -0.128/-0.212. HellaSwag surface form was null (-0.008), while semantic similarity was
 weakly negative (-0.112). Compact audit and R outputs are versioned under
 `results/behavior/flan_qv_r8_final_20260720/`.
+
+### Flan output-collapse appendix diagnostic
+
+`scripts/flan_degeneracy_diagnostics.py` joins each retained leaf to its terminal training task,
+classifies response form, and reports exact-response concentration plus nonempty semantic-embedding
+coverage. The audited appendix run covers 50 trees, 365 unique leaves, five probes, and 1,825
+leaf-probe rows with no alignment or completeness issues. Compact tables and PDF/SVG figures are
+under `results/behavior/flan_qv_r8_degeneracy_appendix/`.
+
+Across probes, terminal classification leaves produced 78.9% label-only and 10.8%
+natural-language outputs. Natural-language fractions were 41.2% for QA, 48.8% for summarization,
+and 31.4% for translation terminal leaves. Nonempty semantic coverage remained 96.8-99.7% by
+terminal family, showing that embedding coverage alone is not evidence of healthy natural-language
+generation. Terminal family is descriptive rather than causal because every leaf inherits its
+entire root-to-leaf task history.
+
+## Final Llama 3.2 1B q/k/v rank-8 behavioral panel
+
+The 50-tree Llama panel completed in Wright jobs `156351` and `156352` after the rank-8 recovery
+dependency succeeded. All trees passed complete three-draw grids, finite and aligned cumulative
+LoRA white-box/surface/semantic cubes, and dynamic `choose(L, 2)` pair-count audits. The tree set
+contains 4-10 leaves and contributes 1,228 pairs per endpoint.
+
+The multiple-choice probes each contain 109,500 outputs. Empty-output counts and semantic coverage
+are: ARC-Challenge 271 and 99.75%, HellaSwag 41,430 and 62.16%, MMLU 378 and 99.65%, and
+TruthfulQA 652 and 99.40%. Dolly contains 32,850 outputs, 556 empties, and 98.31% semantic
+coverage. The unusually low HellaSwag coverage is reported directly; empty outputs remain valid
+surface observations and are excluded only from sentence embedding.
+
+Across 50/50 usable trees, the DerSimonian--Laird surface/semantic correlations were
+ARC-Challenge 0.034/-0.008, Dolly 0.019/0.015, HellaSwag -0.062/-0.023, MMLU 0.035/-0.007, and
+TruthfulQA 0.026/-0.027. None was distinguishable from zero. Compact audits, within-tree
+correlations, pooled estimates, and raw/semi-standardized/standardized run-fixed-effect
+coefficients are versioned under `results/behavior/llama32_r8_final_20260722/`.

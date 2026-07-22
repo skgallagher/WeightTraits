@@ -1,6 +1,6 @@
 # WeightTraits Handoff
 
-Last updated: 2026-07-21.
+Last updated: 2026-07-22.
 
 ## Project Intent
 
@@ -13,7 +13,7 @@ WeightTraits is a private, cleaner rebuild of ELLMTrees under `/Users/shannon/De
 - PRs 1-3 are merged to `main`: the confirm-paper rebuild, corrected all-projection results, and
   attempt-aware artifact retention.
 - PR #4, `Add free-text behavioral and PhyloLM analyses`, is open on
-  `agent/free-text-behavior`; the latest pushed commit is `3df6356`:
+  `agent/free-text-behavior`; the latest pushed commit before this results update is `61c8eb1`:
   <https://github.com/skgallagher/WeightTraits/pull/4>.
 - The local PR #4 worktree is `/Users/shannon/Desktop/phylo/WeightTraits-free-text`.
 - The Wright Llama recovery worktree is
@@ -74,13 +74,11 @@ the surface endpoint, whereas diverse HellaSwag prose adds surface-form noise. I
 semantic estimate recovers some content-level lineage signal. Present this as an interpretation,
 not a demonstrated mechanism.
 
-### Uncommitted Flan collapse appendix diagnostic
+### Flan collapse appendix diagnostic
 
-An appendix diagnostic was generated after commit `536b827` but has not been committed. The local
-worktree currently has the untracked script `scripts/flan_degeneracy_diagnostics.py`. The compact
-generated outputs were pulled to the ignored directory
-`results/behavior/flan_qv_r8_degeneracy_appendix/`; use `git add -f` only if these are intentionally
-versioned. The same outputs are on Wright under
+The appendix implementation is tracked in `scripts/flan_degeneracy_diagnostics.py` (commit
+`3df6356`). Its compact generated outputs are under
+`results/behavior/flan_qv_r8_degeneracy_appendix/`; the same outputs are on Wright under
 `outputs/behavior/flan_qv_r8_degeneracy_appendix/` in the behavioral worktree.
 
 The diagnostic joins every retained leaf to its terminal training task, classifies output form,
@@ -100,54 +98,69 @@ terminal family, which demonstrates that successful embedding coverage does not 
 natural-language response. Terminal task family is descriptive: each leaf inherits its complete
 root-to-leaf training path, so this does not identify a causal effect of the last task.
 
-Before committing this appendix work, add a focused section to `docs/BEHAVIORAL_REBUILD.md`, check
-the script with the project formatter/linter, rerun or retain the successful Wright integration
-audit, and stage only the script plus compact paper-facing outputs. Do not stage raw responses.
+The successful Wright integration audit is retained with the compact plots/tables. Do not stage raw
+responses or model artifacts.
 
-### Active Llama recovery and dependent behavior work
+### Completed Llama recovery and behavior panel
 
-The attempt-aware retention bug is fixed on `main` by PR #3. Recovery is running from
-`/home/export/sgallagh/WeightTraits-llama32-20260713`:
+The attempt-aware retention bug is fixed on `main` by PR #3. Recovery jobs `156246` (canary),
+`156247` (q/k/v LoRA rank 8), and `156248` (rank 64) completed successfully. The two preemption and
+requeue events on `156246` and `156247_0` were scheduler events, not code failures. Strict ledger and
+artifact audits passed all 50 trees at both ranks:
 
-- `156246`: r8 canary tree; running at the 2026-07-21 00:08 EDT snapshot.
-- `156247`: r8 recovery array. Task 4 was running; remaining tasks were pending under the array
-  throttle/priority.
-- `156248`: r64 recovery array. Tasks 2 and 3 completed `0:0`, task 1 was running, and remaining
-  tasks were pending.
+- each rank has 641/641 planned nodes in successful terminal states and 365 leaf nodes;
+- rank 8 ended with 165 `completed` and 476 `stopped_early` nodes;
+- rank 64 ended with 62 `completed` and 579 `stopped_early` nodes; and
+- all 641 adapters, including all 365 leaf adapters, remain retained at each rank.
 
-Jobs `156246` and `156247_0` each experienced one scheduler preemption/requeue. Treat those events
-as scheduler events unless a terminal nonzero exit and log evidence establish a code failure. The
-active log tails showed normal forward training progress and no code error at the snapshot.
+Llama rank-8 behavior arrays `156351` (HellaSwag, ARC-Challenge, MMLU, and TruthfulQA) and `156352`
+(Dolly open-ended) also completed `0:0`. All 50 trees passed complete three-draw grids, finite and
+aligned cumulative-white-box/surface/semantic cubes, honest semantic-coverage accounting, and
+dynamic `choose(L, 2)` pair counts. The 50 trees contribute 1,228 leaf pairs per endpoint. Semantic
+coverage is 62.16% for HellaSwag, 99.75% for ARC-Challenge, 99.65% for MMLU, 99.40% for
+TruthfulQA, and 98.31% for Dolly. HellaSwag's 41,430 empty outputs are retained in the surface
+endpoint and explain its much lower semantic coverage.
 
-The Llama r8 behavioral arrays in `/home/export/sgallagh/WeightTraits-behavior-20260720` are held on
-the r8 recovery dependency:
+Final DerSimonian--Laird Fisher-z random-effects correlations are:
 
-- `156351`: HellaSwag, ARC-Challenge, MMLU, and TruthfulQA;
-- `156352`: Dolly open-ended.
+| Probe | Surface r (95% CI) | Semantic r (95% CI) |
+|---|---|---|
+| ARC-Challenge | 0.034 (-0.038, 0.106) | -0.008 (-0.095, 0.079) |
+| Dolly | 0.019 (-0.051, 0.090) | 0.015 (-0.060, 0.090) |
+| HellaSwag | -0.062 (-0.142, 0.018) | -0.023 (-0.124, 0.077) |
+| MMLU | 0.035 (-0.044, 0.112) | -0.007 (-0.097, 0.083) |
+| TruthfulQA | 0.026 (-0.040, 0.093) | -0.027 (-0.099, 0.046) |
 
-Both arrays use the same generations for two endpoints: paired output-surface distance and paired
-all-MiniLM-L6-v2 semantic distance. Do not release or replace the dependency manually. After r8
-recovery succeeds, Slurm should release them automatically.
+All ten analyses use 50/50 usable trees and none is distinguishable from zero. Compact R outputs
+and audits are under `results/behavior/llama32_r8_final_20260722/`; the corresponding Wright root is
+`outputs/behavior/llama32_r8_final_20260722` in the behavioral worktree.
 
-### Required completion sequence
+The cumulative-adapter white-box analyses also completed `0:0`: job `157461` is rank 8 and job
+`157462` is rank 64. Strict rollup audits passed 50 trees and 150 tree/metric rows at each rank, with
+one row per original tree for `l2`, cosine, and correlation. All applicable statistics are finite.
+Four star/polytomy truth trees have no informative internal split, so their informative-split and
+internal-bottleneck fields are honestly `null` rather than imputed.
 
-1. Continue monitoring `156246`, `156247`, and `156248` with both `squeue` and `sacct`. Diagnose a
-   terminal failure from its log before retrying; do not retry an ordinary preemption/requeue.
-2. After the recovery arrays finish, audit all 50 r8 and all 50 r64 ledgers under
-   `examples/training/confirm_paper_numbers/llama32_1b_lora_qkv_r{8,64}_training_runlists/ledgers/`.
-   Require successful terminal state for every planned node and a retained adapter for every leaf.
-   Audit retention decisions as attempt-aware rather than merely checking that a path once existed.
-3. Run the required white-box recovery/additivity/Atteson and polytomy-aware exact-recovery analyses
-   for both ranks. Polytomy-aware exact recovery is the agreed fair comparison to neighbor joining.
-4. Monitor `156351` and `156352` after dependency release. For every tree/probe require the complete
-   prompt-by-three-draw grid, finite white-box/surface/semantic cubes, aligned leaf sets, honest
-   semantic coverage, and exactly `choose(L, 2)` rows in both pair tables using that tree's manifest
-   leaf count.
-5. When all 50 Llama trees pass, run `scripts/behavior_meta_analysis.R` separately for each probe
-   and endpoint. Report within-tree correlations, Fisher-z pooling with `1/(n_pairs-3)`,
-   DerSimonian-Laird random effects, and raw/semi/standardized run-fixed-effect coefficients.
-6. Pull only compact paper-facing audits and R summaries locally, then make a reviewable results
-   commit/PR. Never pull or commit adapters, merged checkpoints, raw response panels, or caches.
+| Rank | Metric | Polytomy-aware exact | Mean clade recovery | Mean normalized RF | Informative split accuracy | Atteson certified |
+|---|---|---:|---:|---:|---:|---:|
+| 8 | correlation | 0.88 | 0.955 | 0.361 | 0.966 | 0.36 |
+| 8 | cosine | 0.88 | 0.955 | 0.361 | 0.966 | 0.36 |
+| 8 | l2 | 0.84 | 0.940 | 0.372 | 0.966 | 0.44 |
+| 64 | correlation | 0.92 | 0.968 | 0.352 | 0.980 | 0.62 |
+| 64 | cosine | 0.92 | 0.968 | 0.352 | 0.980 | 0.62 |
+| 64 | l2 | 0.88 | 0.952 | 0.364 | 0.976 | 0.72 |
+
+The conventional fully resolved exact-recovery rate is 0.14 for every row because neighbor joining
+resolves truth polytomies arbitrarily. The polytomy-aware rate is the scientifically appropriate
+headline comparison. Compact audited results are under
+`results/whitebox/llama32_qkv_lora_20260722/{r8,r64}`; full Wright outputs remain under
+`outputs/analysis_llama32_20260722/{r8,r64}` in the Llama worktree.
+
+### Completion record
+
+The recovery, behavior, R statistics, and white-box analyses listed above are complete and audited.
+Only compact paper-facing summaries were pulled locally; adapters, merged checkpoints, raw response
+panels, caches, and per-tree white-box artifacts remain on Wright.
 
 ### Scientific scope notes
 
