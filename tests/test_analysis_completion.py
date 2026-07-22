@@ -90,6 +90,26 @@ def test_audit_training_tree_completion_can_warn_on_optional_artifacts(tmp_path)
     assert issues.count("missing_artifact") == 1
 
 
+def test_audit_training_tree_completion_allows_pruned_internal_model(tmp_path):
+    run_list = _write_run_list(tmp_path)
+    ledger = tmp_path / "ledgers/tree.training_ledger.jsonl"
+    _write_artifact_tree(tmp_path, "n1")
+    append_ledger_event(ledger, TrainingLedgerEvent(node_id="n0", status="completed"))
+    append_ledger_event(ledger, TrainingLedgerEvent(node_id="n1", status="completed"))
+
+    report = audit_training_tree_completion(
+        run_list,
+        path_base=tmp_path,
+        optional_artifacts={"training_log"},
+        required_artifact_nodes_by_name={"model": {"n1"}},
+    )
+    issues = [issue.issue for issue in report.issues]
+
+    assert report.valid
+    assert issues.count("missing_unrequired_artifact") == 1
+    assert "missing_artifact" not in issues
+
+
 def test_audit_training_run_set_completion_rolls_up_tree_status(tmp_path):
     ready = _write_named_run_list(tmp_path, "tree_001")
     partial = _write_named_run_list(tmp_path, "tree_002")

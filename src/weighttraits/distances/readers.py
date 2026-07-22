@@ -107,10 +107,7 @@ class SafetensorsTensorReader:
         yield from _iter_safetensor_flat_chunks(self.path, key, chunk_size)
 
     def read_tensor(self, key: str) -> np.ndarray:
-        from safetensors import safe_open
-
-        with safe_open(str(self.path), framework="numpy", device="cpu") as handle:
-            return handle.get_tensor(key).astype(np.float64, copy=False)
+        return _read_safetensor_tensor(self.path, key)
 
     def close(self) -> None:
         return None
@@ -156,10 +153,7 @@ class ShardedSafetensorsTensorReader:
         yield from _iter_safetensor_flat_chunks(self._shard_path(key), key, chunk_size)
 
     def read_tensor(self, key: str) -> np.ndarray:
-        from safetensors import safe_open
-
-        with safe_open(str(self._shard_path(key)), framework="numpy", device="cpu") as handle:
-            return handle.get_tensor(key).astype(np.float64, copy=False)
+        return _read_safetensor_tensor(self._shard_path(key), key)
 
     def close(self) -> None:
         self._weight_map = None
@@ -400,17 +394,16 @@ def _safetensor_tensor_info(path: Path, key: str) -> TensorInfo:
 def _iter_safetensor_flat_chunks(path: Path, key: str, chunk_size: int):
     from safetensors import safe_open
 
-    with safe_open(str(path), framework="numpy", device="cpu") as handle:
+    framework = _safetensor_framework(path, key)
+    with safe_open(str(path), framework=framework, device="cpu") as handle:
         tensor_slice = handle.get_slice(key)
         shape = tuple(tensor_slice.get_shape())
         if not shape:
-            yield np.asarray([handle.get_tensor(key)], dtype=np.float64).reshape(-1)
+            yield _as_float64(handle.get_tensor(key)).reshape(-1)
             return
         if len(shape) == 1:
             for start in range(0, shape[0], chunk_size):
-                yield tensor_slice[start : min(start + chunk_size, shape[0])].astype(
-                    np.float64, copy=False
-                )
+                yield _as_float64(tensor_slice[start : min(start + chunk_size, shape[0])])
             return
 
         row_width = int(np.prod(shape[1:], dtype=np.int64))
@@ -420,6 +413,32 @@ def _iter_safetensor_flat_chunks(path: Path, key: str, chunk_size: int):
             for start in range(0, shape[0], rows_per_slab)
         )
         yield from _yield_flat_chunks_from_blocks(blocks, chunk_size)
+
+
+def _read_safetensor_tensor(path: Path, key: str) -> np.ndarray:
+    from safetensors import safe_open
+
+    with safe_open(
+        str(path), framework=_safetensor_framework(path, key), device="cpu"
+    ) as handle:
+        return _as_float64(handle.get_tensor(key))
+
+
+def _safetensor_framework(path: Path, key: str) -> str:
+    """Use torch only for dtypes that NumPy cannot materialize safely."""
+    from safetensors import safe_open
+
+    with safe_open(str(path), framework="numpy", device="cpu") as handle:
+        dtype = str(handle.get_slice(key).get_dtype()).upper()
+    return "pt" if dtype == "BF16" else "numpy"
+
+
+def _as_float64(value) -> np.ndarray:
+    if hasattr(value, "detach"):
+        import torch
+
+        return value.detach().cpu().to(dtype=torch.float64).numpy()
+    return np.asarray(value, dtype=np.float64)
 
 
 def _load_safetensor_dict(path: Path) -> dict[str, np.ndarray]:
@@ -455,7 +474,7 @@ def _group_lora_factors(raw: dict[str, np.ndarray]) -> dict[str, dict[str, np.nd
 def _yield_flat_chunks_from_blocks(blocks, chunk_size: int):
     carry = np.empty(0, dtype=np.float64)
     for block in blocks:
-        flat = np.asarray(block, dtype=np.float64).reshape(-1)
+        flat = _as_float64(block).reshape(-1)
         if carry.size:
             flat = np.concatenate([carry, flat])
             carry = np.empty(0, dtype=np.float64)
