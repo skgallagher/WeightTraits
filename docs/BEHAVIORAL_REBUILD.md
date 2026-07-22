@@ -210,3 +210,25 @@ ARC-Challenge 0.034/-0.008, Dolly 0.019/0.015, HellaSwag -0.062/-0.023, MMLU 0.0
 TruthfulQA 0.026/-0.027. None was distinguishable from zero. Compact audits, within-tree
 correlations, pooled estimates, and raw/semi-standardized/standardized run-fixed-effect
 coefficients are versioned under `results/behavior/llama32_r8_final_20260722/`.
+
+### Llama behavioral branch-ordering appendix
+
+The paper-matched one-sided pooled Mann--Whitney test (`cross_branch > same_branch`) finds a small
+HellaSwag surface effect (p=8.91e-4, rank-biserial=.113) and a nominal Dolly surface effect
+(p=.019, rank-biserial=.075). All semantic tests are null; HellaSwag is closest at p=.076.
+Only 26/50 trees contain both branch classes, because 24 trees have a one-child root. When each
+ordering-valid tree is treated as the replication unit, no endpoint passes the one-sided Wilcoxon
+robustness test (HellaSwag surface p=.251; Dolly surface p=.742). The pooled results are therefore
+exploratory continuity statistics, not independent-pair inference.
+
+The full appendix writeup and exact ten-row summary are in
+`docs/LLAMA32_R8_BEHAVIOR_BRANCH_ORDERING_2026-07-22.md` and
+`results/behavior/llama32_r8_branch_ordering_20260722/paper_summary.csv`.
+
+For every future behavioral table, retain separate surface and semantic rows and report: model
+condition and weight representation; probe/endpoint; total, DL-usable, and ordering-valid trees;
+all/same/cross pair counts; empty-output and semantic-coverage counts; DL r, CI, p, I2, and tau2;
+pooled one-sided Mann--Whitney p plus rank-biserial; mean per-tree rank-biserial plus SE and a
+tree-level Wilcoxon/sign test; and the within-tree Fisher-z branch correlation. Pooled leaf-pair
+p-values must be labeled descriptive because pairs share leaves. Never assume 36 pairs globally or
+hide unary-root trees; derive `choose(L, 2)` and branch-class availability from each truth manifest.

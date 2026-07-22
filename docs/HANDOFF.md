@@ -135,6 +135,22 @@ All ten analyses use 50/50 usable trees and none is distinguishable from zero. C
 and audits are under `results/behavior/llama32_r8_final_20260722/`; the corresponding Wright root is
 `outputs/behavior/llama32_r8_final_20260722` in the behavioral worktree.
 
+The legacy pooled one-sided Mann--Whitney branch test adds a limited appendix nuance. HellaSwag
+surface has p=8.91e-4 and pooled rank-biserial=.113; Dolly surface has p=.019 and
+rank-biserial=.075. No semantic endpoint is significant. Only 26/50 trees contain both same- and
+cross-root-branch pairs, and no endpoint passes a tree-level one-sided Wilcoxon test on per-tree
+rank-biserial effects (HellaSwag surface p=.251; Dolly surface p=.742). Thus the pooled surface
+signals are exploratory and do not overturn the null DL results. The writeup and compact table are
+`docs/LLAMA32_R8_BEHAVIOR_BRANCH_ORDERING_2026-07-22.md` and
+`results/behavior/llama32_r8_branch_ordering_20260722/paper_summary.csv`.
+
+Future behavioral tables must include both continuous and coarse branch estimands: DL r/CI/p/I2,
+pooled Mann--Whitney p plus rank-biserial for legacy continuity, mean per-tree rank-biserial/SE and
+a tree-level Wilcoxon or sign test, within-tree Fisher-z branch r, total/usable/ordering-valid tree
+counts, all/same/cross pair counts, and endpoint coverage/empty-output counts. Label pooled
+leaf-pair inference descriptive because pairs share leaves; never manufacture cross-branch labels
+for unary-root trees or assume a fixed 36 pairs.
+
 The cumulative-adapter white-box analyses also completed `0:0`: job `157461` is rank 8 and job
 `157462` is rank 64. Strict rollup audits passed 50 trees and 150 tree/metric rows at each rank, with
 one row per original tree for `l2`, cosine, and correlation. All applicable statistics are finite.
