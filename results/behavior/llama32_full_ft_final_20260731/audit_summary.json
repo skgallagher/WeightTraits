@@ -1,0 +1,115 @@
+{
+  "condition": "llama_3_2_1b_full_finetune",
+  "jobs": {
+    "training_array": 157656,
+    "training_gates": [
+      157472,
+      157473,
+      157474
+    ],
+    "direct_whitebox": 160340,
+    "behavior_multiple_choice": 160461,
+    "behavior_dolly": 160462,
+    "final_statistics": 160743
+  },
+  "training": {
+    "trees": 50,
+    "planned_nodes": 641,
+    "leaf_nodes": 365,
+    "terminal_statuses": {
+      "completed": 19,
+      "stopped_early": 622
+    },
+    "retained_leaf_models": 365,
+    "partial_checkpoints": 0,
+    "issues": []
+  },
+  "whitebox": {
+    "artifact": "model",
+    "representation": "full_weight",
+    "layers": 146,
+    "recovery": {
+      "l2": {
+        "trees": 50,
+        "exact_tree_recovery": 7,
+        "polytomy_aware_exact_recovery": 43,
+        "mean_clade_recovery": 0.945
+      },
+      "cosine": {
+        "trees": 50,
+        "exact_tree_recovery": 7,
+        "polytomy_aware_exact_recovery": 46,
+        "mean_clade_recovery": 0.9683333333333334
+      },
+      "correlation": {
+        "trees": 50,
+        "exact_tree_recovery": 7,
+        "polytomy_aware_exact_recovery": 46,
+        "mean_clade_recovery": 0.9683333333333334
+      }
+    },
+    "validated": {
+      "finite_cubes": true,
+      "symmetric_zero_diagonal_cubes": true,
+      "aligned_manifest_leaf_sets": true,
+      "rollup_rows": 150
+    },
+    "issues": []
+  },
+  "behavior": {
+    "trees_per_condition": 50,
+    "leaf_pairs_per_endpoint_probe": 1228,
+    "semantic_coverage": {
+      "hellaswag": {
+        "valid": 76617,
+        "expected": 109500,
+        "fraction": 0.6996986301369863,
+        "preserved_empty_outputs": 32883
+      },
+      "arc_challenge": {
+        "valid": 109499,
+        "expected": 109500,
+        "fraction": 0.9999908675799086,
+        "preserved_empty_outputs": 1
+      },
+      "mmlu": {
+        "valid": 109497,
+        "expected": 109500,
+        "fraction": 0.999972602739726,
+        "preserved_empty_outputs": 3
+      },
+      "truthfulqa": {
+        "valid": 109387,
+        "expected": 109500,
+        "fraction": 0.9989680365296804,
+        "preserved_empty_outputs": 113
+      },
+      "dolly_open_ended": {
+        "valid": 32536,
+        "expected": 32850,
+        "fraction": 0.990441400304414,
+        "preserved_empty_outputs": 314
+      }
+    },
+    "validated": {
+      "complete_three_draw_grids": true,
+      "finite_whitebox_cubes": true,
+      "finite_surface_cubes": true,
+      "finite_semantic_cubes": true,
+      "symmetric_zero_diagonal_cubes": true,
+      "aligned_manifest_leaf_sets": true,
+      "surface_preserves_empty_completed_outputs": true,
+      "semantic_excludes_exactly_empty_completed_outputs": true,
+      "dynamic_choose_l_2_pair_counts": true,
+      "all_r_runs_usable": true,
+      "separate_probe_endpoint_statistics": true
+    },
+    "statistics": {
+      "analyses": 10,
+      "finite_pair_rows_per_analysis": 1228,
+      "runs_per_analysis": 50,
+      "headline_estimator": "dersimonian_laird_fisher_z"
+    },
+    "issues": []
+  }
+}

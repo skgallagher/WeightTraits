@@ -1,0 +1,4 @@
+"coefficient","estimate","std_error","statistic","degrees_of_freedom","p_value","ci_low","ci_high","n_rows","n_runs","se_type","formula"
+"raw",-26.7528637643501,6.4886737149225,-4.12300956092529,49,0.0001440180067306,-39.7923417836698,-13.7133857450305,1228,50,"run_cluster_CR1","outcome ~ predictor + run fixed effects"
+"semi_standardized",-0.0152125038524594,0.00389021362354771,-3.91045462397672,49,0.000283431306826238,-0.0230301808174836,-0.00739482688743507,1228,50,"run_cluster_CR1","outcome ~ predictor + run fixed effects"
+"standardized",-0.118488871409749,0.0327493007305455,-3.61805805823616,49,0.000701111485348533,-0.184301055191152,-0.0526766876283468,1228,50,"run_cluster_CR1","outcome ~ predictor + run fixed effects"

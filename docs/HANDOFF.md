@@ -1,10 +1,195 @@
 # WeightTraits Handoff
 
-Last updated: 2026-07-13.
+Last updated: 2026-07-22.
 
 ## Project Intent
 
 WeightTraits is a private, cleaner rebuild of ELLMTrees under `/Users/shannon/Desktop/phylo/WeightTraits`. It should remain maintainable, tested, auditable, and suitable for local smoke runs plus cluster-scale training. The main scientific targets are to independently rebuild and verify the ELLMTrees results, including the ICLR draft tables/figures, while fixing weak spots around flexible topology generation, LoRA semantics, distance computation, tree reconstruction scoring, and trainer reliability.
+
+## Live Handoff: 2026-07-21 (Read First)
+
+### Git and worktrees
+
+- PRs 1-3 are merged to `main`: the confirm-paper rebuild, corrected all-projection results, and
+  attempt-aware artifact retention.
+- PR #4, `Add free-text behavioral and PhyloLM analyses`, is open on
+  `agent/free-text-behavior`; the latest pushed commit before this results update is `61c8eb1`:
+  <https://github.com/skgallagher/WeightTraits/pull/4>.
+- The local PR #4 worktree is `/Users/shannon/Desktop/phylo/WeightTraits-free-text`.
+- The Wright Llama recovery worktree is
+  `/home/export/sgallagh/WeightTraits-llama32-20260713`.
+- The Wright behavioral worktree is
+  `/home/export/sgallagh/WeightTraits-behavior-20260720`.
+- The original Wright Flan training tree is `/home/export/sgallagh/WeightTraits`. Treat its
+  training artifacts and ledgers as read-only; write new behavioral outputs only in the behavioral
+  worktree.
+- Wright is normally reached through the persistent control socket `/tmp/wright-codex.sock`.
+
+### Behavioral review hardening
+
+PR #4 now fails closed on behavior/weight model-set mismatches, validates cached response artifacts
+against a SHA-256 fingerprint of prompts and generation provenance before skipping, records the exact
+per-pair behavioral observation denominator in regression CSVs, and pins every held-out dataset plus
+`sentence-transformers/all-MiniLM-L6-v2` to the commits used by the completed Flan panel. The encoder
+revision is `1110a243fdf4706b3f48f1d95db1a4f5529b4d41`; dataset pins live beside each declaration in
+`src/weighttraits/behavior/probes.py`. Focused tests pass in Wright's production `weighttraits`
+environment at commit `3df6356`.
+
+### Completed Flan q/v LoRA rank-8 behavior panel
+
+The paper-matched Flan-T5-base q/v LoRA rank-8 panel is complete. Gate jobs `156398` and `156399`
+and production arrays `156411` and `156412` all completed successfully. All 50 trees passed the
+complete three-draw grid, finite white-box/surface/semantic cube, aligned-leaf, and dynamic
+`choose(L, 2)` pair-count audits. Trees have 4-10 leaves; never assume 36 pairs globally.
+
+The multiple-choice panel contains 438,000 outputs and preserves 4,154 empty outputs. Semantic
+coverage is 99.14% for HellaSwag, 99.49% for ARC-Challenge, 99.60% for MMLU, and 97.97% for
+TruthfulQA. Dolly contains 32,850 outputs, preserves 818 empty outputs, and has 97.51% semantic
+coverage. Empty, label-only, fragmentary, repetitive, and collapsed generations are observations
+in the surface endpoint rather than hidden failures. Empty strings alone are excluded from the
+sentence-embedding endpoint.
+
+Final DerSimonian-Laird Fisher-z random-effects correlations between weight distance and behavioral
+similarity are:
+
+| Probe | Surface r (95% CI) | Semantic r (95% CI) |
+|---|---|---|
+| ARC-Challenge | -0.230 (-0.301, -0.156) | -0.249 (-0.327, -0.167) |
+| Dolly | -0.156 (-0.223, -0.088) | -0.219 (-0.296, -0.138) |
+| HellaSwag | -0.008 (-0.075, 0.059) | -0.112 (-0.194, -0.028) |
+| MMLU | -0.230 (-0.301, -0.156) | -0.252 (-0.332, -0.169) |
+| TruthfulQA | -0.128 (-0.190, -0.064) | -0.212 (-0.275, -0.148) |
+
+All entries use 50/50 usable trees. The compact tracked results are under
+`results/behavior/flan_qv_r8_final_20260720/`; `paper_summary.csv` is the canonical short table and
+`audit_summary.json` records the complete-panel audit. Full Wright outputs are under
+`outputs/behavior/flan_qv_r8_final_20260720` in the behavioral worktree.
+
+HellaSwag's null surface result is not explained by greater degeneration. Across all 365 leaves,
+65.1% of its outputs are natural language and 26.1% are label-only; its median unique-response
+fraction is 90.7% and median dominant-response fraction is 5.7%. ARC-Challenge and MMLU are each
+about 81% label-only, 14% natural language, 4% median unique responses, and 32% median dominant
+response. The working interpretation is that stable label-format habits retain lineage signal in
+the surface endpoint, whereas diverse HellaSwag prose adds surface-form noise. Its significant
+semantic estimate recovers some content-level lineage signal. Present this as an interpretation,
+not a demonstrated mechanism.
+
+### Flan collapse appendix diagnostic
+
+The appendix implementation is tracked in `scripts/flan_degeneracy_diagnostics.py` (commit
+`3df6356`). Its compact generated outputs are under
+`results/behavior/flan_qv_r8_degeneracy_appendix/`; the same outputs are on Wright under
+`outputs/behavior/flan_qv_r8_degeneracy_appendix/` in the behavioral worktree.
+
+The diagnostic joins every retained leaf to its terminal training task, classifies output form,
+and reports exact-response concentration plus nonempty embedding coverage. Its audit passed over
+50 trees, 365 unique leaves, five probes, and 1,825 leaf-probe rows with no issues. It produced:
+
+- `leaf_probe_diagnostics.csv` and `task_family_probe_summary.csv`;
+- `collapse_examples.csv`;
+- `flan-output-composition.{pdf,svg}`;
+- `flan-semantic-coverage-diagnostic.{pdf,svg}`; and
+- `flan-dominant-response.{pdf,svg}`.
+
+Pooled across probes, terminal classification leaves produced 78.9% label-only and 10.8%
+natural-language outputs. Natural-language fractions were 41.2% for QA, 48.8% for summarization,
+and 31.4% for translation terminal leaves. Nonempty embedding coverage remained 96.8-99.7% by
+terminal family, which demonstrates that successful embedding coverage does not imply a healthy
+natural-language response. Terminal task family is descriptive: each leaf inherits its complete
+root-to-leaf training path, so this does not identify a causal effect of the last task.
+
+The successful Wright integration audit is retained with the compact plots/tables. Do not stage raw
+responses or model artifacts.
+
+### Completed Llama recovery and behavior panel
+
+The attempt-aware retention bug is fixed on `main` by PR #3. Recovery jobs `156246` (canary),
+`156247` (q/k/v LoRA rank 8), and `156248` (rank 64) completed successfully. The two preemption and
+requeue events on `156246` and `156247_0` were scheduler events, not code failures. Strict ledger and
+artifact audits passed all 50 trees at both ranks:
+
+- each rank has 641/641 planned nodes in successful terminal states and 365 leaf nodes;
+- rank 8 ended with 165 `completed` and 476 `stopped_early` nodes;
+- rank 64 ended with 62 `completed` and 579 `stopped_early` nodes; and
+- all 641 adapters, including all 365 leaf adapters, remain retained at each rank.
+
+Llama rank-8 behavior arrays `156351` (HellaSwag, ARC-Challenge, MMLU, and TruthfulQA) and `156352`
+(Dolly open-ended) also completed `0:0`. All 50 trees passed complete three-draw grids, finite and
+aligned cumulative-white-box/surface/semantic cubes, honest semantic-coverage accounting, and
+dynamic `choose(L, 2)` pair counts. The 50 trees contribute 1,228 leaf pairs per endpoint. Semantic
+coverage is 62.16% for HellaSwag, 99.75% for ARC-Challenge, 99.65% for MMLU, 99.40% for
+TruthfulQA, and 98.31% for Dolly. HellaSwag's 41,430 empty outputs are retained in the surface
+endpoint and explain its much lower semantic coverage.
+
+Final DerSimonian--Laird Fisher-z random-effects correlations are:
+
+| Probe | Surface r (95% CI) | Semantic r (95% CI) |
+|---|---|---|
+| ARC-Challenge | 0.034 (-0.038, 0.106) | -0.008 (-0.095, 0.079) |
+| Dolly | 0.019 (-0.051, 0.090) | 0.015 (-0.060, 0.090) |
+| HellaSwag | -0.062 (-0.142, 0.018) | -0.023 (-0.124, 0.077) |
+| MMLU | 0.035 (-0.044, 0.112) | -0.007 (-0.097, 0.083) |
+| TruthfulQA | 0.026 (-0.040, 0.093) | -0.027 (-0.099, 0.046) |
+
+All ten analyses use 50/50 usable trees and none is distinguishable from zero. Compact R outputs
+and audits are under `results/behavior/llama32_r8_final_20260722/`; the corresponding Wright root is
+`outputs/behavior/llama32_r8_final_20260722` in the behavioral worktree.
+
+The legacy pooled one-sided Mann--Whitney branch test adds a limited appendix nuance. HellaSwag
+surface has p=8.91e-4 and pooled rank-biserial=.113; Dolly surface has p=.019 and
+rank-biserial=.075. No semantic endpoint is significant. Only 26/50 trees contain both same- and
+cross-root-branch pairs, and no endpoint passes a tree-level one-sided Wilcoxon test on per-tree
+rank-biserial effects (HellaSwag surface p=.251; Dolly surface p=.742). Thus the pooled surface
+signals are exploratory and do not overturn the null DL results. The writeup and compact table are
+`docs/LLAMA32_R8_BEHAVIOR_BRANCH_ORDERING_2026-07-22.md` and
+`results/behavior/llama32_r8_branch_ordering_20260722/paper_summary.csv`.
+
+Future behavioral tables must include both continuous and coarse branch estimands: DL r/CI/p/I2,
+pooled Mann--Whitney p plus rank-biserial for legacy continuity, mean per-tree rank-biserial/SE and
+a tree-level Wilcoxon or sign test, within-tree Fisher-z branch r, total/usable/ordering-valid tree
+counts, all/same/cross pair counts, and endpoint coverage/empty-output counts. Label pooled
+leaf-pair inference descriptive because pairs share leaves; never manufacture cross-branch labels
+for unary-root trees or assume a fixed 36 pairs.
+
+The cumulative-adapter white-box analyses also completed `0:0`: job `157461` is rank 8 and job
+`157462` is rank 64. Strict rollup audits passed 50 trees and 150 tree/metric rows at each rank, with
+one row per original tree for `l2`, cosine, and correlation. All applicable statistics are finite.
+Four star/polytomy truth trees have no informative internal split, so their informative-split and
+internal-bottleneck fields are honestly `null` rather than imputed.
+
+| Rank | Metric | Polytomy-aware exact | Mean clade recovery | Mean normalized RF | Informative split accuracy | Atteson certified |
+|---|---|---:|---:|---:|---:|---:|
+| 8 | correlation | 0.88 | 0.955 | 0.361 | 0.966 | 0.36 |
+| 8 | cosine | 0.88 | 0.955 | 0.361 | 0.966 | 0.36 |
+| 8 | l2 | 0.84 | 0.940 | 0.372 | 0.966 | 0.44 |
+| 64 | correlation | 0.92 | 0.968 | 0.352 | 0.980 | 0.62 |
+| 64 | cosine | 0.92 | 0.968 | 0.352 | 0.980 | 0.62 |
+| 64 | l2 | 0.88 | 0.952 | 0.364 | 0.976 | 0.72 |
+
+The conventional fully resolved exact-recovery rate is 0.14 for every row because neighbor joining
+resolves truth polytomies arbitrarily. The polytomy-aware rate is the scientifically appropriate
+headline comparison. Compact audited results are under
+`results/whitebox/llama32_qkv_lora_20260722/{r8,r64}`; full Wright outputs remain under
+`outputs/analysis_llama32_20260722/{r8,r64}` in the Llama worktree.
+
+### Completion record
+
+The recovery, behavior, R statistics, and white-box analyses listed above are complete and audited.
+Only compact paper-facing summaries were pulled locally; adapters, merged checkpoints, raw response
+panels, caches, and per-tree white-box artifacts remain on Wright.
+
+### Scientific scope notes
+
+- The training task/dataset assignments are sampled without replacement within each tree. They are
+  not error-adaptive and do not resample examples the model misses. An AdaBoost analogy is useful
+  only as inspiration for a future adaptive branching experiment; the present design has neither
+  error-based reweighting nor an ensemble vote.
+- The surface endpoint is paired mean absolute distance over auditable output-form features: empty,
+  label-only, repetition, natural language, fragment, length, token count, character composition,
+  and lexical diversity. It intentionally does not compare semantic content.
+- The semantic endpoint embeds every nonempty output. A label such as `A`, `0`, or `True` can
+  therefore have valid embedding coverage while remaining task-format collapse. Always report
+  surface composition and semantic coverage together.
 
 ## Current Checkpoint
 

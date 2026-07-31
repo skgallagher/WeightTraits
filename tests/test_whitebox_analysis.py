@@ -427,11 +427,16 @@ def _write_truth_manifest(path) -> None:
 
 
 def _write_ready_run_set_tree(tmp_path: Path, tree_id: str) -> dict[str, Path]:
-    run_list = _write_leaf_run_list(tmp_path, tree_id)
+    run_list = _write_run_list_with_pruned_internal_models(tmp_path, tree_id)
     ledger = tmp_path / f"ledgers/{tree_id}.training_ledger.jsonl"
     truth = tmp_path / f"truth/{tree_id}.manifest.jsonl"
     truth.parent.mkdir(parents=True, exist_ok=True)
     _write_truth_manifest(truth)
+    for node_id in ("n0", "n1"):
+        append_ledger_event(
+            ledger,
+            TrainingLedgerEvent(node_id=node_id, status="completed"),
+        )
     values = {"n2": 0.0, "n3": 1.0, "n4": 10.0, "n5": 11.0}
     for node_id, value in values.items():
         model_dir = tmp_path / f"checkpoints/{tree_id}/{node_id}/model"
@@ -452,6 +457,46 @@ def _write_ready_run_set_tree(tmp_path: Path, tree_id: str) -> dict[str, Path]:
             ),
         )
     return {"run_list": run_list, "ledger": ledger, "truth": truth}
+
+
+def _write_run_list_with_pruned_internal_models(tmp_path: Path, tree_id: str) -> Path:
+    rows = []
+    topology = {
+        "n0": ("root", 1),
+        "n1": ("root", 1),
+        "n2": ("n0", 2),
+        "n3": ("n0", 2),
+        "n4": ("n1", 2),
+        "n5": ("n1", 2),
+    }
+    for index, (node_id, (parent_id, depth)) in enumerate(topology.items()):
+        expected_artifacts = {"model": f"checkpoints/{tree_id}/{node_id}/model"}
+        if node_id in {"n2", "n3", "n4", "n5"}:
+            expected_artifacts["training_log"] = (
+                f"checkpoints/{tree_id}/{node_id}/training_log.jsonl"
+            )
+        rows.append(
+            {
+                "array_index": index,
+                "run_id": f"{tree_id}-{node_id}",
+                "node_id": node_id,
+                "parent_id": parent_id,
+                "depth": depth,
+                "method": "full",
+                "dataset_id": "squad",
+                "task_family": "qa",
+                "init_from": "base" if depth == 1 else f"parent:{parent_id}",
+                "output_dir": f"checkpoints/{tree_id}/{node_id}",
+                "expected_artifacts": expected_artifacts,
+                "ledger_path": f"ledgers/{tree_id}.training_ledger.jsonl",
+                "runner": {},
+                "job": {},
+            }
+        )
+    run_list = tmp_path / f"run_lists/{tree_id}.runs.jsonl"
+    run_list.parent.mkdir(parents=True, exist_ok=True)
+    run_list.write_text("\n".join(json.dumps(row, sort_keys=True) for row in rows) + "\n")
+    return run_list
 
 
 def _write_leaf_run_list(tmp_path: Path, tree_id: str) -> Path:

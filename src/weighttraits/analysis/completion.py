@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from weighttraits.manifests.reference import manifest_leaf_ids
 from weighttraits.training.ledger import (
     TERMINAL_STATUSES,
     TrainingLedgerEvent,
@@ -158,6 +159,7 @@ def audit_training_tree_completion(
     path_base: str | Path = ".",
     ok_statuses: set[str] | None = None,
     optional_artifacts: set[str] | None = None,
+    required_artifact_nodes_by_name: Mapping[str, set[str]] | None = None,
     require_artifacts: bool = True,
     require_parent_order: bool = True,
 ) -> TreeCompletionReport:
@@ -174,6 +176,7 @@ def audit_training_tree_completion(
     event_positions = _event_positions(events)
     acceptable = ok_statuses or OK_TERMINAL_STATUSES
     optional = optional_artifacts or set()
+    required_nodes = required_artifact_nodes_by_name or {}
 
     issues: list[TreeCompletionIssue] = []
     node_reports: list[NodeCompletionReport] = []
@@ -200,7 +203,9 @@ def audit_training_tree_completion(
                         message=f"optional artifact is missing: {name}",
                     )
                 )
-            elif require_artifacts:
+            elif require_artifacts and (
+                name not in required_nodes or run.node_id in required_nodes[name]
+            ):
                 issues.append(
                     TreeCompletionIssue(
                         severity="error",
@@ -208,6 +213,16 @@ def audit_training_tree_completion(
                         node_id=run.node_id,
                         path=check.path,
                         message=f"expected artifact is missing: {name}",
+                    )
+                )
+            elif require_artifacts:
+                issues.append(
+                    TreeCompletionIssue(
+                        severity="warning",
+                        issue="missing_unrequired_artifact",
+                        node_id=run.node_id,
+                        path=check.path,
+                        message=f"artifact is missing outside the required node set: {name}",
                     )
                 )
         if latest_event is None:
@@ -254,6 +269,7 @@ def audit_training_run_set_completion(
     *,
     path_base: str | Path = ".",
     optional_artifacts: set[str] | None = None,
+    leaf_only_artifacts: set[str] | None = None,
     require_artifacts: bool = True,
     require_parent_order: bool = True,
     only_ready: bool = False,
@@ -272,11 +288,23 @@ def audit_training_run_set_completion(
         if not run_list:
             raise ValueError(f"tree entry {index} has no run_list: {summary}")
         tree_id = str(tree.get("tree_id") or Path(str(run_list)).stem.removesuffix(".runs"))
+        required_artifact_nodes_by_name = None
+        if leaf_only_artifacts:
+            manifest = tree.get("manifest")
+            manifest_path = (
+                None if not manifest else _resolve(str(manifest), Path(path_base))
+            )
+            if manifest_path is not None and manifest_path.exists():
+                leaves = set(manifest_leaf_ids(manifest_path))
+                required_artifact_nodes_by_name = {
+                    name: leaves for name in leaf_only_artifacts
+                }
         tree_report = audit_training_tree_completion(
             str(run_list),
             ledger=_optional_tree_path(tree.get("ledger")),
             path_base=path_base,
             optional_artifacts=optional_artifacts,
+            required_artifact_nodes_by_name=required_artifact_nodes_by_name,
             require_artifacts=require_artifacts,
             require_parent_order=require_parent_order,
         )

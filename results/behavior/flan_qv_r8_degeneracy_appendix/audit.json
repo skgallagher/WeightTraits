@@ -1,0 +1,32 @@
+{
+  "definitions": {
+    "dominant_response_fraction": "frequency of the most common exact response, including empty strings",
+    "embedding_coverage": "fraction of prompt-draw outputs that were nonempty and embedded",
+    "natural_language_fraction": "fraction classified as natural-language output by the surface endpoint"
+  },
+  "issues": [],
+  "n_leaf_probe_rows": 1825,
+  "n_trees": 50,
+  "n_unique_leaf_models": 365,
+  "output_classes": [
+    "empty",
+    "label_only",
+    "fragment",
+    "repetition_loop",
+    "natural_language"
+  ],
+  "probes": [
+    "hellaswag",
+    "arc_challenge",
+    "mmlu",
+    "truthfulqa",
+    "dolly_open_ended"
+  ],
+  "schema_version": 1,
+  "terminal_task_families": [
+    "classification",
+    "qa",
+    "summarization",
+    "translation"
+  ]
+}

@@ -56,6 +56,7 @@ def analyze_training_run_set(
         summary,
         path_base=path_base,
         optional_artifacts=optional_artifacts,
+        leaf_only_artifacts={artifact} if artifact in {"model", "merged"} else None,
         only_ready=False,
     )
     known_tree_ids = {row.tree_id for row in completion.rows}

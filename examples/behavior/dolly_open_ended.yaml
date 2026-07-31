@@ -1,0 +1,26 @@
+probe:
+  id: dolly_open_ended
+  dataset: databricks/databricks-dolly-15k
+  split: train
+  seed: 42
+  n_prompts: 100
+  categories:
+    - open_qa
+    - general_qa
+    - brainstorming
+    - creative_writing
+  samples_per_prompt: 3
+  max_new_tokens: 96
+  generation:
+    do_sample: true
+    temperature: 1.0
+    top_p: 1.0
+    empty_policy: preserve
+  analysis:
+    output_surface: paired_per_prompt_gower
+    semantic: natural_language_only_paired_cosine
+    report_semantic_coverage: true
+notes:
+  - Dolly is absent from the 36-dataset WeightTraits training pool.
+  - Prompts contain no answer choices or category labels.
+  - Immediate EOS and collapsed strings are retained as output-form phenotypes.
