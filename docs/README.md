@@ -47,6 +47,8 @@ as dated project records; they are useful for provenance but are not the best on
 
 ## Reproduce paper artifacts
 
+- [Compute and Runtime](COMPUTE_RUNTIME.md) — observed wall times, hardware, GPU-hours, and Slurm
+  provenance for completed and partial experiment sets.
 - [Paper Reproduction](PAPER_REPRODUCTION.md) — registries, commands, comparison gates, and known
   external-input requirements.
 - [Paper Workspace](../paper/README.md) — paper registry files and artifact builders.
