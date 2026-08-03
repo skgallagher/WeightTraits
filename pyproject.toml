@@ -5,11 +5,21 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "weighttraits"
 version = "0.1.0"
-description = "Independent rebuild and verification of weight/behavior phylogenetic analyses for LLM fine-tuning lineages."
+description = "Research toolkit for reconstructing and auditing fine-tuning lineages in language-model families."
 readme = "README.md"
 requires-python = ">=3.11"
+license = {file = "LICENSE"}
 authors = [
   {name = "Shannon K. Gallagher"}
+]
+keywords = ["language-models", "phylogenetics", "fine-tuning", "provenance", "reproducibility"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
   "numpy>=1.24",
@@ -33,6 +43,7 @@ training = [
   "datasets>=2.19",
   "evaluate>=0.4",
   "peft>=0.10",
+  "torch>=2.1",
   "transformers>=4.40",
   "wandb>=0.17"
 ]
@@ -51,6 +62,11 @@ dev = [
 
 [project.scripts]
 wt = "weighttraits.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/skgallagher/WeightTraits"
+Repository = "https://github.com/skgallagher/WeightTraits"
+Issues = "https://github.com/skgallagher/WeightTraits/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]

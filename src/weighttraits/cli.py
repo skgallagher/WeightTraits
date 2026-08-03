@@ -9,6 +9,31 @@ from typing import Mapping, Sequence
 
 import yaml
 
+from weighttraits.behavior.distances import paired_cosine_distances
+from weighttraits.behavior.phylolm import (
+    load_gene_pool,
+    sample_genes,
+    write_phylolm_analysis,
+    write_sampled_genome,
+)
+from weighttraits.behavior.phylolm_inference import collect_phylolm_population
+from weighttraits.behavior.probe_inference import (
+    collect_behavior_model_responses,
+    sentence_transformer_embedding_tensor,
+)
+from weighttraits.behavior.probes import (
+    HELDOUT_PROBE_DATASETS,
+    load_behavior_prompts,
+    load_heldout_probe_prompts,
+    load_hellaswag_prompts,
+    write_behavior_prompts,
+)
+from weighttraits.behavior.responses import (
+    audit_behavior_responses,
+    load_behavior_responses,
+)
+from weighttraits.behavior.regression import paired_distance_rows, write_paired_distance_rows
+from weighttraits.behavior.surface import paired_surface_distances
 from weighttraits.paper.figures import (
     load_weighttraits_paired_comparisons_artifact,
     load_weighttraits_runset_diagnostics_artifact,
@@ -41,11 +66,12 @@ from weighttraits.analysis.whitebox import analyze_training_ledger, analyze_trai
 from weighttraits.audit.ellmtrees import inventory_ellmtrees
 from weighttraits.distances.manifest import (
     distance_input_rows_from_training_ledger,
+    load_distance_input_manifest,
     readers_from_distance_manifest,
     write_distance_input_manifest,
 )
 from weighttraits.distances.readers import CumulativeLoraReader, LoraFactorReader, reader_from_path
-from weighttraits.distances.streaming import build_distance_cube, write_distance_cube
+from weighttraits.distances.streaming import DistanceCube, build_distance_cube, write_distance_cube
 from weighttraits.manifests.reference import manifest_leaf_ids
 from weighttraits.paper.results import (
     behavior_holdout_draft_table_rows,
@@ -115,6 +141,7 @@ from weighttraits.training.runlist import (
 from weighttraits.training.retention import (
     append_retention_audit,
     default_retention_audit_path,
+    prune_completed_lora_tree_materializations,
     prune_completed_parent_artifact,
 )
 
@@ -468,6 +495,299 @@ def _make_behavior_holdout_table(args: argparse.Namespace) -> int:
         "models": sorted({str(row["model"]) for row in rows}),
     }
     print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
+def _audit_behavior_responses(args: argparse.Namespace) -> int:
+    if args.responses.is_dir():
+        response_files = sorted(args.responses.glob("*.jsonl"))
+        if not response_files:
+            raise ValueError(f"no behavior response JSONL files found in {args.responses}")
+    else:
+        response_files = [args.responses]
+    report = audit_behavior_responses(
+        [record for path in response_files for record in load_behavior_responses(path)],
+        expected_samples_per_prompt=args.expected_samples_per_prompt,
+        allow_empty_completed=args.allow_empty_completed,
+    )
+    report["source_files"] = [str(path) for path in response_files]
+    if args.out:
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+    else:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    return 0 if report["valid"] else 1
+
+
+def _build_behavior_embedding_distances(args: argparse.Namespace) -> int:
+    import numpy as np
+
+    with np.load(args.embeddings) as data:
+        required = {"embeddings", "model_ids", "observation_ids"}
+        missing = sorted(required - set(data.files))
+        if missing:
+            raise ValueError(f"behavior embedding NPZ is missing arrays: {missing}")
+        result = paired_cosine_distances(
+            data["embeddings"],
+            model_ids=[str(item) for item in data["model_ids"].tolist()],
+            observation_ids=[str(item) for item in data["observation_ids"].tolist()],
+            valid_mask=data["valid_mask"] if "valid_mask" in data.files else None,
+        )
+    if result.audit["n_pairs_without_shared_observations"] and not args.allow_incomplete_pairs:
+        raise ValueError(
+            "one or more model pairs have no shared valid observations; "
+            "pass --allow-incomplete-pairs only for audit-only output"
+        )
+    if np.any(~np.isfinite(result.distances)):
+        raise ValueError("cannot persist a distance cube containing non-finite pair distances")
+    cube = DistanceCube(
+        distances={"semantic_paired": result.distances[None, :, :]},
+        layer_names=["paired_prompt_outputs"],
+        model_ids=list(result.model_ids),
+        audit={
+            **result.audit,
+            "source_embeddings": str(args.embeddings),
+            "metric": "semantic_paired",
+        },
+    )
+    write_distance_cube(cube, args.out)
+    np.save(args.out / "observation_counts.npy", result.observation_counts)
+    return 0
+
+
+def _build_behavior_surface_distances(args: argparse.Namespace) -> int:
+    import numpy as np
+
+    files = sorted(args.responses_dir.glob("*.jsonl"))
+    if not files:
+        raise ValueError(f"no behavior response JSONL files found in {args.responses_dir}")
+    result = paired_surface_distances(
+        [record for path in files for record in load_behavior_responses(path)]
+    )
+    if result.audit["n_pairs_without_shared_observations"] and not args.allow_incomplete_pairs:
+        raise ValueError(
+            "one or more model pairs have no shared surface observations; "
+            "pass --allow-incomplete-pairs only for audit-only output"
+        )
+    if np.any(~np.isfinite(result.distances)):
+        raise ValueError("cannot persist a surface distance cube containing non-finite distances")
+    cube = DistanceCube(
+        distances={"output_surface_paired": result.distances[None, :, :]},
+        layer_names=["paired_prompt_outputs"],
+        model_ids=list(result.model_ids),
+        audit={
+            **result.audit,
+            "source_files": [str(path) for path in files],
+            "metric": "output_surface_paired",
+        },
+    )
+    write_distance_cube(cube, args.out)
+    np.save(args.out / "observation_counts.npy", result.observation_counts)
+    traits_path = args.traits_out or args.out / "output_surface_traits.json"
+    traits_path.parent.mkdir(parents=True, exist_ok=True)
+    traits_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "run_id": result.audit["run_id"],
+                "probe_id": result.audit["probe_id"],
+                "feature_names": list(result.feature_names),
+                "traits_by_model": result.traits_by_model,
+                "source_files": [str(path) for path in files],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    print(json.dumps({"out": str(args.out), "traits": str(traits_path), **result.audit}))
+    return 0
+
+
+def _make_behavior_regression_pairs(args: argparse.Namespace) -> int:
+    rows, audit = paired_distance_rows(
+        run_id=args.run_id,
+        weight_cube=args.weight_cube,
+        behavior_cube=args.behavior_cube,
+        weight_metric=args.weight_metric,
+        behavior_metric=args.behavior_metric,
+        weight_layer=args.weight_layer,
+        behavior_layer=args.behavior_layer,
+        weight_aggregate=args.weight_aggregate,
+        behavior_aggregate=args.behavior_aggregate,
+    )
+    write_paired_distance_rows(rows, args.out)
+    audit_path = args.audit_out or args.out.with_suffix(".audit.json")
+    audit_path.write_text(json.dumps(audit, indent=2, sort_keys=True) + "\n")
+    print(json.dumps({"out": str(args.out), "audit": str(audit_path), **audit}, indent=2))
+    return 0
+
+
+def _make_phylolm_genome(args: argparse.Namespace) -> int:
+    genes = sample_genes(load_gene_pool(args.gene_pool), n_genes=args.n_genes, seed=args.seed)
+    write_sampled_genome(args.out, genes=genes, source_path=args.gene_pool, seed=args.seed)
+    print(json.dumps({"out": str(args.out), "n_genes": len(genes), "seed": args.seed}))
+    return 0
+
+
+def _build_phylolm_analysis(args: argparse.Namespace) -> int:
+    audit = write_phylolm_analysis(args.populations, args.out, eps=args.eps)
+    print(json.dumps(audit, indent=2, sort_keys=True))
+    return 0
+
+
+def _collect_phylolm_population(args: argparse.Namespace) -> int:
+    specs = load_distance_input_manifest(args.input_manifest)
+    if args.model_index is not None:
+        if args.model_index < 0 or args.model_index >= len(specs):
+            raise IndexError(f"model index out of range: {args.model_index}")
+        spec = specs[args.model_index]
+    else:
+        matches = [spec for spec in specs if spec.model_id == args.model_id]
+        if len(matches) != 1:
+            raise ValueError(f"expected one input model named {args.model_id!r}, found {len(matches)}")
+        spec = matches[0]
+    output = args.out_dir / f"{spec.model_id}.json"
+    if output.exists() and not args.overwrite:
+        print(json.dumps({"status": "skipped", "model_id": spec.model_id, "out": str(output)}))
+        return 0
+    metadata = collect_phylolm_population(
+        spec,
+        genome_path=args.genome,
+        out_path=output,
+        base_model=args.base_model,
+        base_revision=args.base_revision,
+        samples_per_gene=args.samples_per_gene,
+        new_tokens=args.new_tokens,
+        allele_characters=args.allele_characters,
+        temperature=args.temperature,
+        batch_size=args.batch_size,
+        seed=args.seed,
+        local_files_only=args.local_files_only,
+    )
+    print(
+        json.dumps(
+            {"status": "completed", "model_id": spec.model_id, "out": str(output), **metadata},
+            indent=2,
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def _prepare_hellaswag_probe(args: argparse.Namespace) -> int:
+    prompts = load_hellaswag_prompts(
+        model_task=args.model_task,
+        n_prompts=args.n_prompts,
+        seed=args.seed,
+        local_files_only=args.local_files_only,
+    )
+    write_behavior_prompts(prompts, args.out)
+    print(json.dumps({"out": str(args.out), "n_prompts": len(prompts), "seed": args.seed}))
+    return 0
+
+
+def _prepare_behavior_probe(args: argparse.Namespace) -> int:
+    prompts = load_heldout_probe_prompts(
+        probe_id=args.probe,
+        model_task=args.model_task,
+        n_prompts=args.n_prompts,
+        seed=args.seed,
+        prompt_style=args.prompt_style,
+        local_files_only=args.local_files_only,
+    )
+    write_behavior_prompts(prompts, args.out)
+    print(
+        json.dumps(
+            {
+                "out": str(args.out),
+                "probe": args.probe,
+                "n_prompts": len(prompts),
+                "seed": args.seed,
+                "prompt_style": args.prompt_style,
+            }
+        )
+    )
+    return 0
+
+
+def _collect_behavior_responses(args: argparse.Namespace) -> int:
+    specs = load_distance_input_manifest(args.input_manifest)
+    if args.model_index is not None:
+        if args.model_index < 0 or args.model_index >= len(specs):
+            raise IndexError(f"model index out of range: {args.model_index}")
+        spec = specs[args.model_index]
+    else:
+        matches = [spec for spec in specs if spec.model_id == args.model_id]
+        if len(matches) != 1:
+            raise ValueError(f"expected one input model named {args.model_id!r}, found {len(matches)}")
+        spec = matches[0]
+    output = args.out_dir / f"{spec.model_id}.jsonl"
+    if output.exists() and not args.overwrite:
+        print(json.dumps({"status": "skipped", "model_id": spec.model_id, "out": str(output)}))
+        return 0
+    report = collect_behavior_model_responses(
+        spec,
+        run_id=args.run_id,
+        prompts=load_behavior_prompts(args.prompts),
+        out_path=output,
+        model_task=args.model_task,
+        base_model=args.base_model,
+        base_revision=args.base_revision,
+        samples_per_prompt=args.samples_per_prompt,
+        min_new_tokens=args.min_new_tokens,
+        max_new_tokens=args.max_new_tokens,
+        do_sample=args.do_sample,
+        temperature=args.temperature,
+        top_p=args.top_p,
+        batch_size=args.batch_size,
+        seed=args.seed,
+        empty_policy=args.empty_policy,
+        local_files_only=args.local_files_only,
+    )
+    print(json.dumps({"out": str(output), **report}, indent=2, sort_keys=True))
+    return 0 if report["valid"] else 1
+
+
+def _embed_behavior_responses(args: argparse.Namespace) -> int:
+    import numpy as np
+
+    files = sorted(args.responses_dir.glob("*.jsonl"))
+    if not files:
+        raise ValueError(f"no behavior response JSONL files found in {args.responses_dir}")
+    records = [record for file in files for record in load_behavior_responses(file)]
+    embeddings, model_ids, observation_ids, valid_mask, metadata = (
+        sentence_transformer_embedding_tensor(
+            records,
+            model_name=args.embedding_model,
+            batch_size=args.batch_size,
+            local_files_only=args.local_files_only,
+            natural_language_only=args.natural_language_only,
+        )
+    )
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(
+        args.out,
+        embeddings=embeddings,
+        model_ids=np.asarray(model_ids),
+        observation_ids=np.asarray(observation_ids),
+        valid_mask=valid_mask,
+    )
+    metadata_path = args.metadata_out or args.out.with_suffix(".metadata.json")
+    metadata_path.write_text(
+        json.dumps(
+            {
+                **metadata,
+                "embedding_model": args.embedding_model,
+                "source_files": [str(file) for file in files],
+                "out": str(args.out),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    print(json.dumps({"out": str(args.out), "metadata": str(metadata_path), **metadata}))
     return 0
 
 
@@ -1128,6 +1448,24 @@ def _prune_training_parent_artifact(args: argparse.Namespace) -> int:
     return 0
 
 
+def _prune_training_lora_tree_materializations(args: argparse.Namespace) -> int:
+    runs = load_training_run_specs(args.run_list)
+    ledger_paths = {run.ledger_path for run in runs}
+    if len(ledger_paths) != 1:
+        raise ValueError("training run list must use one shared ledger for tree cleanup")
+    ledger_path = next(iter(ledger_paths))
+    result = prune_completed_lora_tree_materializations(
+        runs,
+        ledger_events=load_ledger_events(ledger_path),
+        dry_run=args.dry_run,
+    )
+    if not args.dry_run:
+        audit_path = args.audit_out or default_retention_audit_path(ledger_path)
+        append_retention_audit(audit_path, result)
+    print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    return 0
+
+
 def _parse_labeled_path(value: str) -> tuple[str | None, Path]:
     if ":" in value:
         label, raw_path = value.split(":", 1)
@@ -1520,6 +1858,183 @@ def build_parser() -> argparse.ArgumentParser:
     behavior_holdout_table.add_argument("--out", type=Path, help="Optional JSON table output")
     behavior_holdout_table.add_argument("--csv-out", type=Path, help="Optional CSV table output")
     behavior_holdout_table.set_defaults(func=_make_behavior_holdout_table)
+
+    behavior_response_audit = sub.add_parser(
+        "audit-behavior-responses",
+        help="Validate behavioral response JSONL completeness, uniqueness, and dropped records",
+    )
+    behavior_response_audit.add_argument("--responses", type=Path, required=True)
+    behavior_response_audit.add_argument("--expected-samples-per-prompt", type=int)
+    behavior_response_audit.add_argument("--allow-empty-completed", action="store_true")
+    behavior_response_audit.add_argument("--out", type=Path)
+    behavior_response_audit.set_defaults(func=_audit_behavior_responses)
+
+    hellaswag_probe = sub.add_parser(
+        "prepare-hellaswag-probe",
+        help="Materialize a deterministic held-out HellaSwag prompt JSONL artifact",
+    )
+    hellaswag_probe.add_argument("--model-task", choices=("seq2seq", "causal_lm"), required=True)
+    hellaswag_probe.add_argument("--n-prompts", type=int, default=100)
+    hellaswag_probe.add_argument("--seed", type=int, default=42)
+    hellaswag_probe.add_argument(
+        "--local-files-only", action=argparse.BooleanOptionalAction, default=True
+    )
+    hellaswag_probe.add_argument("--out", type=Path, required=True)
+    hellaswag_probe.set_defaults(func=_prepare_hellaswag_probe)
+
+    behavior_probe = sub.add_parser(
+        "prepare-behavior-probe",
+        help="Materialize a deterministic held-out generative behavior probe JSONL",
+    )
+    behavior_probe.add_argument("--probe", choices=sorted(HELDOUT_PROBE_DATASETS), required=True)
+    behavior_probe.add_argument("--model-task", choices=("seq2seq", "causal_lm"), required=True)
+    behavior_probe.add_argument("--n-prompts", type=int, default=100)
+    behavior_probe.add_argument("--seed", type=int, default=42)
+    behavior_probe.add_argument(
+        "--prompt-style", choices=("standard", "explanation_first"), default="standard"
+    )
+    behavior_probe.add_argument(
+        "--local-files-only", action=argparse.BooleanOptionalAction, default=True
+    )
+    behavior_probe.add_argument("--out", type=Path, required=True)
+    behavior_probe.set_defaults(func=_prepare_behavior_probe)
+
+    behavior_collect = sub.add_parser(
+        "collect-behavior-responses",
+        help="Generate held-out probe responses for one full or cumulative-LoRA leaf",
+    )
+    behavior_collect.add_argument("--input-manifest", type=Path, required=True)
+    behavior_selector = behavior_collect.add_mutually_exclusive_group(required=True)
+    behavior_selector.add_argument("--model-index", type=int)
+    behavior_selector.add_argument("--model-id")
+    behavior_collect.add_argument("--run-id", required=True)
+    behavior_collect.add_argument("--prompts", type=Path, required=True)
+    behavior_collect.add_argument("--out-dir", type=Path, required=True)
+    behavior_collect.add_argument("--model-task", choices=("seq2seq", "causal_lm"), required=True)
+    behavior_collect.add_argument("--base-model")
+    behavior_collect.add_argument("--base-revision")
+    behavior_collect.add_argument("--samples-per-prompt", type=int, default=3)
+    behavior_collect.add_argument("--min-new-tokens", type=int, default=0)
+    behavior_collect.add_argument("--max-new-tokens", type=int, default=64)
+    behavior_collect.add_argument(
+        "--do-sample", action=argparse.BooleanOptionalAction, default=True
+    )
+    behavior_collect.add_argument("--temperature", type=float, default=1.0)
+    behavior_collect.add_argument("--top-p", type=float, default=1.0)
+    behavior_collect.add_argument("--batch-size", type=int, default=32)
+    behavior_collect.add_argument("--seed", type=int, default=42)
+    behavior_collect.add_argument(
+        "--empty-policy", choices=("drop", "preserve"), default="drop",
+        help="Preserve immediate-EOS output as completed empty text for surface analysis",
+    )
+    behavior_collect.add_argument(
+        "--local-files-only", action=argparse.BooleanOptionalAction, default=True
+    )
+    behavior_collect.add_argument("--overwrite", action="store_true")
+    behavior_collect.set_defaults(func=_collect_behavior_responses)
+
+    behavior_embed = sub.add_parser(
+        "embed-behavior-responses",
+        help="Embed one tree's response JSONLs into an aligned model/observation tensor",
+    )
+    behavior_embed.add_argument("--responses-dir", type=Path, required=True)
+    behavior_embed.add_argument(
+        "--embedding-model", default="sentence-transformers/all-MiniLM-L6-v2"
+    )
+    behavior_embed.add_argument("--batch-size", type=int, default=64)
+    behavior_embed.add_argument(
+        "--local-files-only", action=argparse.BooleanOptionalAction, default=True
+    )
+    behavior_embed.add_argument("--out", type=Path, required=True)
+    behavior_embed.add_argument("--metadata-out", type=Path)
+    behavior_embed.add_argument(
+        "--natural-language-only", action="store_true",
+        help="Embed only outputs classified as natural language and report semantic coverage",
+    )
+    behavior_embed.set_defaults(func=_embed_behavior_responses)
+
+    behavior_surface = sub.add_parser(
+        "build-behavior-surface-distances",
+        help="Build paired output-form distances while preserving empty and collapsed text",
+    )
+    behavior_surface.add_argument("--responses-dir", type=Path, required=True)
+    behavior_surface.add_argument("--out", type=Path, required=True)
+    behavior_surface.add_argument("--traits-out", type=Path)
+    behavior_surface.add_argument("--allow-incomplete-pairs", action="store_true")
+    behavior_surface.set_defaults(func=_build_behavior_surface_distances)
+
+    behavior_distances = sub.add_parser(
+        "build-behavior-embedding-distances",
+        help="Build paired per-prompt cosine distances from an aligned embedding NPZ",
+    )
+    behavior_distances.add_argument("--embeddings", type=Path, required=True)
+    behavior_distances.add_argument("--out", type=Path, required=True)
+    behavior_distances.add_argument("--allow-incomplete-pairs", action="store_true")
+    behavior_distances.set_defaults(func=_build_behavior_embedding_distances)
+
+    behavior_regression = sub.add_parser(
+        "make-behavior-regression-pairs",
+        help="Join aligned whitebox and behavioral cubes into one row per model pair",
+    )
+    behavior_regression.add_argument("--run-id", required=True)
+    behavior_regression.add_argument("--weight-cube", type=Path, required=True)
+    behavior_regression.add_argument("--behavior-cube", type=Path, required=True)
+    behavior_regression.add_argument("--weight-metric", required=True)
+    behavior_regression.add_argument("--behavior-metric", default="semantic_paired")
+    behavior_regression.add_argument("--weight-layer")
+    behavior_regression.add_argument("--behavior-layer")
+    behavior_regression.add_argument(
+        "--weight-aggregate", choices=("mean", "median"), default="mean"
+    )
+    behavior_regression.add_argument(
+        "--behavior-aggregate", choices=("mean", "median"), default="mean"
+    )
+    behavior_regression.add_argument("--out", type=Path, required=True)
+    behavior_regression.add_argument("--audit-out", type=Path)
+    behavior_regression.set_defaults(func=_make_behavior_regression_pairs)
+
+    phylolm_genome = sub.add_parser(
+        "make-phylolm-genome",
+        help="Sample and provenance-pin one shared PhyloLM genome from a released gene pool",
+    )
+    phylolm_genome.add_argument("--gene-pool", type=Path, required=True)
+    phylolm_genome.add_argument("--n-genes", type=int, default=128)
+    phylolm_genome.add_argument("--seed", type=int, default=0)
+    phylolm_genome.add_argument("--out", type=Path, required=True)
+    phylolm_genome.set_defaults(func=_make_phylolm_genome)
+
+    phylolm_analysis = sub.add_parser(
+        "build-phylolm-analysis",
+        help="Build a faithful Nei-distance cube and NJ tree from PhyloLM populations",
+    )
+    phylolm_analysis.add_argument("--populations", type=Path, required=True)
+    phylolm_analysis.add_argument("--out", type=Path, required=True)
+    phylolm_analysis.add_argument("--eps", type=float, default=1e-3)
+    phylolm_analysis.set_defaults(func=_build_phylolm_analysis)
+
+    phylolm_collect = sub.add_parser(
+        "collect-phylolm-population",
+        help="Probe one full or cumulative-LoRA causal leaf and save its PhyloLM population",
+    )
+    phylolm_collect.add_argument("--input-manifest", type=Path, required=True)
+    phylolm_selector = phylolm_collect.add_mutually_exclusive_group(required=True)
+    phylolm_selector.add_argument("--model-index", type=int)
+    phylolm_selector.add_argument("--model-id")
+    phylolm_collect.add_argument("--genome", type=Path, required=True)
+    phylolm_collect.add_argument("--out-dir", type=Path, required=True)
+    phylolm_collect.add_argument("--base-model")
+    phylolm_collect.add_argument("--base-revision")
+    phylolm_collect.add_argument("--samples-per-gene", type=int, default=32)
+    phylolm_collect.add_argument("--new-tokens", type=int, default=4)
+    phylolm_collect.add_argument("--allele-characters", type=int, default=4)
+    phylolm_collect.add_argument("--temperature", type=float, default=1.0)
+    phylolm_collect.add_argument("--batch-size", type=int, default=64)
+    phylolm_collect.add_argument("--seed", type=int, default=0)
+    phylolm_collect.add_argument(
+        "--local-files-only", action=argparse.BooleanOptionalAction, default=True
+    )
+    phylolm_collect.add_argument("--overwrite", action="store_true")
+    phylolm_collect.set_defaults(func=_collect_phylolm_population)
 
     table_registry = sub.add_parser(
         "validate-table-registry",
@@ -2308,6 +2823,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     prune_parent.add_argument("--dry-run", action="store_true")
     prune_parent.set_defaults(func=_prune_training_parent_artifact)
+
+    prune_lora_tree = sub.add_parser(
+        "prune-training-lora-tree-materializations",
+        help="Prune all merged LoRA models after every tree node and adapter is complete",
+    )
+    prune_lora_tree.add_argument("--run-list", type=Path, required=True)
+    prune_lora_tree.add_argument("--audit-out", type=Path)
+    prune_lora_tree.add_argument("--dry-run", action="store_true")
+    prune_lora_tree.set_defaults(func=_prune_training_lora_tree_materializations)
 
     return parser
 

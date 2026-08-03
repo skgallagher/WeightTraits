@@ -6,6 +6,7 @@ from weighttraits.training.ledger import TrainingLedgerEvent
 from weighttraits.training.retention import (
     append_retention_audit,
     default_retention_audit_path,
+    prune_completed_lora_tree_materializations,
     prune_completed_parent_artifact,
 )
 from weighttraits.training.runlist import TrainingRunSpec
@@ -198,7 +199,7 @@ def test_retention_refuses_artifact_outside_parent_output(tmp_path: Path) -> Non
             ledger_events=events,
         )
     except ValueError as exc:
-        assert "outside parent output directory" in str(exc)
+        assert "outside its output directory" in str(exc)
     else:
         raise AssertionError("expected unsafe retention path to be rejected")
 
@@ -216,6 +217,81 @@ def test_prune_parent_cli_parser_requires_a_row_selector() -> None:
     )
 
     assert args.node_id == "n2"
+    assert args.dry_run
+
+
+def test_lora_tree_cleanup_retains_adapters_and_prunes_remaining_merged_models(
+    tmp_path: Path,
+) -> None:
+    runs = _branching_runs(tmp_path, method="lora")
+    for run in runs:
+        adapter = Path(run.expected_artifacts["adapter"])
+        adapter.mkdir(parents=True)
+        (adapter / "adapter.safetensors").write_bytes(b"adapter")
+        merged = Path(run.expected_artifacts["merged"])
+        merged.mkdir(parents=True)
+        (merged / "model.safetensors").write_bytes(b"merged")
+    # Simulate the lineage-aware hook having already pruned one internal materialization.
+    Path(runs[0].expected_artifacts["merged"]).rename(tmp_path / "pruned-parent")
+    events = [TrainingLedgerEvent(node_id=run.node_id, status="completed") for run in runs]
+
+    result = prune_completed_lora_tree_materializations(runs, ledger_events=events)
+
+    assert result.action == "pruned"
+    assert result.bytes_removed == 2 * len(b"merged")
+    assert len(result.pruned_merged_paths) == 2
+    assert len(result.already_absent_merged_paths) == 1
+    assert all(Path(run.expected_artifacts["adapter"]).is_dir() for run in runs)
+    assert all(not Path(run.expected_artifacts["merged"]).exists() for run in runs)
+
+
+def test_lora_tree_cleanup_waits_for_all_nodes_and_adapters(tmp_path: Path) -> None:
+    runs = _branching_runs(tmp_path, method="lora")
+    for run in runs:
+        Path(run.expected_artifacts["adapter"]).mkdir(parents=True)
+        Path(run.expected_artifacts["merged"]).mkdir(parents=True)
+
+    incomplete = prune_completed_lora_tree_materializations(
+        runs,
+        ledger_events=[TrainingLedgerEvent(node_id="n0", status="completed")],
+    )
+    assert incomplete.action == "not_ready"
+    assert incomplete.incomplete_node_ids == ("n1", "n2")
+
+    Path(runs[2].expected_artifacts["adapter"]).rmdir()
+    complete_events = [
+        TrainingLedgerEvent(node_id=run.node_id, status="completed") for run in runs
+    ]
+    missing = prune_completed_lora_tree_materializations(
+        runs,
+        ledger_events=complete_events,
+    )
+    assert missing.action == "not_ready"
+    assert missing.missing_adapter_node_ids == ("n2",)
+    assert all(Path(run.expected_artifacts["merged"]).exists() for run in runs)
+
+
+def test_lora_tree_cleanup_rejects_full_finetuning(tmp_path: Path) -> None:
+    runs = _branching_runs(tmp_path, method="full")
+    try:
+        prune_completed_lora_tree_materializations(runs, ledger_events=[])
+    except ValueError as exc:
+        assert "method=lora" in str(exc)
+    else:
+        raise AssertionError("expected full fine-tuning cleanup to be rejected")
+
+
+def test_prune_lora_tree_cli_parser(tmp_path: Path) -> None:
+    args = build_parser().parse_args(
+        [
+            "prune-training-lora-tree-materializations",
+            "--run-list",
+            str(tmp_path / "runs.jsonl"),
+            "--dry-run",
+        ]
+    )
+
+    assert args.run_list == tmp_path / "runs.jsonl"
     assert args.dry_run
 
 

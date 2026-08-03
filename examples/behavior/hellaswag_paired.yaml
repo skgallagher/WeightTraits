@@ -1,0 +1,31 @@
+probe:
+  id: hellaswag
+  dataset: Rowan/hellaswag
+  split: validation
+  seed: 42
+  n_prompts: 100
+  samples_per_prompt: 3
+  max_new_tokens: 64
+  prompts:
+    seq2seq: "complete: {activity_label}: {ctx}"
+    causal_lm: |-
+      Complete the following sentence.
+
+      {activity_label}: {ctx}
+  reference:
+    field: endings
+    index_field: label
+  generation:
+    do_sample: true
+    temperature: 1.0
+  embedding:
+    model: sentence-transformers/all-MiniLM-L6-v2
+    dimension: 384
+    distance: paired_per_prompt_cosine
+  audit:
+    reject_duplicate_keys: true
+    reject_empty_completed_responses: true
+    require_rectangular_prompt_sample_grid: true
+notes:
+  - HellaSwag is the first runnable held-out probe for the existing confirm-paper trees.
+  - Translation is not held out in those trees; a translation holdout requires a new training set.
