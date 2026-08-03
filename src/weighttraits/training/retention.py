@@ -76,6 +76,7 @@ def prune_completed_parent_artifact(
     *,
     selected_node_id: str,
     ledger_events: Sequence[TrainingLedgerEvent],
+    success_not_before: str | None = None,
     dry_run: bool = False,
 ) -> ParentArtifactPruneResult:
     """Prune an internal parent's lineage artifact after all direct children succeed."""
@@ -105,7 +106,12 @@ def prune_completed_parent_artifact(
     incomplete = tuple(
         child_id
         for child_id in children
-        if child_id not in latest or latest[child_id].status not in SUCCESS_STATUSES
+        if child_id not in latest
+        or latest[child_id].status not in SUCCESS_STATUSES
+        or (
+            success_not_before is not None
+            and latest[child_id].timestamp < success_not_before
+        )
     )
     artifact_kind = "model" if parent.method == "full" else "merged"
     artifact_path_text = parent.expected_artifacts.get(artifact_kind)
@@ -126,7 +132,12 @@ def prune_completed_parent_artifact(
     if incomplete:
         return ParentArtifactPruneResult(
             action="not_ready",
-            reason="one or more direct children lack a successful terminal ledger status",
+            reason=(
+                "one or more direct children lack a successful terminal ledger status "
+                "in the current attempt"
+                if success_not_before is not None
+                else "one or more direct children lack a successful terminal ledger status"
+            ),
             **common,
         )
 

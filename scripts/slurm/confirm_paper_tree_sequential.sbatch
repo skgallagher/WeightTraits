@@ -35,6 +35,7 @@ WANDB_PROJECT="${WANDB_PROJECT:-weighttraits-confirm-paper}"
 PRUNE_INTERNAL_PARENTS="${PRUNE_INTERNAL_PARENTS:-false}"
 PRUNE_LORA_MERGED_AFTER_TREE="${PRUNE_LORA_MERGED_AFTER_TREE:-false}"
 RETENTION_AUDIT="${RETENTION_AUDIT:-}"
+RETENTION_ATTEMPT_STARTED_AT="${RETENTION_ATTEMPT_STARTED_AT:-$(date -u +%Y-%m-%dT%H:%M:%S.%6NZ)}"
 
 cd "${REPO}"
 mkdir -p slurm_logs
@@ -96,6 +97,7 @@ for row_index in $(seq "${ROW_START}" "${ROW_END}"); do
         "${PYTHON_BIN}" -m weighttraits.cli prune-training-parent-artifact
         --run-list "${RUN_LIST}"
         --index "${row_index}"
+        --success-not-before "${RETENTION_ATTEMPT_STARTED_AT}"
       )
       if [[ -n "${RETENTION_AUDIT}" ]]; then
         prune_cmd+=(--audit-out "${RETENTION_AUDIT}")

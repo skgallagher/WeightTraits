@@ -43,6 +43,7 @@ training = [
   "datasets>=2.19",
   "evaluate>=0.4",
   "peft>=0.10",
+  "torch>=2.1",
   "transformers>=4.40",
   "wandb>=0.17"
 ]
