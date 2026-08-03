@@ -1,8 +1,8 @@
 # Compute and runtime
 
-This page records how long the main WeightTraits runs took and where they ran. The numbers below
-come from Slurm accounting (`ElapsedRaw`, allocation, start, and end) queried on 2026-08-03. They
-are observed runtimes, not estimates.
+This page records how long the paper-facing source runs and the independent WeightTraits rebuilds
+took, and where they ran. The numbers below come from Slurm accounting (`ElapsedRaw`, allocation,
+start, and end) queried on 2026-08-03. They are observed runtimes, not estimates.
 
 ## Completed Flan-T5 training sets
 
@@ -51,7 +51,30 @@ artifacts and did not request GPUs.
 Several analysis jobs ran at the same time. Total job time is the sum of their individual elapsed
 times; it is not the end-to-end calendar time.
 
-## Llama 3.2 1B benchmarks and partial arrays
+## Paper-facing Llama 3.2 1B training
+
+The four controlled Llama groups used for the paper's matched weight and behavior comparisons each
+generated **50 trees**. Smaller sample counts in the paper are downstream eligibility counts, not
+training completion counts: `n_rec` requires a tree eligible for recovery analysis, while `n_ord`
+also requires a valid direct-ordering summary.
+
+| Condition | Trees | Paper `n_rec/n_ord` | Mean | Maximum | GPU-hours | Window | Slurm jobs |
+|---|---:|---:|---:|---:|---:|---:|---|
+| LoRA q/k/v rank 8 | 50 | 47/37 | 4.57 h | 7.59 h | 228.33 | 1 d 1 h 36 m | `148756`–`148805` |
+| LoRA q/k/v rank 64 | 50 | 47/37 | 4.77 h | 7.96 h | 238.60 | 1 d 17 h 37 m | `150162`–`150211` |
+| Full fine-tuning, PhyloLM-matched | 50 | 44/35 | 5.53 h | 9.02 h | 276.50 | 2 d 0 h 34 m | matching jobs in `149320`–`149419` |
+| Full fine-tuning, translation held out | 50 | 46/36 | 5.39 h | 10.39 h | 269.70 | 14 d 16 h 22 m | `149711`–`149760` plus retries |
+| **Total** | **200** | — | — | — | **1,013.13** | — | — |
+
+These jobs ran on Wright with one NVIDIA L40, 8 CPU cores, and 32 GB RAM per tree. The long
+translation-held-out window reflects delayed stragglers and retries, not 14 days of continuous use;
+its completed tasks consumed 269.70 GPU-hours, or 269.74 GPU-hours including four short failed
+attempts. The source output directories contain 50 run directories for every condition.
+
+The live paper also reports a separate full-FT 50-tree confirmation row as `50/26`. That is likewise
+50 generated trees; `26` is the ordering-analysis count.
+
+## Independent Llama benchmarks and partial reruns
 
 Before broad execution, one complete 14-node tree was run for each Llama condition with bounded
 training settings:
@@ -62,8 +85,9 @@ training settings:
 | LoRA q/k/v rank 8 | 9 m 40 s | Wright, 1 L40, 4 CPU, 64 GB | `154556` |
 | LoRA q/k/v rank 64 | 9 m 58 s | Wright, 1 L40, 4 CPU, 64 GB | `154557` |
 
-The subsequent 50-tree Llama arrays were not complete and are not presented as reproduced result
-sets. Their compute is disclosed here so failed work is not hidden:
+The subsequent July 2026 WeightTraits arrays were independent reruns, not the source of the paper's
+Llama rows. They were not complete and are not presented as reproduced result sets. Their compute is
+disclosed here so failed work is not hidden:
 
 | Condition | Completed | Failed | Total GPU-hours, including failures | Mean completed tree | Run window | Slurm job |
 |---|---:|---:|---:|---:|---:|---|

@@ -15,10 +15,10 @@ recovery.
 WeightTraits is designed for reproducible research: generated results are tied to declared commands,
 environments, input manifests, output artifacts, and verification checks.
 
-The completed 350-tree Flan-T5 experiment suite used **1,427.8 NVIDIA L40 GPU-hours** on the Wright
-Slurm cluster; individual conditions averaged 3.1–4.9 hours per tree. See the
-[compute and runtime record](docs/COMPUTE_RUNTIME.md) for per-condition runtimes, CPU analysis cost,
-Llama benchmarks, partial-run accounting, and the exact Slurm job IDs.
+The recorded completed training includes a 350-tree Flan-T5 rebuild using **1,427.8 NVIDIA L40
+GPU-hours** and four paper-facing, 50-tree Llama groups using **1,013.1 GPU-hours** on the Wright
+Slurm cluster. See the [compute and runtime record](docs/COMPUTE_RUNTIME.md) for per-condition
+runtimes, hardware, analysis eligibility counts, partial-run accounting, and Slurm provenance.
 
 > **Status:** active research software. Topology generation, recovery scoring, distance analysis,
 > provenance checks, and local smoke workflows are tested. Model training and behavioral probing
