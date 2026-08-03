@@ -4,14 +4,16 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-WeightTraits is a research toolkit for studying lineage in families of fine-tuned language models.
-It generates known training trees, manages full-fine-tuning and LoRA experiments, computes weight
-and behavior distances, reconstructs phylogenies, and scores those reconstructions against ground
-truth.
+**Reconstruct and audit fine-tuning lineages from model weights and behavior.**
 
-The project supports the experiments behind *The Traits are in the Weights: Estimating Fine-Tuning
-Lineage in LLMs*. Its central reproducibility rule is that every reported result should be tied to a
-declared command, environment, input manifest, output artifact, and verification check.
+Fine-tuning leaves structure behind. WeightTraits helps researchers measure that structure, infer
+how related models descend from one another, and test the inferred lineage against known ground
+truth. It provides one workflow for generating training trees, running full-fine-tuning or LoRA
+experiments, computing weight and behavior distances, reconstructing phylogenies, and auditing
+recovery.
+
+WeightTraits is designed for reproducible research: generated results are tied to declared commands,
+environments, input manifests, output artifacts, and verification checks.
 
 > **Status:** active research software. Topology generation, recovery scoring, distance analysis,
 > provenance checks, and local smoke workflows are tested. Model training and behavioral probing
@@ -25,7 +27,7 @@ declared command, environment, input manifest, output artifact, and verification
 - Build streaming distance cubes from full weights, merged LoRA weights, or adapter chains.
 - Reconstruct neighbor-joining trees and score clade recovery, exact recovery, RF, FP, and FN.
 - Analyze behavioral outputs and compare weight-space with behavior-space structure.
-- Register, validate, and compare paper-facing tables and figures with explicit provenance.
+- Build provenance-checked tables, figures, and comparison artifacts.
 
 The high-level workflow is:
 
@@ -103,7 +105,8 @@ scheduler configuration, model access, and API credentials remain environment-sp
 - [Recovery scoring](docs/RECOVERY_SCORING.md): exact definitions for RF, FP/FN, clade recovery,
   and polytomy-aware exact recovery.
 - [Distance metrics](docs/DISTANCE_METRICS.md): cosine, correlation, L2, CKA, and registry semantics.
-- [Paper reproduction](docs/PAPER_REPRODUCTION.md): provenance gates and paper artifact registries.
+- [Reproducible result artifacts](docs/PAPER_REPRODUCTION.md): provenance gates and registered
+  tables and figures.
 
 ## Repository layout
 
@@ -121,10 +124,10 @@ WeightTraits/
 
 ## Reproducibility boundaries
 
-Core examples and tests are self-contained. Full paper reproduction additionally requires the
-registered model artifacts, experiment outputs, and companion paper/reference inputs named in the
-paper registries. Historical ELLMTrees outputs are comparison targets, not inputs to native
-WeightTraits candidate statistics.
+Core examples and tests are self-contained. Reproducing full research results additionally requires
+the registered model artifacts, experiment outputs, and reference inputs named in the provenance
+registries. External or historical results may be used as explicit comparison targets, but never as
+hidden inputs to native WeightTraits statistics.
 
 Large checkpoints, downloaded datasets, API responses, and cluster outputs are intentionally not
 stored in Git. Generated artifacts carry their input paths and provenance so missing external inputs

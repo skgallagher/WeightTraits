@@ -55,8 +55,6 @@ as dated project records; they are useful for provenance but are not the best on
 
 ## Scientific reference
 
-- [ELLMTrees Reference Notes](ELLMTREES_REFERENCE_NOTES.md) — how legacy artifacts are used only as
-  post-hoc references.
 - [Flexible Tree Mathematics](TREE_GENERATOR_MATH.md) — exact generator definitions.
 - [Recovery Scoring](RECOVERY_SCORING.md) — estimands and polytomy behavior.
 

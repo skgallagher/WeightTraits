@@ -31,8 +31,8 @@ ruff check src tests
 - Do not commit model checkpoints, secrets, API responses, private datasets, or cluster caches.
 
 For paper-facing changes, include the command, declared inputs, generated artifact, and verification
-performed. Historical ELLMTrees outputs may be used as comparison targets, but they should not
-become hidden inputs to native WeightTraits results.
+performed. External or historical outputs may be used as explicit comparison targets, but they
+should not become hidden inputs to native WeightTraits results.
 
 ## Reporting problems
 
