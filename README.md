@@ -1,47 +1,137 @@
 # WeightTraits
 
-Private rebuild of the ELLMTrees results with cleaner project structure, independent verification, and reproducible paper outputs.
+[![CI](https://github.com/skgallagher/WeightTraits/actions/workflows/ci.yml/badge.svg)](https://github.com/skgallagher/WeightTraits/actions/workflows/ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-The rule of this repository is simple: old ELLMTrees artifacts are reference inputs, not unquestioned truth. Every result that enters the rebuilt paper should have a recorded command, environment, input manifest, output digest, and at least one verification check.
+WeightTraits is a research toolkit for studying lineage in families of fine-tuned language models.
+It generates known training trees, manages full-fine-tuning and LoRA experiments, computes weight
+and behavior distances, reconstructs phylogenies, and scores those reconstructions against ground
+truth.
 
-## Goals
+The project supports the experiments behind *The Traits are in the Weights: Estimating Fine-Tuning
+Lineage in LLMs*. Its central reproducibility rule is that every reported result should be tied to a
+declared command, environment, input manifest, output artifact, and verification check.
 
-- Rebuild the ELLMTrees analyses in a maintainable Python package rather than a script pile.
-- Make tree generation flexible enough to test many topology/configuration hypotheses.
-- Keep fast unit tests and smoke tests running continuously.
-- Support both local development and cluster execution with explicit configs.
-- Cross-check regression results in R, not only Python/statsmodels.
-- Preserve provenance for every figure and table needed to remake the ICLR draft.
-- Compare rebuilt outputs against ELLMTrees artifacts wherever the old outputs are available.
+> **Status:** active research software. Topology generation, recovery scoring, distance analysis,
+> provenance checks, and local smoke workflows are tested. Model training and behavioral probing
+> require additional dependencies and, for realistic experiments, substantial compute.
 
-## Initial Layout
+## What you can do
+
+- Generate fixed, balanced, branching-process, or pruned-backbone training lineages.
+- Assign task and dataset policies independently of topology.
+- Plan and execute full-fine-tuning or cumulative-LoRA training trees.
+- Build streaming distance cubes from full weights, merged LoRA weights, or adapter chains.
+- Reconstruct neighbor-joining trees and score clade recovery, exact recovery, RF, FP, and FN.
+- Analyze behavioral outputs and compare weight-space with behavior-space structure.
+- Register, validate, and compare paper-facing tables and figures with explicit provenance.
+
+The high-level workflow is:
+
+```text
+topology → task/data assignment → training → weight or behavior distances
+         → reconstructed tree → recovery and reproducibility audit
+```
+
+## Quick start
+
+WeightTraits requires Python 3.11 or newer.
+
+```bash
+git clone https://github.com/skgallagher/WeightTraits.git
+cd WeightTraits
+
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+```
+
+On Windows PowerShell, activate the environment with `.venv\Scripts\Activate.ps1`.
+
+Generate and audit a small stochastic lineage:
+
+```bash
+wt generate-tree \
+  --config examples/trees/poisson_branching.yaml \
+  --out reports/quickstart_tree.jsonl
+
+wt topology-audit --manifest reports/quickstart_tree.jsonl
+```
+
+The audit reports the node and leaf counts, maximum depth, polytomies, truth splits, and whether a
+binary neighbor-joining reconstruction can introduce resolution-only false positives.
+
+Run the test suite:
+
+```bash
+python -m pytest
+```
+
+Use `wt --help` to see the complete command surface and `wt <command> --help` for command-specific
+arguments.
+
+## Installation options
+
+The base install contains topology, manifests, and lightweight utilities. Add only the extras needed
+for your workflow:
+
+| Extra | Purpose |
+|---|---|
+| `analysis` | Scientific Python stack, tree libraries, plotting, and weight-file support |
+| `training` | Transformers, PEFT, datasets, evaluation, and experiment tracking |
+| `blackbox` | Hosted-model clients, sentence embeddings, and black-box probing |
+| `dev` | Tests and linting |
+
+For a full research environment:
+
+```bash
+python -m pip install -e ".[analysis,training,blackbox,dev]"
+```
+
+The repository also includes [`environment.local.yml`](environment.local.yml) and
+[`environment.cluster.yml`](environment.cluster.yml) for Conda-based setups. GPU drivers, CUDA,
+scheduler configuration, model access, and API credentials remain environment-specific.
+
+## Where to go next
+
+- [Documentation index](docs/README.md): guides grouped by user goal.
+- [Pipeline overview](docs/PIPELINE_FLOW.md): how topology, training, and analysis stay separated.
+- [Tree examples](docs/RUN_TREE_EXAMPLES.md): runnable topology configurations.
+- [Training examples](examples/training/README.md): dry runs, tiny local fixtures, and lineage smokes.
+- [Recovery scoring](docs/RECOVERY_SCORING.md): exact definitions for RF, FP/FN, clade recovery,
+  and polytomy-aware exact recovery.
+- [Distance metrics](docs/DISTANCE_METRICS.md): cosine, correlation, L2, CKA, and registry semantics.
+- [Paper reproduction](docs/PAPER_REPRODUCTION.md): provenance gates and paper artifact registries.
+
+## Repository layout
 
 ```text
 WeightTraits/
-├── src/weighttraits/       # Importable project code
-├── tests/                  # Fast tests for invariants and audit helpers
-├── configs/                # Local, cluster, and experiment configs
-├── docs/                   # Multi-week roadmap and audit protocol
-├── paper/                  # Paper rebuild registry and eventual draft source
-├── reports/                # Generated audit reports; ignored unless curated
-└── scripts/                # Thin operational wrappers, including R checks
+├── src/weighttraits/   # Importable library and CLI
+├── tests/              # Unit, smoke, and numerical checks
+├── examples/           # Runnable topology, training, behavior, and recovery fixtures
+├── configs/            # Local, cluster, task/data, and experiment configuration
+├── docs/               # User guides, scientific definitions, and maintainer records
+├── paper/              # Figure/table registries and paper-facing provenance
+├── reports/            # Generated or curated audit artifacts
+└── scripts/            # Thin operational and independent-check wrappers
 ```
 
-## First Commands
+## Reproducibility boundaries
 
-```bash
-cd /Users/shannon/Desktop/phylo/WeightTraits
-PYTHONPATH=src python -m pytest -q
-PYTHONPATH=src python -m weighttraits.cli generate-tree --config configs/experiments/flexible_flow.yaml --out reports/flexible_tree_manifest.jsonl
-PYTHONPATH=src python -m weighttraits.cli audit-ellmtrees --source ../ELLMTrees --out reports/ellmtrees_inventory.json
-```
+Core examples and tests are self-contained. Full paper reproduction additionally requires the
+registered model artifacts, experiment outputs, and companion paper/reference inputs named in the
+paper registries. Historical ELLMTrees outputs are comparison targets, not inputs to native
+WeightTraits candidate statistics.
 
-See [docs/ROADMAP.md](docs/ROADMAP.md) for the full step-by-step rebuild plan.
-See [docs/HANDOFF.md](docs/HANDOFF.md) for the current implementation handoff and next steps.
-See [docs/PIPELINE_FLOW.md](docs/PIPELINE_FLOW.md) for the topology → task/data → training → analysis separation.
-See [docs/TREE_GENERATOR_MATH.md](docs/TREE_GENERATOR_MATH.md) and [docs/RUN_TREE_EXAMPLES.md](docs/RUN_TREE_EXAMPLES.md) for topology math and runnable examples.
-See [docs/TRAINER_DESIGN.md](docs/TRAINER_DESIGN.md) for training plans, prompt resolution, LoRA artifacts, and stopping rules.
-See [docs/RECOVERY_SCORING.md](docs/RECOVERY_SCORING.md) for TP/FP/FN, RF, clade recovery, exact recovery, and SE definitions.
-See [docs/DISTANCE_METRICS.md](docs/DISTANCE_METRICS.md) for cosine, CKA, and the metric-registry design.
-See [docs/STREAMING_DISTANCE_CUBES.md](docs/STREAMING_DISTANCE_CUBES.md) for the chunked distance-cube engine.
-See [docs/LORA_DISTANCE_MODEL.md](docs/LORA_DISTANCE_MODEL.md) for cumulative LoRA `B @ A` semantics.
+Large checkpoints, downloaded datasets, API responses, and cluster outputs are intentionally not
+stored in Git. Generated artifacts carry their input paths and provenance so missing external inputs
+fail visibly instead of silently changing an analysis.
+
+## Contributing and citation
+
+Bug reports, documentation fixes, and focused pull requests are welcome; see
+[CONTRIBUTING.md](CONTRIBUTING.md). If you use WeightTraits in research, see
+[CITATION.cff](CITATION.cff). The software is released under the [MIT License](LICENSE).
