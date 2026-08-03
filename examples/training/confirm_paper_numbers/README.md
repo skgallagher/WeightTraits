@@ -39,6 +39,12 @@ PYTHONPATH=src python -m weighttraits.cli assign-task-data-set \
 
 The enriched manifests live in `assigned_manifests/`, and `assignment_summary.json` records the per-tree seeds, source manifests, output manifests, and task-family counts.
 
+The matched Llama-3.2-1B translation-held-out condition is documented in
+[`no_translation/README.md`](no_translation/README.md). Its authoritative 2026-08-03 design keeps
+all 479 original non-translation assignments fixed and replaces only the 162 translation rows.
+Do not confuse it with the older fully resampled no-translation scaffold committed in that
+directory.
+
 Paper-style full fine-tuning run lists are generated per tree so each tree gets an isolated ledger and output root:
 
 ```bash
