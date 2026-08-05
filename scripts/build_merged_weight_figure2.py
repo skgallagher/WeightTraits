@@ -14,6 +14,7 @@ import csv
 import json
 import math
 from pathlib import Path
+import re
 import statistics
 import sys
 from typing import Any, Callable
@@ -115,8 +116,79 @@ def _mean_se(values: list[float]) -> tuple[float, float]:
     return mean, se
 
 
+def _canonical_tree_id(value: str) -> str:
+    match = re.search(r"(\d+)$", value)
+    if match is None:
+        raise ValueError(f"tree ID has no numeric suffix: {value}")
+    return f"tree_{int(match.group(1)):03d}"
+
+
+def _estimator_metadata(
+    *,
+    source: dict[str, Any],
+    level: str,
+    label: str,
+    family: str,
+    projection: str,
+) -> dict[str, Any]:
+    method = source.get("method", "Weights")
+    metadata = {
+        "condition_id": source["condition_id"],
+        "architecture": source["architecture"],
+        "condition": source["condition"],
+        "level": level,
+        "label": label,
+        "family": family,
+        "projection": projection,
+        "artifact": source.get("artifact", "merged"),
+        "representation": source.get("representation", "full_weight"),
+        "method": method,
+    }
+    metadata["estimator_id"] = "|".join(
+        (
+            str(metadata["condition_id"]),
+            str(method),
+            level,
+            family,
+            projection,
+            label,
+        )
+    )
+    return metadata
+
+
+def _observation_rows(
+    records: list[dict[str, Any]],
+    *,
+    source: dict[str, Any],
+    level: str,
+    label: str,
+    family: str,
+    projection: str = "aggregate",
+) -> list[dict[str, Any]]:
+    metadata = _estimator_metadata(
+        source=source,
+        level=level,
+        label=label,
+        family=family,
+        projection=projection,
+    )
+    out = []
+    for record in records:
+        out.append(
+            {
+                **metadata,
+                "tree_id": str(record["tree_id"]),
+                "clade_recovery": float(record["clade_recovery"]),
+                "atteson_bottleneck_margin": float(record["atteson_bottleneck_margin"]),
+                "four_point_mean_additivity": float(record["four_point_mean_additivity"]),
+            }
+        )
+    return out
+
+
 def _summarize(
-    records: list[dict[str, float]],
+    records: list[dict[str, Any]],
     *,
     source: dict[str, Any],
     level: str,
@@ -129,17 +201,14 @@ def _summarize(
             f"expected 46 eligible trees for {source['condition']} / {label}, got {len(records)}"
         )
     row: dict[str, Any] = {
-        "condition_id": source["condition_id"],
-        "architecture": source["architecture"],
-        "condition": source["condition"],
-        "level": level,
-        "label": label,
-        "family": family,
-        "projection": projection,
+        **_estimator_metadata(
+            source=source,
+            level=level,
+            label=label,
+            family=family,
+            projection=projection,
+        ),
         "n_runs": len(records),
-        "artifact": source.get("artifact", "merged"),
-        "representation": source.get("representation", "full_weight"),
-        "method": source.get("method", "Weights"),
     }
     for output, field in (
         ("clade_recovery_pct", "clade_recovery"),
@@ -159,13 +228,23 @@ def _summarize(
     return row
 
 
-def _simulation_row(source: dict[str, Any], root: Path) -> tuple[dict[str, Any], list[str]]:
+def _simulation_row(
+    source: dict[str, Any], root: Path
+) -> tuple[dict[str, Any], list[str], list[dict[str, Any]]]:
     path = root / source["rollup"]
     payload = json.loads(path.read_text())
-    rows = [
+    source_rows = [
         row
         for row in payload["rows"]
         if row["metric"] == "cosine" and int(row["n_truth_splits"]) > 0
+    ]
+    rows = [
+        {
+            **row,
+            "tree_id": _canonical_tree_id(str(row["tree_id"])),
+            "source_tree_id": str(row["tree_id"]),
+        }
+        for row in source_rows
     ]
     expected_artifact = source.get("artifact", "merged")
     if payload.get("artifact") != expected_artifact:
@@ -179,12 +258,19 @@ def _simulation_row(source: dict[str, Any], root: Path) -> tuple[dict[str, Any],
         label=source["condition"],
         family="whole simulation",
     )
-    return summary, sorted(str(row["tree_id"]) for row in rows)
+    observations = _observation_rows(
+        rows,
+        source=source,
+        level="simulation",
+        label=source["condition"],
+        family="whole simulation",
+    )
+    return summary, sorted(str(row["source_tree_id"]) for row in rows), observations
 
 
-def _phylolm_rows(path: Path) -> list[dict[str, Any]]:
+def _phylolm_rows(path: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     sources_by_id = {source["condition_id"]: source for source in SOURCES}
-    records_by_group: dict[str, list[dict[str, float]]] = {}
+    records_by_group: dict[str, list[dict[str, Any]]] = {}
     with path.open(newline="") as handle:
         for raw in csv.DictReader(handle):
             group = str(raw["group"])
@@ -192,6 +278,7 @@ def _phylolm_rows(path: Path) -> list[dict[str, Any]]:
                 continue
             records_by_group.setdefault(group, []).append(
                 {
+                    "tree_id": _canonical_tree_id(str(raw["run"])),
                     "clade_recovery": float(raw["clade_recovery"]),
                     "atteson_bottleneck_margin": float(raw["oracle_margin"]),
                     "four_point_mean_additivity": float(raw["A_all"]),
@@ -203,6 +290,7 @@ def _phylolm_rows(path: Path) -> list[dict[str, Any]]:
         raise ValueError(f"missing fresh PhyloLM groups in {path}: {missing}")
 
     out = []
+    observations = []
     for group, condition_id in PHYLOLM_GROUPS.items():
         source = {
             **sources_by_id[condition_id],
@@ -219,7 +307,16 @@ def _phylolm_rows(path: Path) -> list[dict[str, Any]]:
                 family="behavior-only simulation",
             )
         )
-    return out
+        observations.extend(
+            _observation_rows(
+                records_by_group[group],
+                source=source,
+                level="phylolm",
+                label="PhyloLM",
+                family="behavior-only simulation",
+            )
+        )
+    return out, observations
 
 
 def _projection(name: str) -> str | None:
@@ -326,9 +423,9 @@ def _detail_rows(
     source: dict[str, Any],
     root: Path,
     tree_ids: list[str],
-) -> list[dict[str, Any]]:
-    records_by_layer: dict[str, list[dict[str, float]]] = {}
-    records_by_subset: dict[str, list[dict[str, float]]] = {}
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    records_by_layer: dict[str, list[dict[str, Any]]] = {}
+    records_by_subset: dict[str, list[dict[str, Any]]] = {}
     subset_specs = _flan_subsets() if source["architecture"] == "Flan-T5" else _llama_subsets()
     subset_labels = {subset_id: label for subset_id, label, _ in subset_specs}
 
@@ -357,8 +454,10 @@ def _detail_rows(
         qkv_indices = [index for index, name in enumerate(layer_names) if _projection(name)]
         for index in qkv_indices:
             name = layer_names[index]
+            record = _score_matrix(cube[index], labels, truth_newick)
+            record["tree_id"] = _canonical_tree_id(tree_id)
             records_by_layer.setdefault(name, []).append(
-                _score_matrix(cube[index], labels, truth_newick)
+                record
             )
 
         for subset_id, _, predicate in subset_specs:
@@ -366,14 +465,26 @@ def _detail_rows(
             if not indices:
                 raise ValueError(f"empty subset {subset_id}: {analysis}")
             matrix = np.mean(cube[indices], axis=0)
+            record = _score_matrix(matrix, labels, truth_newick)
+            record["tree_id"] = _canonical_tree_id(tree_id)
             records_by_subset.setdefault(subset_id, []).append(
-                _score_matrix(matrix, labels, truth_newick)
+                record
             )
 
     out = []
+    observations = []
     for subset_id, records in sorted(records_by_subset.items()):
         out.append(
             _summarize(
+                records,
+                source=source,
+                level="subset",
+                label=subset_labels[subset_id],
+                family=subset_id,
+            )
+        )
+        observations.extend(
+            _observation_rows(
                 records,
                 source=source,
                 level="subset",
@@ -395,7 +506,38 @@ def _detail_rows(
                 projection=projection,
             )
         )
-    return out
+        observations.extend(
+            _observation_rows(
+                records,
+                source=source,
+                level="layer",
+                label=layer_name,
+                family="single projection matrix",
+                projection=projection,
+            )
+        )
+    return out, observations
+
+
+def _validate_observations(observations: list[dict[str, Any]]) -> None:
+    trees_by_estimator: dict[str, set[str]] = {}
+    counts_by_estimator: dict[str, int] = {}
+    for row in observations:
+        estimator_id = str(row["estimator_id"])
+        trees_by_estimator.setdefault(estimator_id, set()).add(str(row["tree_id"]))
+        counts_by_estimator[estimator_id] = counts_by_estimator.get(estimator_id, 0) + 1
+
+    if len(trees_by_estimator) != 400:
+        raise ValueError(f"expected 400 estimators, got {len(trees_by_estimator)}")
+    reference = next(iter(trees_by_estimator.values()))
+    for estimator_id, tree_ids in trees_by_estimator.items():
+        if counts_by_estimator[estimator_id] != 46 or tree_ids != reference:
+            raise ValueError(
+                f"bootstrap panel mismatch for {estimator_id}: "
+                f"{counts_by_estimator[estimator_id]} rows, {len(tree_ids)} trees"
+            )
+    if len(reference) != 46:
+        raise ValueError(f"expected 46 shared bootstrap tree IDs, got {len(reference)}")
 
 
 def main() -> int:
@@ -413,16 +555,24 @@ def main() -> int:
     )
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--csv-out", type=Path, required=True)
+    parser.add_argument("--records-out", type=Path, required=True)
     args = parser.parse_args()
 
     root = args.weighttraits_root.resolve()
     rows: list[dict[str, Any]] = []
+    observations: list[dict[str, Any]] = []
     for source in SOURCES:
-        simulation, tree_ids = _simulation_row(source, root)
+        simulation, tree_ids, simulation_observations = _simulation_row(source, root)
         rows.append(simulation)
+        observations.extend(simulation_observations)
         if source["detail"]:
-            rows.extend(_detail_rows(source, root, tree_ids))
-    rows.extend(_phylolm_rows(args.phylolm_metrics.resolve()))
+            details, detail_observations = _detail_rows(source, root, tree_ids)
+            rows.extend(details)
+            observations.extend(detail_observations)
+    phylolm, phylolm_observations = _phylolm_rows(args.phylolm_metrics.resolve())
+    rows.extend(phylolm)
+    observations.extend(phylolm_observations)
+    _validate_observations(observations)
 
     payload = {
         "schema": "weighttraits.merged_weight_figure2.v1",
@@ -438,7 +588,15 @@ def main() -> int:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
         writer.writeheader()
         writer.writerows(rows)
-    print(f"wrote {args.out} and {args.csv_out} ({len(rows)} summary points)")
+    args.records_out.parent.mkdir(parents=True, exist_ok=True)
+    with args.records_out.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(observations[0]))
+        writer.writeheader()
+        writer.writerows(observations)
+    print(
+        f"wrote {args.out}, {args.csv_out}, and {args.records_out} "
+        f"({len(rows)} summaries; {len(observations)} paired tree records)"
+    )
     return 0
 
 
