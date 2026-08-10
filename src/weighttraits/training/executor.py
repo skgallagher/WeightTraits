@@ -3,18 +3,25 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+import hashlib
+import importlib.metadata
 import inspect
 import json
 from pathlib import Path
+import platform
 import shutil
 from typing import Any, Callable, Mapping, Protocol, Sequence
 
 from weighttraits.training.data_formats import DatasetFormatSpec
 from weighttraits.training.datasets import (
+    DatasetCacheRecipe,
     DatasetLoader,
     DatasetRegistryEntry,
     canonical_dataset_example,
+    dataset_cache_split_path,
     dataset_example_passes_filter,
+    dataset_format_spec_fingerprint,
+    dataset_registry_entry_fingerprint,
     load_cached_dataset_splits,
 )
 from weighttraits.training.ledger import TrainingLedgerEvent, append_ledger_event
@@ -25,7 +32,7 @@ from weighttraits.training.monitor import (
     TrainingEvent,
 )
 from weighttraits.training.prompts import render_prompt
-from weighttraits.training.runlist import TrainingRunSpec
+from weighttraits.training.runlist import TrainingRunSpec, load_training_run_specs
 
 
 MonitorEventCallback = Callable[[TrainingEvent], MonitorDecision]
@@ -88,6 +95,7 @@ class TrainingRunResult:
     artifacts: dict[str, str]
     execution_overrides: dict[str, Any] = field(default_factory=dict)
     backend_metadata: dict[str, Any] = field(default_factory=dict)
+    provenance: dict[str, Any] = field(default_factory=dict)
     step: int | None = None
     train_loss: float | None = None
     eval_loss: float | None = None
@@ -120,6 +128,7 @@ def prepare_training_data(
     loader: DatasetLoader | None = None,
     data_cache_root: str | Path | None = None,
     require_data_cache: bool = False,
+    expected_cache_recipe: DatasetCacheRecipe | None = None,
     max_train_samples: int | None = None,
     max_eval_samples: int | None = None,
     allow_missing_eval: bool = True,
@@ -143,6 +152,9 @@ def prepare_training_data(
             train_split=train_split,
             eval_split=eval_split,
             require=require_data_cache,
+            registry_entry=entry,
+            format_spec=spec,
+            expected_recipe=expected_cache_recipe,
         )
     if dataset is None:
         if require_data_cache:
@@ -198,6 +210,7 @@ def run_training_run(
     loader: DatasetLoader | None = None,
     data_cache_root: str | Path | None = None,
     require_data_cache: bool = False,
+    expected_cache_recipe: DatasetCacheRecipe | None = None,
     max_train_samples: int | None = None,
     max_eval_samples: int | None = None,
     allow_missing_eval: bool = True,
@@ -206,19 +219,62 @@ def run_training_run(
 ) -> TrainingRunResult:
     """Run one training row and write ledger events for lifecycle and monitor state."""
     overrides = _execution_overrides(execution_overrides)
-    if write_ledger:
-        extra = {"run_id": run.run_id, "array_index": run.array_index}
-        if overrides:
-            extra["execution_overrides"] = overrides
-        started_event = TrainingLedgerEvent(
-            node_id=run.node_id,
-            status="started",
-            message="training row started",
-            extra=extra,
-        )
-        append_ledger_event(run.ledger_path, started_event)
-        _append_training_log(run, started_event)
+    data_execution = _data_execution_contract(
+        run,
+        data_cache_root=data_cache_root,
+        require_data_cache=require_data_cache,
+        expected_cache_recipe=expected_cache_recipe,
+        max_train_samples=max_train_samples,
+        max_eval_samples=max_eval_samples,
+        allow_missing_eval=allow_missing_eval,
+    )
+    provenance = _training_run_provenance(
+        run,
+        registry,
+        format_specs,
+        data_execution=data_execution,
+        execution_overrides=overrides,
+    )
+    provenance_ref: dict[str, Any] = {}
+    started_event: TrainingLedgerEvent | None = None
     try:
+        _assert_output_provenance_preflight(run)
+        _enforce_expected_runtime(run.job, provenance["runtime_versions"])
+        _enforce_expected_source_code(run.job, provenance["source_code"])
+        _required_max_steps(run)
+        parent_lineage = _validate_parent_lineage(
+            run,
+            execution_overrides=overrides,
+            data_execution=data_execution,
+            runtime_versions=provenance["runtime_versions"],
+            source_code=provenance["source_code"],
+        )
+        if parent_lineage:
+            provenance["parent_lineage"] = parent_lineage
+        cache_source_receipt = _validate_expected_cache_source_receipt(
+            run,
+            registry,
+            format_specs,
+            data_cache_root=data_cache_root,
+            require_data_cache=require_data_cache,
+        )
+        if cache_source_receipt:
+            provenance["cache_source_receipt"] = cache_source_receipt
+        if write_ledger:
+            extra = {
+                "run_id": run.run_id,
+                "array_index": run.array_index,
+                "provenance": provenance,
+            }
+            if overrides:
+                extra["execution_overrides"] = overrides
+            started_event = TrainingLedgerEvent(
+                node_id=run.node_id,
+                status="started",
+                message="training row started",
+                extra=extra,
+            )
+            append_ledger_event(run.ledger_path, started_event)
         data = prepare_training_data(
             run,
             registry,
@@ -226,18 +282,31 @@ def run_training_run(
             loader=loader,
             data_cache_root=data_cache_root,
             require_data_cache=require_data_cache,
+            expected_cache_recipe=expected_cache_recipe,
             max_train_samples=max_train_samples,
             max_eval_samples=max_eval_samples,
             allow_missing_eval=allow_missing_eval,
         )
         if not data.valid:
             raise ValueError(f"training data is not valid for {run.node_id}: {data.issues}")
+        provenance["cache_splits"] = _cache_split_provenance(
+            run,
+            registry,
+            format_specs,
+            data_cache_root=data_cache_root,
+        )
+        provenance_ref = _write_training_provenance(run, provenance)
         if write_ledger:
+            if started_event is not None:
+                _append_training_log(run, started_event)
             prepared_event = TrainingLedgerEvent(
                 node_id=run.node_id,
                 status="running",
                 message="training data prepared",
-                extra=data.summary(),
+                extra={
+                    "data": data.summary(),
+                    "provenance": provenance_ref,
+                },
             )
             append_ledger_event(run.ledger_path, prepared_event)
             _append_training_log(run, prepared_event)
@@ -258,7 +327,10 @@ def run_training_run(
                     warnings=tuple(decision.warnings),
                     stop_reasons=tuple(decision.reasons),
                     message="training monitor update",
-                    extra=decision.state,
+                    extra={
+                        **decision.state,
+                        "provenance_sha256": provenance_ref.get("sha256"),
+                    },
                 )
                 append_ledger_event(run.ledger_path, monitor_event)
                 _append_training_log(run, monitor_event)
@@ -266,6 +338,7 @@ def run_training_run(
 
         train_backend = backend or HfPeftTrainingBackend()
         backend_result = train_backend.train(run, data, on_event)
+        _enforce_required_max_steps(run, backend_result)
         final_decision = decisions[-1] if decisions else None
         status = backend_result.status
         if status == "completed" and final_decision is not None and final_decision.should_stop:
@@ -274,6 +347,14 @@ def run_training_run(
         stop_reasons = _unique_items(decision.reasons for decision in decisions)
         artifacts = dict(run.expected_artifacts)
         artifacts.update(backend_result.artifacts)
+        if status == "completed":
+            completion_ref = _write_training_completion(
+                run,
+                step=backend_result.step,
+                provenance_ref=provenance_ref,
+                artifacts=artifacts,
+            )
+            artifacts["completion_receipt"] = completion_ref["path"]
         result = TrainingRunResult(
             node_id=run.node_id,
             status=status,
@@ -281,6 +362,7 @@ def run_training_run(
             artifacts=artifacts,
             execution_overrides=overrides,
             backend_metadata=dict(backend_result.metadata),
+            provenance=provenance_ref,
             step=backend_result.step,
             train_loss=backend_result.train_loss,
             eval_loss=backend_result.eval_loss,
@@ -303,6 +385,7 @@ def run_training_run(
                     "data": data.summary(),
                     "execution_overrides": overrides,
                     "backend_metadata": backend_result.metadata,
+                    "provenance": provenance_ref,
                 },
             )
             append_ledger_event(run.ledger_path, finished_event)
@@ -314,9 +397,13 @@ def run_training_run(
                 node_id=run.node_id,
                 status="failed",
                 message=str(exc),
+                extra={
+                    "provenance": provenance_ref or provenance,
+                },
             )
             append_ledger_event(run.ledger_path, failed_event)
-            _append_training_log(run, failed_event)
+            if provenance_ref:
+                _append_training_log(run, failed_event)
         raise
 
 
@@ -362,16 +449,21 @@ class HfPeftTrainingBackend:
         tokenizer = deps["AutoTokenizer"].from_pretrained(run.init_from, **pretrained_kwargs)
         if getattr(tokenizer, "pad_token", None) is None and getattr(tokenizer, "eos_token", None):
             tokenizer.pad_token = tokenizer.eos_token
+        _apply_tokenizer_padding_side(tokenizer, run.job)
         model_cls = (
             deps["AutoModelForSeq2SeqLM"]
             if model_task == "seq2seq"
             else deps["AutoModelForCausalLM"]
         )
-        model = model_cls.from_pretrained(run.init_from, **pretrained_kwargs)
+        model = model_cls.from_pretrained(
+            run.init_from,
+            **_model_pretrained_kwargs(run, deps["torch"]),
+        )
         backend_metadata: dict[str, Any] = {
             "base_model": str(run.job.get("base_model", "")),
             "base_model_revision": run.job.get("base_model_revision"),
             "init_from": run.init_from,
+            "runtime_versions": _training_runtime_versions(),
         }
         preflight_artifacts: dict[str, str] = {}
         if run.method == "lora":
@@ -400,7 +492,7 @@ class HfPeftTrainingBackend:
         )
         callback = _make_loss_monitor_callback(deps["TrainerCallback"], event_callback)
         trainer_cls = deps["Seq2SeqTrainer"] if model_task == "seq2seq" else deps["Trainer"]
-        collator = _data_collator(deps, tokenizer, model, model_task)
+        collator = _data_collator(deps, tokenizer, model, model_task, run.job)
         trainer = trainer_cls(
             model=model,
             args=args,
@@ -411,6 +503,9 @@ class HfPeftTrainingBackend:
             **_trainer_tokenizer_kwargs(trainer_cls, tokenizer),
         )
         output = trainer.train()
+        step = int(getattr(trainer.state, "global_step", 0))
+        status = "stopped_early" if callback.stopped else "completed"
+        _enforce_actual_training_step(run, step=step, status=status)
         artifacts = self._save_artifacts(run, trainer, model, tokenizer)
         artifacts.update(preflight_artifacts)
         removed_checkpoints = _cleanup_trainer_checkpoints(run)
@@ -418,10 +513,9 @@ class HfPeftTrainingBackend:
             backend_metadata["removed_trainer_checkpoints"] = removed_checkpoints
         train_loss = _metric_value(getattr(output, "metrics", {}), "train_loss")
         eval_loss = _metric_value(getattr(trainer.state, "log_history", []), "eval_loss")
-        status = "stopped_early" if callback.stopped else "completed"
         return BackendTrainResult(
             status=status,
-            step=int(getattr(trainer.state, "global_step", 0)),
+            step=step,
             train_loss=train_loss,
             eval_loss=eval_loss,
             artifacts=artifacts,
@@ -439,9 +533,7 @@ class HfPeftTrainingBackend:
         requested_targets = _requested_lora_targets(lora)
         _resolve_lora_target_modules(model, requested_targets)
         task_type = (
-            deps["TaskType"].SEQ_2_SEQ_LM
-            if model_task == "seq2seq"
-            else deps["TaskType"].CAUSAL_LM
+            deps["TaskType"].SEQ_2_SEQ_LM if model_task == "seq2seq" else deps["TaskType"].CAUSAL_LM
         )
         config = deps["LoraConfig"](
             r=int(lora.get("r", 8)),
@@ -512,9 +604,7 @@ def _resolve_lora_target_modules(
     if missing:
         suggestions = {
             target: sorted(
-                name
-                for name in module_names
-                if name.rsplit(".", 1)[-1].startswith(f"{target}_")
+                name for name in module_names if name.rsplit(".", 1)[-1].startswith(f"{target}_")
             )[:8]
             for target in missing
         }
@@ -539,11 +629,7 @@ def _audit_wrapped_lora_model(
         if name and _module_has_lora_factors(module)
     )
     matched_by_target = {
-        target: [
-            name
-            for name in adapter_module_names
-            if _module_name_matches_target(name, target)
-        ]
+        target: [name for name in adapter_module_names if _module_name_matches_target(name, target)]
         for target in requested_targets
     }
     missing = [target for target, names in matched_by_target.items() if not names]
@@ -712,8 +798,56 @@ def _monitor_config(stopping: Mapping[str, Any]) -> LossMonitorConfig:
     )
 
 
+def _enforce_required_max_steps(
+    run: TrainingRunSpec,
+    backend_result: BackendTrainResult,
+) -> None:
+    _enforce_actual_training_step(
+        run,
+        step=backend_result.step,
+        status=backend_result.status,
+    )
+
+
+def _required_max_steps(run: TrainingRunSpec) -> int | None:
+    """Validate and return an exact-step contract before expensive training starts."""
+
+    trainer = dict(run.job.get("trainer", {}))
+    required = trainer.get("require_max_steps", False)
+    if not isinstance(required, bool):
+        raise ValueError("trainer.require_max_steps must be a boolean")
+    if not required:
+        return None
+
+    expected = trainer.get("max_steps")
+    if isinstance(expected, bool) or not isinstance(expected, int) or expected < 1:
+        raise ValueError(
+            "trainer.max_steps must be a positive integer when require_max_steps is true"
+        )
+    return expected
+
+
+def _enforce_actual_training_step(
+    run: TrainingRunSpec,
+    *,
+    step: int | None,
+    status: str,
+) -> None:
+    """Reject a short run before final model artifacts are published."""
+
+    expected = _required_max_steps(run)
+    if expected is None:
+        return
+    if step != expected:
+        raise RuntimeError(
+            f"run {run.node_id} requires exactly {expected} training steps, but backend "
+            f"reported {step!r} with status {status!r}"
+        )
+
+
 def _load_hf_deps() -> dict[str, Any]:
     try:
+        import torch
         from datasets import Dataset
         from peft import LoraConfig, TaskType, get_peft_model
         from transformers import (
@@ -734,6 +868,7 @@ def _load_hf_deps() -> dict[str, Any]:
         ) from exc
     return {
         "Dataset": Dataset,
+        "torch": torch,
         "LoraConfig": LoraConfig,
         "TaskType": TaskType,
         "get_peft_model": get_peft_model,
@@ -761,10 +896,9 @@ def _hf_dataset_from_records(
     trainer = dict(job.get("trainer", {}))
     source_len = int(trainer.get("max_source_length", trainer.get("max_length", 512)))
     target_len = int(trainer.get("max_target_length", 128))
-    causal_len = int(
-        trainer.get("max_seq_length", trainer.get("max_length", source_len))
-    )
+    causal_len = int(trainer.get("max_seq_length", trainer.get("max_length", source_len)))
     causal_loss_scope = _causal_loss_scope(trainer)
+    min_prompt_tokens = trainer.get("min_prompt_tokens", 0)
 
     def tokenize(batch: dict[str, list[str]]) -> dict[str, Any]:
         if model_task == "seq2seq":
@@ -786,6 +920,7 @@ def _hf_dataset_from_records(
             batch["target"],
             max_length=causal_len,
             loss_scope=causal_loss_scope,
+            min_prompt_tokens=min_prompt_tokens,
         )
 
     return dataset.map(tokenize, batched=True, remove_columns=["text", "target"])
@@ -809,6 +944,11 @@ def _training_arguments(
         "max_seq_length",
         "model_task",
         "causal_loss_scope",
+        "min_prompt_tokens",
+        "require_max_steps",
+        "padding_side",
+        "model_dtype",
+        "pad_to_multiple_of",
         "cleanup_checkpoints_on_success",
     }
     kwargs = {key: value for key, value in trainer.items() if key not in ignored}
@@ -832,10 +972,34 @@ def _training_arguments(
         return args_cls(**kwargs)
 
 
-def _data_collator(deps: dict[str, Any], tokenizer: Any, model: Any, model_task: str) -> Any:
+def _data_collator(
+    deps: dict[str, Any],
+    tokenizer: Any,
+    model: Any,
+    model_task: str,
+    job: Mapping[str, Any] | None = None,
+) -> Any:
+    trainer = dict((job or {}).get("trainer", {}))
     if model_task == "seq2seq":
-        return deps["DataCollatorForSeq2Seq"](tokenizer=tokenizer, model=model)
-    return _CausalDataCollator(tokenizer)
+        pad_to_multiple_of = trainer.get("pad_to_multiple_of")
+        if pad_to_multiple_of is not None and (
+            isinstance(pad_to_multiple_of, bool)
+            or not isinstance(pad_to_multiple_of, int)
+            or pad_to_multiple_of < 1
+        ):
+            raise ValueError("trainer.pad_to_multiple_of must be a positive integer or null")
+        kwargs: dict[str, Any] = {
+            "tokenizer": tokenizer,
+            "model": model,
+            "label_pad_token_id": -100,
+        }
+        if pad_to_multiple_of is not None:
+            kwargs["pad_to_multiple_of"] = pad_to_multiple_of
+        return deps["DataCollatorForSeq2Seq"](**kwargs)
+    return _CausalDataCollator(
+        tokenizer,
+        pad_to_multiple_of=trainer.get("pad_to_multiple_of"),
+    )
 
 
 def _cleanup_trainer_checkpoints(run: TrainingRunSpec) -> list[str]:
@@ -856,8 +1020,20 @@ def _cleanup_trainer_checkpoints(run: TrainingRunSpec) -> list[str]:
 class _CausalDataCollator:
     """Pad causal examples without replacing prompt-masked labels."""
 
-    def __init__(self, tokenizer: Any) -> None:
+    def __init__(
+        self,
+        tokenizer: Any,
+        *,
+        pad_to_multiple_of: int | None = None,
+    ) -> None:
+        if pad_to_multiple_of is not None and (
+            isinstance(pad_to_multiple_of, bool)
+            or not isinstance(pad_to_multiple_of, int)
+            or pad_to_multiple_of < 1
+        ):
+            raise ValueError("trainer.pad_to_multiple_of must be a positive integer or null")
         self.tokenizer = tokenizer
+        self.pad_to_multiple_of = pad_to_multiple_of
 
     def __call__(self, features: list[dict[str, Any]]) -> dict[str, Any]:
         import torch
@@ -867,7 +1043,10 @@ class _CausalDataCollator:
             {key: value for key, value in feature.items() if key != "labels"}
             for feature in features
         ]
-        batch = self.tokenizer.pad(inputs, padding=True, return_tensors="pt")
+        pad_kwargs: dict[str, Any] = {"padding": True, "return_tensors": "pt"}
+        if self.pad_to_multiple_of is not None:
+            pad_kwargs["pad_to_multiple_of"] = self.pad_to_multiple_of
+        batch = self.tokenizer.pad(inputs, **pad_kwargs)
         sequence_length = int(batch["input_ids"].shape[1])
         padding_side = getattr(self.tokenizer, "padding_side", "right")
         padded_labels = []
@@ -897,6 +1076,684 @@ def _pretrained_kwargs(run: TrainingRunSpec) -> dict[str, str]:
     return {"revision": revision_text} if revision_text else {}
 
 
+def _training_runtime_versions() -> dict[str, str]:
+    """Capture the numerical software environment in every terminal ledger row."""
+
+    versions = {"python": platform.python_version()}
+    for distribution in (
+        "torch",
+        "transformers",
+        "datasets",
+        "accelerate",
+        "tokenizers",
+        "peft",
+    ):
+        try:
+            versions[distribution] = importlib.metadata.version(distribution)
+        except importlib.metadata.PackageNotFoundError:
+            versions[distribution] = "not-installed"
+    return versions
+
+
+def _enforce_expected_runtime(job: Mapping[str, Any], actual: Mapping[str, str]) -> None:
+    """Fail before model loading when a frozen protocol's numerical stack differs."""
+
+    trainer = dict(job.get("trainer") or {})
+    raw_expected = trainer.get("expected_runtime")
+    if raw_expected is None:
+        return
+    if not isinstance(raw_expected, Mapping) or not raw_expected:
+        raise ValueError("trainer.expected_runtime must be a non-empty mapping")
+    expected = {str(key): str(value) for key, value in raw_expected.items()}
+    unsupported = sorted(set(expected) - set(actual))
+    if unsupported:
+        raise ValueError(
+            "trainer.expected_runtime contains unsupported packages: " + ", ".join(unsupported)
+        )
+    mismatched = {
+        key: {"expected": value, "actual": actual.get(key)}
+        for key, value in expected.items()
+        if actual.get(key) != value
+    }
+    if mismatched:
+        details = ", ".join(
+            f"{key}={row['actual']!r} (expected {row['expected']!r})"
+            for key, row in sorted(mismatched.items())
+        )
+        raise RuntimeError(f"training runtime does not match frozen protocol: {details}")
+
+
+def _weighttraits_source_receipt(package_root: Path | None = None) -> dict[str, Any]:
+    """Hash every WeightTraits Python source path and byte string deterministically."""
+
+    root = package_root or Path(__file__).resolve().parents[1]
+    files = sorted(path for path in root.rglob("*.py") if path.is_file())
+    if not files:
+        raise RuntimeError(f"WeightTraits source receipt found no Python files under {root}")
+    digest = hashlib.sha256()
+    for path in files:
+        relative = path.relative_to(root).as_posix().encode("utf-8")
+        digest.update(len(relative).to_bytes(8, "big"))
+        digest.update(relative)
+        digest.update(bytes.fromhex(_file_sha256(path)))
+    return {
+        "schema_version": 1,
+        "package": "weighttraits",
+        "algorithm": "sha256-relative-path-and-content-v1",
+        "file_count": len(files),
+        "sha256": digest.hexdigest(),
+    }
+
+
+def _enforce_expected_source_code(job: Mapping[str, Any], actual: Mapping[str, Any]) -> None:
+    """Fail before training when a frozen protocol was built for different source bytes."""
+
+    trainer = dict(job.get("trainer") or {})
+    raw_expected = trainer.get("expected_source_code")
+    if raw_expected is None:
+        return
+    if not isinstance(raw_expected, Mapping) or not raw_expected:
+        raise ValueError("trainer.expected_source_code must be a non-empty mapping")
+    expected = dict(raw_expected)
+    required = {"algorithm", "sha256"}
+    missing = sorted(required - set(expected))
+    unsupported = sorted(set(expected) - {"algorithm", "sha256", "file_count"})
+    if missing:
+        raise ValueError(
+            "trainer.expected_source_code lacks required fields: " + ", ".join(missing)
+        )
+    if unsupported:
+        raise ValueError(
+            "trainer.expected_source_code contains unsupported fields: " + ", ".join(unsupported)
+        )
+    mismatched = {
+        key: {"expected": value, "actual": actual.get(key)}
+        for key, value in expected.items()
+        if actual.get(key) != value
+    }
+    if mismatched:
+        details = ", ".join(
+            f"{key}={row['actual']!r} (expected {row['expected']!r})"
+            for key, row in sorted(mismatched.items())
+        )
+        raise RuntimeError(f"WeightTraits source does not match frozen protocol: {details}")
+
+
+def _expected_cache_source_receipt(job: Mapping[str, Any]) -> dict[str, str] | None:
+    trainer = dict(job.get("trainer") or {})
+    raw = trainer.get("expected_cache_source_receipt")
+    if raw is None:
+        return None
+    if not isinstance(raw, Mapping):
+        raise ValueError("trainer.expected_cache_source_receipt must be a mapping")
+    path = str(raw.get("path", "")).strip()
+    sha256 = str(raw.get("sha256", "")).strip().lower()
+    if not path:
+        raise ValueError("trainer.expected_cache_source_receipt.path is required")
+    if len(sha256) != 64 or any(character not in "0123456789abcdef" for character in sha256):
+        raise ValueError("trainer.expected_cache_source_receipt.sha256 must be a lowercase SHA-256")
+    return {"path": path, "sha256": sha256}
+
+
+def _data_execution_contract(
+    run: TrainingRunSpec,
+    *,
+    data_cache_root: str | Path | None,
+    require_data_cache: bool,
+    expected_cache_recipe: DatasetCacheRecipe | None,
+    max_train_samples: int | None,
+    max_eval_samples: int | None,
+    allow_missing_eval: bool,
+) -> dict[str, Any]:
+    """Return every effective data choice that can alter a trained node."""
+
+    return {
+        "data_cache_root": None if data_cache_root is None else str(data_cache_root),
+        "require_data_cache": bool(require_data_cache),
+        "expected_cache_recipe": (
+            None if expected_cache_recipe is None else expected_cache_recipe.to_dict()
+        ),
+        "expected_cache_source_receipt": _expected_cache_source_receipt(run.job),
+        "max_train_samples": max_train_samples,
+        "max_eval_samples": max_eval_samples,
+        "allow_missing_eval": bool(allow_missing_eval),
+    }
+
+
+def _planned_run_spec(run: TrainingRunSpec) -> TrainingRunSpec:
+    """Recover the immutable checked-in row before any command-line trainer override."""
+
+    run_list_path = run.runner.get("run_list_path")
+    if not run_list_path:
+        return run
+    path = Path(str(run_list_path))
+    if not path.is_file():
+        return run
+    matches = [
+        candidate for candidate in load_training_run_specs(path) if candidate.node_id == run.node_id
+    ]
+    if len(matches) != 1:
+        raise RuntimeError(
+            f"expected one planned row for node {run.node_id!r} in {path}, found {len(matches)}"
+        )
+    return matches[0]
+
+
+def _training_run_provenance(
+    run: TrainingRunSpec,
+    registry: Mapping[str, DatasetRegistryEntry],
+    format_specs: Mapping[str, DatasetFormatSpec],
+    *,
+    data_execution: Mapping[str, Any],
+    execution_overrides: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Build a compact, deterministic receipt for the effective training row."""
+
+    entry = registry.get(run.dataset_id or "")
+    spec = format_specs.get(run.dataset_id or "")
+    run_list_path = run.runner.get("run_list_path")
+    run_list_file = Path(str(run_list_path)) if run_list_path else None
+    planned_run = _planned_run_spec(run)
+    return {
+        "schema_version": 1,
+        "protocol_id": run.job.get("protocol_id"),
+        "planned_training_config_sha256": run.job.get("training_config_sha256"),
+        "planned_run_spec_sha256": _canonical_json_sha256(planned_run.to_dict()),
+        "effective_job_sha256": _canonical_json_sha256(run.job),
+        "run_spec_sha256": _canonical_json_sha256(run.to_dict()),
+        "run_list_path": None if run_list_file is None else str(run_list_file),
+        "run_list_sha256": (
+            _file_sha256(run_list_file)
+            if run_list_file is not None and run_list_file.is_file()
+            else None
+        ),
+        "dataset_id": run.dataset_id,
+        "dataset_registry_entry_sha256": (
+            dataset_registry_entry_fingerprint(entry) if entry is not None else None
+        ),
+        "dataset_format_spec_sha256": (
+            dataset_format_spec_fingerprint(spec) if spec is not None else None
+        ),
+        "data_execution": dict(data_execution),
+        "execution_overrides": dict(execution_overrides),
+        "runtime_versions": _training_runtime_versions(),
+        "source_code": _weighttraits_source_receipt(),
+    }
+
+
+def _cache_split_provenance(
+    run: TrainingRunSpec,
+    registry: Mapping[str, DatasetRegistryEntry],
+    format_specs: Mapping[str, DatasetFormatSpec],
+    *,
+    data_cache_root: str | Path | None,
+) -> dict[str, dict[str, Any]]:
+    """Read the small, already-validated cache metadata files into the receipt."""
+
+    if data_cache_root is None or run.dataset_id is None:
+        return {}
+    entry = registry.get(run.dataset_id)
+    spec = format_specs.get(run.dataset_id)
+    if entry is None or spec is None:
+        return {}
+    train_split = spec.train_split or entry.train_split or "train"
+    eval_split = spec.eval_split or entry.eval_split
+    split_names = [train_split]
+    if eval_split:
+        split_names.append(eval_split)
+    receipt: dict[str, dict[str, Any]] = {}
+    recorded_fields = (
+        "cache_metadata_version",
+        "dataset_id",
+        "split",
+        "sample_strategy",
+        "sample_seed",
+        "shuffle_buffer_size",
+        "cache_limit",
+        "cache_n_filtered",
+        "cache_n_dropped",
+        "source_split_fingerprint",
+        "source_split_num_rows",
+        "dataset_registry_entry_sha256",
+        "dataset_format_spec_sha256",
+        "cache_jsonl_sha256",
+        "cache_row_count",
+    )
+    for split_name in split_names:
+        cache_path = dataset_cache_split_path(data_cache_root, run.dataset_id, split_name)
+        metadata_path = cache_path.with_suffix(".metadata.json")
+        if not metadata_path.is_file():
+            continue
+        metadata = json.loads(metadata_path.read_text())
+        receipt[split_name] = {
+            "cache_path": str(cache_path),
+            "metadata_path": str(metadata_path),
+            "metadata_sha256": _file_sha256(metadata_path),
+            **{field: metadata.get(field) for field in recorded_fields},
+        }
+    return receipt
+
+
+def _write_training_provenance(
+    run: TrainingRunSpec,
+    provenance: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Atomically publish one immutable provenance receipt before model training."""
+
+    path = Path(run.output_dir) / "provenance.json"
+    payload = json.dumps(dict(provenance), indent=2, sort_keys=True) + "\n"
+    if path.exists():
+        if path.read_text() != payload:
+            raise RuntimeError(
+                f"refusing to mix a different training protocol in existing output {path}"
+            )
+    else:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_name(f".{path.name}.tmp")
+        temporary.write_text(payload)
+        temporary.replace(path)
+    return {
+        "path": str(path),
+        "sha256": hashlib.sha256(payload.encode("utf-8")).hexdigest(),
+    }
+
+
+def _assert_output_provenance_preflight(run: TrainingRunSpec) -> None:
+    """Reject ambiguous or completed outputs before writing any output-local event."""
+
+    output_dir = Path(run.output_dir)
+    if not output_dir.exists():
+        return
+    entries = sorted(output_dir.iterdir(), key=lambda path: path.name)
+    if not entries:
+        return
+    provenance_path = output_dir / "provenance.json"
+    if not provenance_path.is_file():
+        names = ", ".join(path.name for path in entries[:8])
+        raise RuntimeError(
+            f"refusing output without immutable provenance in {output_dir}; existing: {names}"
+        )
+    completion_path = output_dir / "completion.json"
+    if completion_path.exists():
+        raise RuntimeError(
+            f"refusing to retrain completed output {output_dir}; submit only unfinished rows"
+        )
+    allowed = {provenance_path.resolve()}
+    training_log = run.expected_artifacts.get("training_log")
+    if training_log:
+        allowed.add(Path(training_log).resolve())
+    unexpected = [path for path in entries if path.resolve() not in allowed]
+    if unexpected:
+        names = ", ".join(path.name for path in unexpected[:8])
+        raise RuntimeError(
+            f"refusing partial or mixed artifacts in {output_dir}; unexpected: {names}"
+        )
+
+
+def _validate_expected_cache_source_receipt(
+    run: TrainingRunSpec,
+    registry: Mapping[str, DatasetRegistryEntry],
+    format_specs: Mapping[str, DatasetFormatSpec],
+    *,
+    data_cache_root: str | Path | None,
+    require_data_cache: bool,
+) -> dict[str, Any]:
+    """Authenticate the exact frozen cache rows and their upstream source fingerprints."""
+
+    expected_ref = _expected_cache_source_receipt(run.job)
+    if expected_ref is None:
+        return {}
+    if not require_data_cache or data_cache_root is None:
+        raise RuntimeError(
+            "frozen cache source receipt requires require_data_cache and data_cache_root"
+        )
+    receipt_path = Path(expected_ref["path"])
+    if not receipt_path.is_file():
+        raise FileNotFoundError(f"missing frozen cache source receipt: {receipt_path}")
+    actual_receipt_sha256 = _file_sha256(receipt_path)
+    if actual_receipt_sha256 != expected_ref["sha256"]:
+        raise RuntimeError(
+            "frozen cache source receipt SHA-256 differs: "
+            f"{actual_receipt_sha256} != {expected_ref['sha256']}"
+        )
+    try:
+        receipt = json.loads(receipt_path.read_text())
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"invalid frozen cache source receipt {receipt_path}: {exc}") from exc
+    if not isinstance(receipt, Mapping) or receipt.get("schema_version") != 1:
+        raise ValueError(f"unsupported frozen cache source receipt: {receipt_path}")
+    raw_splits = receipt.get("splits")
+    if not isinstance(raw_splits, list):
+        raise ValueError(f"frozen cache source receipt lacks split rows: {receipt_path}")
+    expected_splits: dict[tuple[str, str], Mapping[str, Any]] = {}
+    for row in raw_splits:
+        if not isinstance(row, Mapping):
+            raise ValueError("frozen cache source receipt contains a non-mapping split row")
+        key = (str(row.get("dataset_id", "")), str(row.get("split", "")))
+        if not all(key) or key in expected_splits:
+            raise ValueError(f"frozen cache source receipt has invalid or duplicate split {key}")
+        expected_splits[key] = row
+
+    dataset_id = run.dataset_id or ""
+    entry = registry.get(dataset_id)
+    spec = format_specs.get(dataset_id)
+    if entry is None or spec is None:
+        raise ValueError(f"missing registry or format declaration for {dataset_id!r}")
+    train_split = spec.train_split or entry.train_split or "train"
+    eval_split = spec.eval_split or entry.eval_split
+    split_names = [train_split] + ([eval_split] if eval_split else [])
+    verified: dict[str, dict[str, Any]] = {}
+    for split_name in split_names:
+        key = (dataset_id, str(split_name))
+        expected = expected_splits.get(key)
+        if expected is None:
+            raise RuntimeError(f"frozen cache source receipt lacks {dataset_id}/{split_name}")
+        cache_path = dataset_cache_split_path(data_cache_root, dataset_id, str(split_name))
+        metadata_path = cache_path.with_suffix(".metadata.json")
+        if not cache_path.is_file() or not metadata_path.is_file():
+            raise FileNotFoundError(
+                f"missing frozen cache split or metadata: {cache_path}, {metadata_path}"
+            )
+        try:
+            actual = json.loads(metadata_path.read_text())
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"invalid cache metadata {metadata_path}: {exc}") from exc
+        if actual != dict(expected):
+            differing = sorted(
+                key_name
+                for key_name in set(actual) | set(expected)
+                if actual.get(key_name) != expected.get(key_name)
+            )
+            raise RuntimeError(
+                f"cache metadata differs from frozen receipt for {dataset_id}/{split_name}: "
+                + ", ".join(differing)
+            )
+        if expected.get("dataset_registry_entry_sha256") != dataset_registry_entry_fingerprint(
+            entry
+        ):
+            raise RuntimeError(
+                f"registry declaration differs from frozen receipt for {dataset_id}/{split_name}"
+            )
+        if expected.get("dataset_format_spec_sha256") != dataset_format_spec_fingerprint(spec):
+            raise RuntimeError(
+                f"format declaration differs from frozen receipt for {dataset_id}/{split_name}"
+            )
+        row_count, cache_sha256 = _jsonl_file_stats(cache_path)
+        if row_count != expected.get("cache_row_count"):
+            raise RuntimeError(
+                f"cache row count differs from frozen receipt for {dataset_id}/{split_name}"
+            )
+        if cache_sha256 != expected.get("cache_jsonl_sha256"):
+            raise RuntimeError(
+                f"cache content differs from frozen receipt for {dataset_id}/{split_name}"
+            )
+        verified[str(split_name)] = {
+            "source_split_fingerprint": expected.get("source_split_fingerprint"),
+            "source_split_num_rows": expected.get("source_split_num_rows"),
+            "cache_jsonl_sha256": cache_sha256,
+            "cache_row_count": row_count,
+            "metadata_sha256": _file_sha256(metadata_path),
+        }
+    return {
+        "path": str(receipt_path),
+        "sha256": actual_receipt_sha256,
+        "dataset_id": dataset_id,
+        "splits": verified,
+    }
+
+
+def _validate_parent_lineage(
+    run: TrainingRunSpec,
+    *,
+    execution_overrides: Mapping[str, Any],
+    data_execution: Mapping[str, Any],
+    runtime_versions: Mapping[str, str],
+    source_code: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Require a completed, authenticated parent row and exact parent artifact bytes."""
+
+    if run.parent_id == "root":
+        return {}
+    run_list_path = run.runner.get("run_list_path")
+    if not run_list_path or not Path(str(run_list_path)).is_file():
+        raise RuntimeError(f"non-root node {run.node_id} requires its complete run list")
+    parents = [
+        candidate
+        for candidate in load_training_run_specs(str(run_list_path))
+        if candidate.node_id == run.parent_id
+    ]
+    if len(parents) != 1:
+        raise RuntimeError(
+            f"expected one parent row {run.parent_id!r}, found {len(parents)} in {run_list_path}"
+        )
+    planned_parent = parents[0]
+    lineage_key = _lineage_artifact_key(planned_parent)
+    expected_parent_artifact = planned_parent.expected_artifacts.get(lineage_key)
+    if not expected_parent_artifact:
+        raise RuntimeError(
+            f"parent {planned_parent.node_id} lacks expected {lineage_key!r} artifact"
+        )
+    if Path(run.init_from) != Path(expected_parent_artifact):
+        raise RuntimeError(
+            f"child {run.node_id} init_from does not match parent {lineage_key}: "
+            f"{run.init_from!r} != {expected_parent_artifact!r}"
+        )
+
+    parent_provenance_path = Path(planned_parent.output_dir) / "provenance.json"
+    parent_completion_path = Path(planned_parent.output_dir) / "completion.json"
+    parent_provenance = _read_json_mapping(parent_provenance_path, "parent provenance")
+    parent_completion = _read_json_mapping(parent_completion_path, "parent completion")
+    effective_parent = _run_with_execution_overrides(planned_parent, execution_overrides)
+    run_list_file = Path(str(run_list_path))
+    expected_provenance_fields = {
+        "protocol_id": planned_parent.job.get("protocol_id"),
+        "planned_training_config_sha256": planned_parent.job.get("training_config_sha256"),
+        "planned_run_spec_sha256": _canonical_json_sha256(planned_parent.to_dict()),
+        "effective_job_sha256": _canonical_json_sha256(effective_parent.job),
+        "run_spec_sha256": _canonical_json_sha256(effective_parent.to_dict()),
+        "run_list_path": str(run_list_file),
+        "run_list_sha256": _file_sha256(run_list_file),
+        "execution_overrides": dict(execution_overrides),
+        "data_execution": dict(data_execution),
+        "runtime_versions": dict(runtime_versions),
+        "source_code": dict(source_code),
+    }
+    mismatched = [
+        field
+        for field, expected in expected_provenance_fields.items()
+        if parent_provenance.get(field) != expected
+    ]
+    if mismatched:
+        raise RuntimeError(
+            f"parent {planned_parent.node_id} provenance differs from planned lineage: "
+            + ", ".join(mismatched)
+        )
+    parent_provenance_sha256 = _file_sha256(parent_provenance_path)
+    if parent_completion.get("schema_version") != 1:
+        raise RuntimeError(f"parent {planned_parent.node_id} completion schema is unsupported")
+    if parent_completion.get("node_id") != planned_parent.node_id:
+        raise RuntimeError(f"parent completion node id differs for {planned_parent.node_id}")
+    if parent_completion.get("status") != "completed":
+        raise RuntimeError(f"parent {planned_parent.node_id} is not completed")
+    required_parent_step = _required_max_steps(effective_parent)
+    if required_parent_step is not None and parent_completion.get("step") != required_parent_step:
+        raise RuntimeError(
+            f"parent {planned_parent.node_id} completion step differs: "
+            f"{parent_completion.get('step')!r} != {required_parent_step!r}"
+        )
+    if parent_completion.get("provenance_sha256") != parent_provenance_sha256:
+        raise RuntimeError(f"parent provenance hash differs for {planned_parent.node_id}")
+    artifact = parent_completion.get("lineage_artifact")
+    if not isinstance(artifact, Mapping) or artifact.get("key") != lineage_key:
+        raise RuntimeError(f"parent completion lacks authenticated {lineage_key} artifact")
+    if Path(str(artifact.get("path", ""))) != Path(expected_parent_artifact):
+        raise RuntimeError(f"parent completion artifact path differs for {planned_parent.node_id}")
+    actual_artifact_sha256 = _artifact_tree_sha256(Path(expected_parent_artifact))
+    if artifact.get("sha256") != actual_artifact_sha256:
+        raise RuntimeError(f"parent artifact bytes differ for {planned_parent.node_id}")
+    return {
+        "parent_id": planned_parent.node_id,
+        "provenance_path": str(parent_provenance_path),
+        "provenance_sha256": parent_provenance_sha256,
+        "completion_path": str(parent_completion_path),
+        "completion_sha256": _file_sha256(parent_completion_path),
+        "artifact_key": lineage_key,
+        "artifact_path": expected_parent_artifact,
+        "artifact_sha256": actual_artifact_sha256,
+    }
+
+
+def _write_training_completion(
+    run: TrainingRunSpec,
+    *,
+    step: int | None,
+    provenance_ref: Mapping[str, Any],
+    artifacts: Mapping[str, str],
+) -> dict[str, str]:
+    """Publish an immutable terminal receipt after the lineage artifact is durable."""
+
+    lineage_key = _lineage_artifact_key(run)
+    artifact_path = Path(str(artifacts.get(lineage_key, "")))
+    if not artifact_path.exists():
+        raise RuntimeError(
+            f"completed run {run.node_id} did not create its {lineage_key} artifact: {artifact_path}"
+        )
+    provenance_path = Path(str(provenance_ref.get("path", "")))
+    if not provenance_path.is_file():
+        raise RuntimeError(f"completed run {run.node_id} lacks immutable provenance")
+    payload = {
+        "schema_version": 1,
+        "node_id": run.node_id,
+        "status": "completed",
+        "step": step,
+        "provenance_path": str(provenance_path),
+        "provenance_sha256": _file_sha256(provenance_path),
+        "lineage_artifact": {
+            "key": lineage_key,
+            "path": str(artifact_path),
+            "sha256": _artifact_tree_sha256(artifact_path),
+        },
+    }
+    path = Path(run.output_dir) / "completion.json"
+    text = json.dumps(payload, indent=2, sort_keys=True) + "\n"
+    if path.exists():
+        if path.read_text() != text:
+            raise RuntimeError(f"refusing to replace a different completion receipt: {path}")
+    else:
+        temporary = path.with_name(f".{path.name}.tmp")
+        temporary.write_text(text)
+        temporary.replace(path)
+    return {"path": str(path), "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest()}
+
+
+def _lineage_artifact_key(run: TrainingRunSpec) -> str:
+    return "merged" if run.method == "lora" else "model"
+
+
+def _run_with_execution_overrides(
+    run: TrainingRunSpec,
+    execution_overrides: Mapping[str, Any],
+) -> TrainingRunSpec:
+    trainer_overrides = execution_overrides.get("trainer")
+    if not trainer_overrides:
+        return run
+    if not isinstance(trainer_overrides, Mapping):
+        raise ValueError("execution_overrides.trainer must be a mapping")
+    row = run.to_dict()
+    job = dict(row["job"])
+    trainer = dict(job.get("trainer") or {})
+    trainer.update(trainer_overrides)
+    job["trainer"] = trainer
+    row["job"] = job
+    return TrainingRunSpec(**row)
+
+
+def _read_json_mapping(path: Path, label: str) -> Mapping[str, Any]:
+    if not path.is_file():
+        raise FileNotFoundError(f"missing {label}: {path}")
+    try:
+        value = json.loads(path.read_text())
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"invalid {label} {path}: {exc}") from exc
+    if not isinstance(value, Mapping):
+        raise ValueError(f"invalid {label} {path}: expected a JSON object")
+    return value
+
+
+def _artifact_tree_sha256(path: Path) -> str:
+    if path.is_file():
+        return _file_sha256(path)
+    if not path.is_dir():
+        raise FileNotFoundError(f"missing artifact path: {path}")
+    files = sorted(candidate for candidate in path.rglob("*") if candidate.is_file())
+    if not files:
+        raise RuntimeError(f"artifact directory contains no files: {path}")
+    digest = hashlib.sha256()
+    for file_path in files:
+        relative = file_path.relative_to(path).as_posix().encode("utf-8")
+        digest.update(len(relative).to_bytes(8, "big"))
+        digest.update(relative)
+        digest.update(bytes.fromhex(_file_sha256(file_path)))
+    return digest.hexdigest()
+
+
+def _jsonl_file_stats(path: Path) -> tuple[int, str]:
+    digest = hashlib.sha256()
+    row_count = 0
+    with path.open("rb") as handle:
+        for line in handle:
+            digest.update(line)
+            if line.strip():
+                row_count += 1
+    return row_count, digest.hexdigest()
+
+
+def _canonical_json_sha256(value: Any) -> str:
+    payload = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _model_pretrained_kwargs(
+    run: TrainingRunSpec,
+    torch_module: Any,
+) -> dict[str, Any]:
+    """Build model-only loading kwargs, including the requested parameter dtype."""
+
+    kwargs: dict[str, Any] = dict(_pretrained_kwargs(run))
+    trainer = dict(run.job.get("trainer", {}))
+    if "model_dtype" not in trainer:
+        return kwargs
+    model_dtype = trainer["model_dtype"]
+    allowed = {"auto", "bfloat16", "float16", "float32"}
+    if not isinstance(model_dtype, str) or model_dtype not in allowed:
+        raise ValueError("trainer.model_dtype must be one of: auto, bfloat16, float16, float32")
+    kwargs["torch_dtype"] = "auto" if model_dtype == "auto" else getattr(torch_module, model_dtype)
+    return kwargs
+
+
+def _apply_tokenizer_padding_side(
+    tokenizer: Any,
+    job: Mapping[str, Any],
+) -> None:
+    """Apply an explicitly requested tokenizer padding direction."""
+
+    trainer = dict(job.get("trainer", {}))
+    if "padding_side" not in trainer:
+        return
+    padding_side = trainer["padding_side"]
+    if not isinstance(padding_side, str) or padding_side not in {"left", "right"}:
+        raise ValueError("trainer.padding_side must be 'left' or 'right'")
+    tokenizer.padding_side = padding_side
+
+
 def _causal_loss_scope(trainer: Mapping[str, Any]) -> str:
     scope = str(trainer.get("causal_loss_scope", "completion"))
     if scope not in {"completion", "all_tokens"}:
@@ -911,13 +1768,20 @@ def _tokenize_causal_batch(
     *,
     max_length: int,
     loss_scope: str,
+    min_prompt_tokens: int = 0,
 ) -> dict[str, list[list[int]]]:
     if max_length < 1:
         raise ValueError("causal max sequence length must be positive")
+    if isinstance(min_prompt_tokens, bool) or not isinstance(min_prompt_tokens, int):
+        raise ValueError("trainer.min_prompt_tokens must be an integer")
+    if min_prompt_tokens < 0 or min_prompt_tokens >= max_length:
+        raise ValueError(
+            "trainer.min_prompt_tokens must satisfy "
+            f"0 <= min_prompt_tokens < max_length ({max_length})"
+        )
     if loss_scope == "all_tokens":
         full_text = [
-            text if text == target else f"{text}\n{target}"
-            for text, target in zip(texts, targets)
+            text if text == target else f"{text}\n{target}" for text, target in zip(texts, targets)
         ]
         model_inputs = tokenizer(full_text, max_length=max_length, truncation=True)
         model_inputs["labels"] = [list(ids) for ids in model_inputs["input_ids"]]
@@ -941,7 +1805,7 @@ def _tokenize_causal_batch(
                 not completion_ids or completion_ids[-1] != eos_token_id
             ):
                 completion_ids.append(int(eos_token_id))
-            completion_ids = completion_ids[:max_length]
+            completion_ids = completion_ids[: max_length - min_prompt_tokens]
             prompt_budget = max_length - len(completion_ids)
             prompt_ids = prompt_ids[:prompt_budget]
             ids = prompt_ids + completion_ids

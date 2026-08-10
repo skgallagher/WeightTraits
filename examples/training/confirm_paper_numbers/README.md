@@ -2,6 +2,13 @@
 
 This directory contains a clean topology draw for confirming paper-scale numbers without reusing the exact old ELLMTrees tree seeds.
 
+> **Corrected legacy rebuild:** the original `full_finetune.yaml` workflow below
+> is retained as historical scaffolding and must not be used for new paper runs.
+> Use [LEGACY_CAUSAL_REBUILD.md](LEGACY_CAUSAL_REBUILD.md) for Llama full FT,
+> [LEGACY_LLAMA_LORA_REBUILD.md](LEGACY_LLAMA_LORA_REBUILD.md) for Llama QKV
+> LoRA, and [LEGACY_SEQ2SEQ_REBUILD.md](LEGACY_SEQ2SEQ_REBUILD.md) for all seven
+> Flan-T5 cohorts.
+
 Generated with:
 
 ```bash
@@ -19,7 +26,7 @@ Compare the generated set against the active paper text and the local ELLMTrees 
 python scripts/compare_confirm_paper_trees.py \
   --weighttraits-summary examples/training/confirm_paper_numbers/tree_set_summary.json \
   --ellmtrees-runs ../ELLMTrees/outputs/runs_branching_v3 \
-  --paper-tex ../ELLMTrees-paper/iclr_draft_v2.tex \
+  --paper-tex ../ELLMTrees-paper/iclr_draft_v4.tex \
   --out-dir reports/confirm_paper_tree_comparison
 ```
 

@@ -23,6 +23,7 @@ class DatasetFormatSpec:
     eval_split: str | None = None
     role: str = "training"
     note: str | None = None
+    transforms: dict[str, dict[str, Any]] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         out = asdict(self)
@@ -150,6 +151,7 @@ def _normalize_spec(row: Any) -> DatasetFormatSpec:
     field_map = row.get("field_map")
     if field_map is not None and not isinstance(field_map, dict):
         raise ValueError(f"field_map must be a mapping for dataset {dataset_id}")
+    transforms = _normalize_transforms(row.get("transforms"), str(dataset_id))
     prompt_fields = row.get("prompt_fields")
     if prompt_fields is None and field_map is not None:
         prompt_fields = sorted(field_map)
@@ -159,13 +161,106 @@ def _normalize_spec(row: Any) -> DatasetFormatSpec:
         dataset_id=str(dataset_id),
         task_family=None if row.get("task_family") is None else str(row.get("task_family")),
         prompt_fields=tuple(sorted(_as_str_list(prompt_fields, "prompt_fields", str(dataset_id)))),
-        raw_fields=tuple(sorted(_as_str_list(row.get("raw_fields", []), "raw_fields", str(dataset_id)))),
+        raw_fields=tuple(
+            sorted(_as_str_list(row.get("raw_fields", []), "raw_fields", str(dataset_id)))
+        ),
         field_map={str(key): str(value) for key, value in field_map.items()} if field_map else None,
+        transforms=transforms,
         train_split=None if row.get("train_split") is None else str(row.get("train_split")),
         eval_split=None if row.get("eval_split") is None else str(row.get("eval_split")),
         role=str(row.get("role", "training")),
         note=None if row.get("note") is None else str(row.get("note")),
     )
+
+
+_TRANSFORM_REQUIRED_KEYS = {
+    "label_index": ("source", "labels"),
+    "first_item": ("source",),
+    "bool_map": ("source", "true_value", "false_value"),
+    "format_choices": ("source",),
+    "choice_text": ("key_source", "choices_source"),
+    "compose_qa_input": ("question_source",),
+}
+
+
+def _normalize_transforms(
+    value: Any,
+    dataset_id: str,
+) -> dict[str, dict[str, Any]] | None:
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise ValueError(f"transforms must be a mapping for dataset {dataset_id}")
+
+    normalized: dict[str, dict[str, Any]] = {}
+    for output_field, raw_transform in value.items():
+        output = str(output_field).strip()
+        if not output:
+            raise ValueError(f"transform output field must not be empty for dataset {dataset_id}")
+        if not isinstance(raw_transform, Mapping):
+            raise ValueError(
+                f"transform for field {output!r} must be a mapping for dataset {dataset_id}"
+            )
+        transform = {str(key): item for key, item in raw_transform.items()}
+        op = transform.get("op")
+        if not isinstance(op, str) or op not in _TRANSFORM_REQUIRED_KEYS:
+            supported = ", ".join(sorted(_TRANSFORM_REQUIRED_KEYS))
+            raise ValueError(
+                f"unsupported transform op {op!r} for field {output!r} in dataset "
+                f"{dataset_id}; supported: {supported}"
+            )
+        missing = [key for key in _TRANSFORM_REQUIRED_KEYS[op] if key not in transform]
+        if missing:
+            raise ValueError(
+                f"transform {op!r} for field {output!r} in dataset {dataset_id} "
+                f"requires: {', '.join(missing)}"
+            )
+        for source_key in (
+            "source",
+            "key_source",
+            "question_source",
+            "choices_source",
+            "context_source",
+        ):
+            if source_key in transform and not isinstance(transform[source_key], str):
+                raise ValueError(
+                    f"transform {op!r} field {source_key!r} must be a string for "
+                    f"dataset {dataset_id}"
+                )
+        if op == "label_index":
+            labels = transform["labels"]
+            if not isinstance(labels, list) or not labels:
+                raise ValueError(
+                    f"transform 'label_index' labels must be a non-empty list for "
+                    f"dataset {dataset_id}"
+                )
+            transform["labels"] = [str(label) for label in labels]
+        if op == "bool_map":
+            for value_key in ("true_value", "false_value"):
+                if not isinstance(transform[value_key], str):
+                    raise ValueError(
+                        f"transform 'bool_map' field {value_key!r} must be a string for "
+                        f"dataset {dataset_id}"
+                    )
+        for option_key in ("label_field", "text_field", "separator"):
+            if option_key in transform and not isinstance(transform[option_key], str):
+                raise ValueError(
+                    f"transform {op!r} field {option_key!r} must be a string for "
+                    f"dataset {dataset_id}"
+                )
+        if "fallback_to_key" in transform:
+            if op != "choice_text":
+                raise ValueError(
+                    f"transform field 'fallback_to_key' is only supported by 'choice_text' "
+                    f"for dataset {dataset_id}"
+                )
+            if not isinstance(transform["fallback_to_key"], bool):
+                raise ValueError(
+                    f"transform {op!r} field 'fallback_to_key' must be a boolean for "
+                    f"dataset {dataset_id}"
+                )
+        normalized[output] = transform
+    return normalized
 
 
 def _as_str_list(value: Any, key: str, dataset_id: str) -> list[str]:

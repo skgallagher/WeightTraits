@@ -137,6 +137,17 @@ def test_training_run_list_warns_when_stopping_guards_are_missing(tmp_path):
     ]
 
 
+def test_training_run_list_accepts_intentionally_disabled_stopping(tmp_path):
+    config = _config(tmp_path)
+    config["stopping"] = {"enabled": False}
+    jobs = build_training_jobs(_rows()[:1], config)
+
+    report = build_training_run_list(jobs)
+
+    assert report.valid
+    assert report.issues == ()
+
+
 def test_training_run_list_requires_lora_merge_for_lineage_children(tmp_path):
     config = _config(tmp_path, method="lora")
     config["lora"] = {"merge_after_train": False}
@@ -165,7 +176,7 @@ def test_load_execution_profile_and_render_slurm_dry_run_script(tmp_path):
     assert "#SBATCH --array=0-1%2" in script
     assert "#SBATCH --account=statds" in script
     assert "describe-training-run" in script
-    assert "RUN_LIST=\"${RUN_LIST:-/scratch/runs.jsonl}\"" in script
+    assert 'RUN_LIST="${RUN_LIST:-/scratch/runs.jsonl}"' in script
 
 
 def test_render_slurm_script_calls_training_runner_when_configured(tmp_path):
@@ -180,6 +191,12 @@ def test_render_slurm_script_calls_training_runner_when_configured(tmp_path):
             "formats_path": "examples/training/dataset_formats_smoke.yaml",
             "data_cache_root": "data/cache",
             "require_data_cache": True,
+            "expected_cache_recipe": {
+                "sample_strategy": "legacy_subsample",
+                "sample_seed": 42,
+                "train_limit": 10000,
+                "eval_limit": 1000,
+            },
             "max_train_samples": 2,
             "allow_missing_eval": True,
         },
@@ -196,6 +213,10 @@ def test_render_slurm_script_calls_training_runner_when_configured(tmp_path):
     assert "--formats examples/training/dataset_formats_smoke.yaml" in script
     assert "--data-cache-root data/cache" in script
     assert "--require-data-cache" in script
+    assert "--expected-cache-strategy legacy_subsample" in script
+    assert "--expected-cache-seed 42" in script
+    assert "--expected-cache-train-limit 10000" in script
+    assert "--expected-cache-eval-limit 1000" in script
     assert "--max-train-samples 2" in script
     assert "--allow-missing-eval" in script
 
@@ -263,11 +284,7 @@ def test_make_training_run_list_set_writes_per_tree_run_lists(tmp_path):
     for tree_id in ("tree_a", "tree_b"):
         manifest = tmp_path / f"{tree_id}.manifest.jsonl"
         manifest.write_text(
-            "\n".join(
-                json.dumps(dict(row, tree_id=tree_id))
-                for row in _rows()
-            )
-            + "\n"
+            "\n".join(json.dumps(dict(row, tree_id=tree_id)) for row in _rows()) + "\n"
         )
         manifests.append({"tree_id": tree_id, "assigned_manifest": str(manifest)})
     assignment_summary = tmp_path / "assignment_summary.json"
@@ -301,6 +318,14 @@ training:
             str(config),
             "--out-dir",
             str(tmp_path / "runlists"),
+            "--expected-cache-strategy",
+            "legacy_subsample",
+            "--expected-cache-seed",
+            "42",
+            "--expected-cache-train-limit",
+            "10000",
+            "--expected-cache-eval-limit",
+            "1000",
             "--runner-dry-run",
         ]
     )
@@ -314,7 +339,15 @@ training:
     assert summary["n_trees"] == 2
     assert summary["n_runs"] == 4
     assert summary["runner_entrypoint"] == "weighttraits.cli run-training-row"
-    assert summary["runner_options"] == {"dry_run": True}
+    assert summary["runner_options"] == {
+        "dry_run": True,
+        "expected_cache_recipe": {
+            "sample_strategy": "legacy_subsample",
+            "sample_seed": 42,
+            "train_limit": 10000,
+            "eval_limit": 1000,
+        },
+    }
     assert tree_a_runs[0].output_dir == str(tmp_path / "outputs/tree_a/n0")
     assert tree_b_runs[0].output_dir == str(tmp_path / "outputs/tree_b/n0")
     assert tree_a_runs[0].ledger_path.endswith("ledgers/tree_a.training_ledger.jsonl")
@@ -342,6 +375,14 @@ def test_make_training_run_list_set_parser_accepts_batch_options():
             "--data-cache-root",
             "/tmp/cache",
             "--require-data-cache",
+            "--expected-cache-strategy",
+            "legacy_subsample",
+            "--expected-cache-seed",
+            "42",
+            "--expected-cache-train-limit",
+            "10000",
+            "--expected-cache-eval-limit",
+            "1000",
             "--runner-dry-run",
             "--allow-existing-artifacts",
             "--allow-issues",
@@ -357,6 +398,10 @@ def test_make_training_run_list_set_parser_accepts_batch_options():
     assert args.max_train_samples == 16
     assert args.data_cache_root == Path("/tmp/cache")
     assert args.require_data_cache
+    assert args.expected_cache_strategy == "legacy_subsample"
+    assert args.expected_cache_seed == 42
+    assert args.expected_cache_train_limit == 10000
+    assert args.expected_cache_eval_limit == 1000
     assert args.runner_dry_run
     assert args.allow_existing_artifacts
     assert args.allow_issues

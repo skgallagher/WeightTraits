@@ -1,0 +1,17 @@
+extends: flan_t5_legacy_seq2seq_2000_base.yaml
+
+# Corrected all-linear-projection contrast. Unlike the executable legacy
+# full_ft_approx scope, this includes both gated feed-forward input matrices.
+training:
+  protocol_id: legacy_seq2seq_flan_t5_lora_all_projections_corrected_r8_2000_seed42_v1
+  model_family: flan_t5_lora_all_projections_corrected_r8_legacy_seq2seq_2000
+  method: lora
+  output_root: outputs/confirm_paper_numbers/flan_t5_lora_all_projections_corrected_r8_legacy_seq2seq_2000
+  trainer:
+    gradient_checkpointing: false
+  lora:
+    r: 8
+    lora_alpha: 16
+    lora_dropout: 0.05
+    target_modules: [q, k, v, o, wi_0, wi_1, wo]
+    merge_after_train: true

@@ -1,24 +1,35 @@
+import hashlib
 import json
 from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
+import weighttraits.training.executor as executor_module
 from weighttraits.cli import build_parser
-from weighttraits.training.data_formats import DatasetFormatSpec
-from weighttraits.training.datasets import DatasetRegistryEntry, dataset_cache_split_path
+from weighttraits.training.data_formats import DatasetFormatSpec, load_dataset_format_specs
+from weighttraits.training.datasets import (
+    DatasetCacheRecipe,
+    DatasetRegistryEntry,
+    cache_training_datasets,
+    load_dataset_registry,
+)
 from weighttraits.training.executor import (
     BackendTrainResult,
     _CausalDataCollator,
     _audit_wrapped_lora_model,
     _cleanup_trainer_checkpoints,
+    _enforce_expected_source_code,
+    _enforce_expected_runtime,
     _pretrained_kwargs,
     _requested_lora_targets,
     _resolve_lora_target_modules,
     _set_training_seed,
     _tokenize_causal_batch,
+    _training_runtime_versions,
     _training_arguments,
     _trainer_tokenizer_kwargs,
+    _weighttraits_source_receipt,
     dry_run_training_row,
     prepare_training_data,
     run_training_run,
@@ -26,7 +37,69 @@ from weighttraits.training.executor import (
 from weighttraits.training.ledger import load_ledger_events
 from weighttraits.training.monitor import TrainingEvent
 from weighttraits.training.planner import build_training_jobs
-from weighttraits.training.runlist import build_training_run_list
+from weighttraits.training.runlist import build_training_run_list, write_training_run_list
+
+
+def test_training_runtime_versions_capture_numerical_environment():
+    versions = _training_runtime_versions()
+
+    assert set(versions) == {
+        "python",
+        "torch",
+        "transformers",
+        "datasets",
+        "accelerate",
+        "tokenizers",
+        "peft",
+    }
+    assert all(isinstance(value, str) and value for value in versions.values())
+
+
+def test_expected_runtime_rejects_numerical_stack_mismatch():
+    job = {"trainer": {"expected_runtime": {"torch": "frozen-version"}}}
+
+    with pytest.raises(RuntimeError, match="training runtime does not match frozen protocol"):
+        _enforce_expected_runtime(job, {"torch": "different-version"})
+
+
+def test_weighttraits_source_receipt_is_deterministic_and_content_sensitive(tmp_path):
+    package_root = tmp_path / "weighttraits"
+    package_root.mkdir()
+    (package_root / "a.py").write_text("A = 1\n")
+    nested = package_root / "nested"
+    nested.mkdir()
+    (nested / "b.py").write_text("B = 2\n")
+    (nested / "ignored.txt").write_text("not executable source\n")
+
+    first = _weighttraits_source_receipt(package_root)
+    second = _weighttraits_source_receipt(package_root)
+    (nested / "b.py").write_text("B = 3\n")
+    changed = _weighttraits_source_receipt(package_root)
+
+    assert first == second
+    assert first["file_count"] == 2
+    assert first["algorithm"] == "sha256-relative-path-and-content-v1"
+    assert first["sha256"] != changed["sha256"]
+
+
+def test_expected_source_code_rejects_source_mismatch():
+    job = {
+        "trainer": {
+            "expected_source_code": {
+                "algorithm": "sha256-relative-path-and-content-v1",
+                "sha256": "a" * 64,
+            }
+        }
+    }
+
+    with pytest.raises(RuntimeError, match="source does not match frozen protocol"):
+        _enforce_expected_source_code(
+            job,
+            {
+                "algorithm": "sha256-relative-path-and-content-v1",
+                "sha256": "b" * 64,
+            },
+        )
 
 
 class FakeBackend:
@@ -49,6 +122,11 @@ class FakeBackend:
                 stopped = True
                 break
         status = "stopped_early" if stopped else self.status
+        if status == "completed":
+            lineage_key = "merged" if run.method == "lora" else "model"
+            artifact_path = Path(run.expected_artifacts[lineage_key])
+            artifact_path.mkdir(parents=True, exist_ok=True)
+            (artifact_path / "weights.test").write_text("deterministic fake weights")
         return BackendTrainResult(
             status=status,
             step=None if last_event is None else last_event.step,
@@ -94,6 +172,29 @@ def _run(tmp_path: Path):
         jobs,
         ledger_path=tmp_path / "training_ledger.jsonl",
     ).runs[0]
+
+
+def _two_runs(tmp_path: Path):
+    rows = [
+        _rows()[0],
+        {
+            "node_id": "n1",
+            "parent_id": "n0",
+            "depth": 2,
+            "path": ["root", "n0", "n1"],
+            "grow": "train",
+            "task_family": "qa_reasoning",
+            "dataset_id": "boolq",
+        },
+    ]
+    run_list_path = tmp_path / "runs.jsonl"
+    run_list = build_training_run_list(
+        build_training_jobs(rows, _config(tmp_path)),
+        ledger_path=tmp_path / "training_ledger.jsonl",
+        run_list_path=run_list_path,
+    )
+    write_training_run_list(run_list, run_list_path)
+    return run_list.runs
 
 
 def test_pretrained_kwargs_pins_only_remote_root_initialization(tmp_path: Path) -> None:
@@ -258,13 +359,19 @@ def test_prepare_training_data_filters_before_sample_cap(tmp_path):
 
 def test_prepare_training_data_can_require_cached_rows(tmp_path):
     cache_root = tmp_path / "cache"
-    train_path = dataset_cache_split_path(cache_root, "boolq", "train")
-    validation_path = dataset_cache_split_path(cache_root, "boolq", "validation")
-    train_path.parent.mkdir(parents=True)
-    train_path.write_text('{"answer": "yes", "context": "P cache", "question": "Q cache"}\n')
-    validation_path.write_text(
-        '{"answer": "yes", "context": "PV cache", "question": "QV cache"}\n'
+    cache_report = cache_training_datasets(
+        _registry(),
+        _formats(),
+        out_dir=cache_root,
+        train_limit=1,
+        eval_limit=1,
+        min_train_rows=1,
+        loader=lambda *args: {
+            "train": [{"answer": "yes", "passage": "P cache", "question": "Q cache"}],
+            "validation": [{"answer": "yes", "passage": "PV cache", "question": "QV cache"}],
+        },
     )
+    assert cache_report.valid
 
     def forbidden_loader(*args):
         raise AssertionError("loader should not be called when cache is required")
@@ -276,12 +383,83 @@ def test_prepare_training_data_can_require_cached_rows(tmp_path):
         loader=forbidden_loader,
         data_cache_root=cache_root,
         require_data_cache=True,
+        expected_cache_recipe=DatasetCacheRecipe("first", None, 1, 1),
         max_train_samples=1,
     )
 
     assert data.valid
     assert data.train_records[0].text == "Question: Q cache\nContext: P cache"
     assert data.eval_records[0].text == "Question: QV cache\nContext: PV cache"
+
+    with pytest.raises(ValueError, match="sample_strategy"):
+        prepare_training_data(
+            _run(tmp_path),
+            _registry(),
+            _formats(),
+            loader=forbidden_loader,
+            data_cache_root=cache_root,
+            require_data_cache=True,
+            expected_cache_recipe=DatasetCacheRecipe("legacy_subsample", 42, 1, 1),
+            max_train_samples=1,
+        )
+
+
+def test_run_training_run_authenticates_frozen_cache_source_receipt(tmp_path):
+    cache_root = tmp_path / "cache"
+    report = cache_training_datasets(
+        _registry(),
+        _formats(),
+        out_dir=cache_root,
+        train_limit=1,
+        eval_limit=1,
+        min_train_rows=1,
+        loader=lambda *args: {
+            "train": [{"answer": "yes", "passage": "P cache", "question": "Q cache"}],
+            "validation": [{"answer": "yes", "passage": "PV cache", "question": "QV cache"}],
+        },
+    )
+    assert report.valid
+    splits = [
+        json.loads(path.read_text())
+        for path in sorted((cache_root / "boolq").glob("*.metadata.json"))
+    ]
+    receipt_path = tmp_path / "cache_source_receipt.json"
+    receipt_text = (
+        json.dumps(
+            {"schema_version": 1, "n_datasets": 1, "n_splits": 2, "splits": splits},
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    receipt_path.write_text(receipt_text)
+    receipt_sha256 = hashlib.sha256(receipt_text.encode()).hexdigest()
+    run = _run(tmp_path)
+    job = dict(run.job)
+    job["trainer"] = {
+        **job["trainer"],
+        "expected_cache_source_receipt": {
+            "path": str(receipt_path),
+            "sha256": receipt_sha256,
+        },
+    }
+    run = replace(run, job=job)
+
+    result = run_training_run(
+        run,
+        _registry(),
+        _formats(),
+        backend=FakeBackend([]),
+        data_cache_root=cache_root,
+        require_data_cache=True,
+        expected_cache_recipe=DatasetCacheRecipe("first", None, 1, 1),
+        max_train_samples=1,
+        max_eval_samples=1,
+    )
+
+    provenance = json.loads(Path(result.provenance["path"]).read_text())
+    assert provenance["cache_source_receipt"]["sha256"] == receipt_sha256
+    assert set(provenance["cache_source_receipt"]["splits"]) == {"train", "validation"}
 
 
 def test_run_training_run_writes_monitor_and_stopped_early_ledger(tmp_path):
@@ -302,7 +480,10 @@ def test_run_training_run_writes_monitor_and_stopped_early_ledger(tmp_path):
         max_train_samples=2,
     )
     events = load_ledger_events(run.ledger_path)
-    training_log = [json.loads(line) for line in Path(run.expected_artifacts["training_log"]).read_text().splitlines()]
+    training_log = [
+        json.loads(line)
+        for line in Path(run.expected_artifacts["training_log"]).read_text().splitlines()
+    ]
 
     assert result.status == "stopped_early"
     assert result.step == 2
@@ -360,7 +541,10 @@ def test_run_training_run_records_execution_overrides(tmp_path):
         },
     )
     events = load_ledger_events(run.ledger_path)
-    training_log = [json.loads(line) for line in Path(run.expected_artifacts["training_log"]).read_text().splitlines()]
+    training_log = [
+        json.loads(line)
+        for line in Path(run.expected_artifacts["training_log"]).read_text().splitlines()
+    ]
 
     overrides = {
         "trainer": {
@@ -378,6 +562,13 @@ def test_run_training_run_records_execution_overrides(tmp_path):
     assert events[-1].extra["execution_overrides"] == overrides
     assert training_log[0]["extra"]["execution_overrides"] == overrides
     assert training_log[-1]["extra"]["execution_overrides"] == overrides
+    provenance = json.loads((Path(run.output_dir) / "provenance.json").read_text())
+    assert provenance["data_execution"]["max_train_samples"] == 1
+    assert provenance["data_execution"]["max_eval_samples"] is None
+    assert provenance["data_execution"]["allow_missing_eval"] is True
+    completion = json.loads((Path(run.output_dir) / "completion.json").read_text())
+    assert completion["status"] == "completed"
+    assert completion["lineage_artifact"]["key"] == "model"
 
 
 def test_run_training_run_records_backend_metadata(tmp_path):
@@ -403,6 +594,92 @@ def test_run_training_run_records_backend_metadata(tmp_path):
     assert events[-1].extra["backend_metadata"] == metadata
 
 
+def test_run_training_run_rejects_existing_artifacts_without_provenance(tmp_path):
+    run = _run(tmp_path)
+    model_path = Path(run.expected_artifacts["model"])
+    model_path.mkdir(parents=True)
+    stale_weights = model_path / "stale.weights"
+    stale_weights.write_text("old protocol")
+
+    with pytest.raises(RuntimeError, match="without immutable provenance"):
+        run_training_run(
+            run,
+            _registry(),
+            _formats(),
+            loader=_loader,
+            backend=FakeBackend([]),
+            max_train_samples=1,
+        )
+
+    assert stale_weights.read_text() == "old protocol"
+    assert not Path(run.expected_artifacts["training_log"]).exists()
+    assert load_ledger_events(run.ledger_path)[-1].status == "failed"
+
+
+def test_child_requires_untampered_completed_parent_lineage(tmp_path):
+    parent, child = _two_runs(tmp_path)
+    common = {
+        "registry": _registry(),
+        "format_specs": _formats(),
+        "loader": _loader,
+        "backend": FakeBackend([]),
+        "max_train_samples": 1,
+    }
+    parent_result = run_training_run(parent, **common)
+    assert Path(parent_result.artifacts["completion_receipt"]).is_file()
+
+    parent_weights = Path(parent.expected_artifacts["model"]) / "weights.test"
+    parent_weights.write_text("tampered after completion")
+    with pytest.raises(RuntimeError, match="parent artifact bytes differ"):
+        run_training_run(child, **common)
+
+    assert not Path(child.output_dir).exists()
+
+
+def test_child_records_authenticated_parent_lineage(tmp_path):
+    parent, child = _two_runs(tmp_path)
+    common = {
+        "registry": _registry(),
+        "format_specs": _formats(),
+        "loader": _loader,
+        "backend": FakeBackend([]),
+        "max_train_samples": 1,
+    }
+    run_training_run(parent, **common)
+    run_training_run(child, **common)
+
+    provenance = json.loads((Path(child.output_dir) / "provenance.json").read_text())
+    assert provenance["parent_lineage"]["parent_id"] == parent.node_id
+    assert provenance["parent_lineage"]["artifact_sha256"]
+
+
+def test_child_rejects_parent_trained_by_different_source(tmp_path, monkeypatch):
+    parent, child = _two_runs(tmp_path)
+    common = {
+        "registry": _registry(),
+        "format_specs": _formats(),
+        "loader": _loader,
+        "backend": FakeBackend([]),
+        "max_train_samples": 1,
+    }
+    first_source = {
+        "schema_version": 1,
+        "package": "weighttraits",
+        "algorithm": "sha256-relative-path-and-content-v1",
+        "file_count": 1,
+        "sha256": "a" * 64,
+    }
+    second_source = {**first_source, "sha256": "b" * 64}
+    monkeypatch.setattr(executor_module, "_weighttraits_source_receipt", lambda: first_source)
+    run_training_run(parent, **common)
+    monkeypatch.setattr(executor_module, "_weighttraits_source_receipt", lambda: second_source)
+
+    with pytest.raises(RuntimeError, match="source_code"):
+        run_training_run(child, **common)
+
+    assert not Path(child.output_dir).exists()
+
+
 def test_run_training_run_writes_failed_ledger_on_bad_data(tmp_path):
     run = _run(tmp_path)
 
@@ -422,8 +699,7 @@ def test_run_training_run_writes_failed_ledger_on_bad_data(tmp_path):
 
     events = load_ledger_events(run.ledger_path)
     assert events[-1].status == "failed"
-    training_log = [json.loads(line) for line in Path(run.expected_artifacts["training_log"]).read_text().splitlines()]
-    assert training_log[-1]["status"] == "failed"
+    assert not Path(run.expected_artifacts["training_log"]).exists()
 
 
 def test_dry_run_training_row_does_not_require_dataset_loading(tmp_path):
@@ -451,6 +727,14 @@ def test_run_training_row_parser_accepts_real_and_dry_run_modes():
             "--data-cache-root",
             "/tmp/cache",
             "--require-data-cache",
+            "--expected-cache-strategy",
+            "legacy_subsample",
+            "--expected-cache-seed",
+            "42",
+            "--expected-cache-train-limit",
+            "10000",
+            "--expected-cache-eval-limit",
+            "1000",
             "--allow-missing-eval",
             "--override-max-steps",
             "2",
@@ -470,6 +754,10 @@ def test_run_training_row_parser_accepts_real_and_dry_run_modes():
     assert args.max_train_samples == 8
     assert args.data_cache_root == Path("/tmp/cache")
     assert args.require_data_cache
+    assert args.expected_cache_strategy == "legacy_subsample"
+    assert args.expected_cache_seed == 42
+    assert args.expected_cache_train_limit == 10000
+    assert args.expected_cache_eval_limit == 1000
     assert args.allow_missing_eval
     assert args.override_max_steps == 2
     assert args.report_to == ["wandb,tensorboard"]
@@ -533,13 +821,6 @@ def test_run_training_row_report_to_none_disables_runtime_tracking(tmp_path, cap
 
 def test_audit_training_row_data_loads_required_cached_rows(tmp_path, capsys):
     cache_root = tmp_path / "cache"
-    train_path = dataset_cache_split_path(cache_root, "boolq", "train")
-    validation_path = dataset_cache_split_path(cache_root, "boolq", "validation")
-    train_path.parent.mkdir(parents=True)
-    train_path.write_text('{"answer": "yes", "context": "P cache", "question": "Q cache"}\n')
-    validation_path.write_text(
-        '{"answer": "yes", "context": "PV cache", "question": "QV cache"}\n'
-    )
     registry_path = tmp_path / "registry.yaml"
     registry_path.write_text(
         """
@@ -564,6 +845,19 @@ datasets:
       answer: answer
 """
     )
+    cache_report = cache_training_datasets(
+        load_dataset_registry(registry_path),
+        load_dataset_format_specs(formats_path),
+        out_dir=cache_root,
+        train_limit=1,
+        eval_limit=1,
+        min_train_rows=1,
+        loader=lambda *args: {
+            "train": [{"answer": "yes", "context": "P cache", "question": "Q cache"}],
+            "validation": [{"answer": "yes", "context": "PV cache", "question": "QV cache"}],
+        },
+    )
+    assert cache_report.valid
     run_row = _run(tmp_path).to_dict()
     run_row["runner"] = {
         "entrypoint": "weighttraits.cli run-training-row",
@@ -574,6 +868,7 @@ datasets:
             "formats_path": str(formats_path),
             "data_cache_root": str(cache_root),
             "require_data_cache": True,
+            "expected_cache_recipe": DatasetCacheRecipe("first", None, 1, 1).to_dict(),
             "allow_missing_eval": True,
         },
     }
@@ -598,10 +893,27 @@ datasets:
     output = json.loads(capsys.readouterr().out)
     assert output["valid"]
     assert output["require_data_cache"]
+    assert output["expected_cache_recipe"] == {
+        "sample_strategy": "first",
+        "sample_seed": None,
+        "train_limit": 1,
+        "eval_limit": 1,
+    }
     assert output["streaming"] is False
     assert output["data"]["n_train_records"] == 1
     assert output["data"]["n_eval_records"] == 1
     assert output["data"]["issues"] == []
+
+    del run_row["runner"]["options"]["expected_cache_recipe"]
+    (cache_root / "boolq/train.metadata.json").unlink()
+    (cache_root / "boolq/validation.metadata.json").unlink()
+    run_list_path.write_text(json.dumps(run_row) + "\n")
+
+    assert args.func(args) == 0
+    legacy_output = json.loads(capsys.readouterr().out)
+    assert legacy_output["valid"]
+    assert legacy_output["require_data_cache"]
+    assert legacy_output["expected_cache_recipe"] is None
 
 
 def test_audit_training_row_data_parser_accepts_overrides():
@@ -623,6 +935,14 @@ def test_audit_training_row_data_parser_accepts_overrides():
             "--data-cache-root",
             "/tmp/cache",
             "--require-data-cache",
+            "--expected-cache-strategy",
+            "legacy_subsample",
+            "--expected-cache-seed",
+            "42",
+            "--expected-cache-train-limit",
+            "10000",
+            "--expected-cache-eval-limit",
+            "1000",
             "--allow-missing-eval",
             "--streaming",
             "--allow-issues",
@@ -636,6 +956,10 @@ def test_audit_training_row_data_parser_accepts_overrides():
     assert args.max_eval_samples == 1
     assert args.data_cache_root == Path("/tmp/cache")
     assert args.require_data_cache
+    assert args.expected_cache_strategy == "legacy_subsample"
+    assert args.expected_cache_seed == 42
+    assert args.expected_cache_train_limit == 10000
+    assert args.expected_cache_eval_limit == 1000
     assert args.allow_missing_eval
     assert args.streaming
     assert args.allow_issues
@@ -807,10 +1131,16 @@ class _FakeCausalTokenizer:
         width = max(len(feature["input_ids"]) for feature in features)
         return {
             "input_ids": torch.tensor(
-                [feature["input_ids"] + [0] * (width - len(feature["input_ids"])) for feature in features]
+                [
+                    feature["input_ids"] + [0] * (width - len(feature["input_ids"]))
+                    for feature in features
+                ]
             ),
             "attention_mask": torch.tensor(
-                [feature["attention_mask"] + [0] * (width - len(feature["attention_mask"])) for feature in features]
+                [
+                    feature["attention_mask"] + [0] * (width - len(feature["attention_mask"]))
+                    for feature in features
+                ]
             ),
         }
 
