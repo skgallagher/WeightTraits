@@ -1,0 +1,721 @@
+{
+  "assignments": [
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_001.manifest.jsonl",
+      "assignment_seed": 1,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_001.manifest.jsonl",
+      "task_families": {
+        "classification": 7,
+        "qa": 4,
+        "summarization": 3
+      },
+      "tree_id": "confirm_paper_tree_001"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_002.manifest.jsonl",
+      "assignment_seed": 2,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_002.manifest.jsonl",
+      "task_families": {
+        "classification": 4,
+        "qa": 6,
+        "summarization": 4
+      },
+      "tree_id": "confirm_paper_tree_002"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_003.manifest.jsonl",
+      "assignment_seed": 3,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_003.manifest.jsonl",
+      "task_families": {
+        "classification": 3,
+        "qa": 5,
+        "summarization": 6
+      },
+      "tree_id": "confirm_paper_tree_003"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_004.manifest.jsonl",
+      "assignment_seed": 4,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_004.manifest.jsonl",
+      "task_families": {
+        "classification": 5,
+        "qa": 5,
+        "summarization": 4
+      },
+      "tree_id": "confirm_paper_tree_004"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_005.manifest.jsonl",
+      "assignment_seed": 5,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_005.manifest.jsonl",
+      "task_families": {
+        "classification": 6,
+        "qa": 4,
+        "summarization": 4
+      },
+      "tree_id": "confirm_paper_tree_005"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_006.manifest.jsonl",
+      "assignment_seed": 6,
+      "n_datasets": 10,
+      "n_rows": 10,
+      "n_unique_datasets": 10,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_006.manifest.jsonl",
+      "task_families": {
+        "classification": 4,
+        "qa": 3,
+        "summarization": 3
+      },
+      "tree_id": "confirm_paper_tree_006"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_007.manifest.jsonl",
+      "assignment_seed": 7,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_007.manifest.jsonl",
+      "task_families": {
+        "classification": 5,
+        "qa": 5,
+        "summarization": 4
+      },
+      "tree_id": "confirm_paper_tree_007"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_008.manifest.jsonl",
+      "assignment_seed": 8,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_008.manifest.jsonl",
+      "task_families": {
+        "classification": 4,
+        "qa": 5,
+        "summarization": 5
+      },
+      "tree_id": "confirm_paper_tree_008"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_009.manifest.jsonl",
+      "assignment_seed": 9,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_009.manifest.jsonl",
+      "task_families": {
+        "classification": 5,
+        "qa": 6,
+        "summarization": 3
+      },
+      "tree_id": "confirm_paper_tree_009"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_010.manifest.jsonl",
+      "assignment_seed": 10,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_010.manifest.jsonl",
+      "task_families": {
+        "classification": 6,
+        "qa": 4,
+        "summarization": 4
+      },
+      "tree_id": "confirm_paper_tree_010"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_011.manifest.jsonl",
+      "assignment_seed": 11,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_011.manifest.jsonl",
+      "task_families": {
+        "classification": 8,
+        "qa": 2,
+        "summarization": 4
+      },
+      "tree_id": "confirm_paper_tree_011"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_012.manifest.jsonl",
+      "assignment_seed": 12,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_012.manifest.jsonl",
+      "task_families": {
+        "classification": 6,
+        "qa": 4,
+        "summarization": 4
+      },
+      "tree_id": "confirm_paper_tree_012"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_013.manifest.jsonl",
+      "assignment_seed": 13,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_013.manifest.jsonl",
+      "task_families": {
+        "classification": 6,
+        "qa": 6,
+        "summarization": 2
+      },
+      "tree_id": "confirm_paper_tree_013"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_014.manifest.jsonl",
+      "assignment_seed": 14,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_014.manifest.jsonl",
+      "task_families": {
+        "classification": 5,
+        "qa": 4,
+        "summarization": 5
+      },
+      "tree_id": "confirm_paper_tree_014"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_015.manifest.jsonl",
+      "assignment_seed": 15,
+      "n_datasets": 8,
+      "n_rows": 8,
+      "n_unique_datasets": 8,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_015.manifest.jsonl",
+      "task_families": {
+        "classification": 2,
+        "qa": 3,
+        "summarization": 3
+      },
+      "tree_id": "confirm_paper_tree_015"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_016.manifest.jsonl",
+      "assignment_seed": 16,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_016.manifest.jsonl",
+      "task_families": {
+        "classification": 5,
+        "qa": 5,
+        "summarization": 4
+      },
+      "tree_id": "confirm_paper_tree_016"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_017.manifest.jsonl",
+      "assignment_seed": 17,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_017.manifest.jsonl",
+      "task_families": {
+        "classification": 7,
+        "qa": 3,
+        "summarization": 4
+      },
+      "tree_id": "confirm_paper_tree_017"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_018.manifest.jsonl",
+      "assignment_seed": 18,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_018.manifest.jsonl",
+      "task_families": {
+        "classification": 6,
+        "qa": 5,
+        "summarization": 3
+      },
+      "tree_id": "confirm_paper_tree_018"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_019.manifest.jsonl",
+      "assignment_seed": 19,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_019.manifest.jsonl",
+      "task_families": {
+        "classification": 5,
+        "qa": 5,
+        "summarization": 4
+      },
+      "tree_id": "confirm_paper_tree_019"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_020.manifest.jsonl",
+      "assignment_seed": 20,
+      "n_datasets": 7,
+      "n_rows": 7,
+      "n_unique_datasets": 7,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_020.manifest.jsonl",
+      "task_families": {
+        "classification": 2,
+        "qa": 3,
+        "summarization": 2
+      },
+      "tree_id": "confirm_paper_tree_020"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_021.manifest.jsonl",
+      "assignment_seed": 21,
+      "n_datasets": 12,
+      "n_rows": 12,
+      "n_unique_datasets": 12,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_021.manifest.jsonl",
+      "task_families": {
+        "classification": 5,
+        "qa": 4,
+        "summarization": 3
+      },
+      "tree_id": "confirm_paper_tree_021"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_022.manifest.jsonl",
+      "assignment_seed": 22,
+      "n_datasets": 9,
+      "n_rows": 9,
+      "n_unique_datasets": 9,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_022.manifest.jsonl",
+      "task_families": {
+        "classification": 3,
+        "qa": 2,
+        "summarization": 4
+      },
+      "tree_id": "confirm_paper_tree_022"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_023.manifest.jsonl",
+      "assignment_seed": 23,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_023.manifest.jsonl",
+      "task_families": {
+        "classification": 5,
+        "qa": 6,
+        "summarization": 3
+      },
+      "tree_id": "confirm_paper_tree_023"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_024.manifest.jsonl",
+      "assignment_seed": 24,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_024.manifest.jsonl",
+      "task_families": {
+        "classification": 6,
+        "qa": 4,
+        "summarization": 4
+      },
+      "tree_id": "confirm_paper_tree_024"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_025.manifest.jsonl",
+      "assignment_seed": 25,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_025.manifest.jsonl",
+      "task_families": {
+        "classification": 6,
+        "qa": 4,
+        "summarization": 4
+      },
+      "tree_id": "confirm_paper_tree_025"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_026.manifest.jsonl",
+      "assignment_seed": 26,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_026.manifest.jsonl",
+      "task_families": {
+        "classification": 5,
+        "qa": 4,
+        "summarization": 5
+      },
+      "tree_id": "confirm_paper_tree_026"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_027.manifest.jsonl",
+      "assignment_seed": 27,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_027.manifest.jsonl",
+      "task_families": {
+        "classification": 7,
+        "qa": 4,
+        "summarization": 3
+      },
+      "tree_id": "confirm_paper_tree_027"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_028.manifest.jsonl",
+      "assignment_seed": 28,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_028.manifest.jsonl",
+      "task_families": {
+        "classification": 7,
+        "qa": 6,
+        "summarization": 1
+      },
+      "tree_id": "confirm_paper_tree_028"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_029.manifest.jsonl",
+      "assignment_seed": 29,
+      "n_datasets": 10,
+      "n_rows": 10,
+      "n_unique_datasets": 10,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_029.manifest.jsonl",
+      "task_families": {
+        "classification": 5,
+        "qa": 3,
+        "summarization": 2
+      },
+      "tree_id": "confirm_paper_tree_029"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_030.manifest.jsonl",
+      "assignment_seed": 30,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_030.manifest.jsonl",
+      "task_families": {
+        "classification": 5,
+        "qa": 4,
+        "summarization": 5
+      },
+      "tree_id": "confirm_paper_tree_030"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_031.manifest.jsonl",
+      "assignment_seed": 31,
+      "n_datasets": 12,
+      "n_rows": 12,
+      "n_unique_datasets": 12,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_031.manifest.jsonl",
+      "task_families": {
+        "classification": 3,
+        "qa": 4,
+        "summarization": 5
+      },
+      "tree_id": "confirm_paper_tree_031"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_032.manifest.jsonl",
+      "assignment_seed": 32,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_032.manifest.jsonl",
+      "task_families": {
+        "classification": 2,
+        "qa": 7,
+        "summarization": 5
+      },
+      "tree_id": "confirm_paper_tree_032"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_033.manifest.jsonl",
+      "assignment_seed": 33,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_033.manifest.jsonl",
+      "task_families": {
+        "classification": 7,
+        "qa": 4,
+        "summarization": 3
+      },
+      "tree_id": "confirm_paper_tree_033"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_034.manifest.jsonl",
+      "assignment_seed": 34,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_034.manifest.jsonl",
+      "task_families": {
+        "classification": 6,
+        "qa": 5,
+        "summarization": 3
+      },
+      "tree_id": "confirm_paper_tree_034"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_035.manifest.jsonl",
+      "assignment_seed": 35,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_035.manifest.jsonl",
+      "task_families": {
+        "classification": 4,
+        "qa": 5,
+        "summarization": 5
+      },
+      "tree_id": "confirm_paper_tree_035"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_036.manifest.jsonl",
+      "assignment_seed": 36,
+      "n_datasets": 11,
+      "n_rows": 11,
+      "n_unique_datasets": 11,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_036.manifest.jsonl",
+      "task_families": {
+        "classification": 6,
+        "qa": 2,
+        "summarization": 3
+      },
+      "tree_id": "confirm_paper_tree_036"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_037.manifest.jsonl",
+      "assignment_seed": 37,
+      "n_datasets": 8,
+      "n_rows": 8,
+      "n_unique_datasets": 8,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_037.manifest.jsonl",
+      "task_families": {
+        "classification": 3,
+        "qa": 4,
+        "summarization": 1
+      },
+      "tree_id": "confirm_paper_tree_037"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_038.manifest.jsonl",
+      "assignment_seed": 38,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_038.manifest.jsonl",
+      "task_families": {
+        "classification": 6,
+        "qa": 3,
+        "summarization": 5
+      },
+      "tree_id": "confirm_paper_tree_038"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_039.manifest.jsonl",
+      "assignment_seed": 39,
+      "n_datasets": 11,
+      "n_rows": 11,
+      "n_unique_datasets": 11,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_039.manifest.jsonl",
+      "task_families": {
+        "classification": 3,
+        "qa": 2,
+        "summarization": 6
+      },
+      "tree_id": "confirm_paper_tree_039"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_040.manifest.jsonl",
+      "assignment_seed": 40,
+      "n_datasets": 7,
+      "n_rows": 7,
+      "n_unique_datasets": 7,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_040.manifest.jsonl",
+      "task_families": {
+        "classification": 2,
+        "qa": 2,
+        "summarization": 3
+      },
+      "tree_id": "confirm_paper_tree_040"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_041.manifest.jsonl",
+      "assignment_seed": 41,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_041.manifest.jsonl",
+      "task_families": {
+        "classification": 6,
+        "qa": 4,
+        "summarization": 4
+      },
+      "tree_id": "confirm_paper_tree_041"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_042.manifest.jsonl",
+      "assignment_seed": 42,
+      "n_datasets": 11,
+      "n_rows": 11,
+      "n_unique_datasets": 11,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_042.manifest.jsonl",
+      "task_families": {
+        "classification": 3,
+        "qa": 2,
+        "summarization": 6
+      },
+      "tree_id": "confirm_paper_tree_042"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_043.manifest.jsonl",
+      "assignment_seed": 43,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_043.manifest.jsonl",
+      "task_families": {
+        "classification": 5,
+        "qa": 4,
+        "summarization": 5
+      },
+      "tree_id": "confirm_paper_tree_043"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_044.manifest.jsonl",
+      "assignment_seed": 44,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_044.manifest.jsonl",
+      "task_families": {
+        "classification": 6,
+        "qa": 3,
+        "summarization": 5
+      },
+      "tree_id": "confirm_paper_tree_044"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_045.manifest.jsonl",
+      "assignment_seed": 45,
+      "n_datasets": 12,
+      "n_rows": 12,
+      "n_unique_datasets": 12,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_045.manifest.jsonl",
+      "task_families": {
+        "classification": 3,
+        "qa": 6,
+        "summarization": 3
+      },
+      "tree_id": "confirm_paper_tree_045"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_046.manifest.jsonl",
+      "assignment_seed": 46,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_046.manifest.jsonl",
+      "task_families": {
+        "classification": 5,
+        "qa": 5,
+        "summarization": 4
+      },
+      "tree_id": "confirm_paper_tree_046"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_047.manifest.jsonl",
+      "assignment_seed": 47,
+      "n_datasets": 9,
+      "n_rows": 9,
+      "n_unique_datasets": 9,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_047.manifest.jsonl",
+      "task_families": {
+        "classification": 4,
+        "qa": 3,
+        "summarization": 2
+      },
+      "tree_id": "confirm_paper_tree_047"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_048.manifest.jsonl",
+      "assignment_seed": 48,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_048.manifest.jsonl",
+      "task_families": {
+        "classification": 4,
+        "qa": 6,
+        "summarization": 4
+      },
+      "tree_id": "confirm_paper_tree_048"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_049.manifest.jsonl",
+      "assignment_seed": 49,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_049.manifest.jsonl",
+      "task_families": {
+        "classification": 6,
+        "qa": 5,
+        "summarization": 3
+      },
+      "tree_id": "confirm_paper_tree_049"
+    },
+    {
+      "assigned_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_050.manifest.jsonl",
+      "assignment_seed": 50,
+      "n_datasets": 14,
+      "n_rows": 14,
+      "n_unique_datasets": 14,
+      "source_manifest": "examples/training/confirm_paper_numbers/trees/confirm_paper_tree_050.manifest.jsonl",
+      "task_families": {
+        "classification": 3,
+        "qa": 5,
+        "summarization": 6
+      },
+      "tree_id": "confirm_paper_tree_050"
+    }
+  ],
+  "config": "examples/training/confirm_paper_numbers/paper_task_families.yaml",
+  "matched_holdout": {
+    "eligible_replacement_families": [
+      "summarization",
+      "classification",
+      "qa"
+    ],
+    "intervention": "translation withheld",
+    "original_assignment_summary": "examples/training/confirm_paper_numbers/assignment_summary.json",
+    "preserve_nontranslation_rows": true,
+    "replacement_rng": "numpy.default_rng(original assignment_seed)"
+  },
+  "n_trees": 50,
+  "out_dir": "examples/training/translation_holdout_20260803/matched_assigned_manifests",
+  "policy": "matched_translation_holdout_per_node_without_replacement",
+  "seed_start": 1,
+  "tree_set": "examples/training/confirm_paper_numbers/tree_set_summary.json"
+}

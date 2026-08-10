@@ -1,11 +1,14 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from weighttraits.cli import build_parser
 from weighttraits.training.planner import (
     build_training_jobs,
     build_training_jobs_from_files,
     load_training_config,
+    resolve_prompt_template,
     write_training_plan,
 )
 
@@ -94,6 +97,40 @@ def test_prompt_overrides_can_key_on_model_family(tmp_path):
     assert jobs[1].prompt_template.startswith("family classify")
 
 
+def test_llama_full_finetune_translation_prompts_name_target_language():
+    config_path = (
+        Path(__file__).parents[1]
+        / "examples"
+        / "training"
+        / "confirm_paper_numbers"
+        / "llama32_1b_full_finetune_legacy_causal_2000.yaml"
+    )
+    config = load_training_config(config_path)
+    expected_languages = {
+        "wmt14_en_fr": "French",
+        "opus_en_fr": "French",
+        "wmt14_en_de": "German",
+        "opus_en_de": "German",
+        "opus_en_es": "Spanish",
+        "opus_en_it": "Italian",
+        "opus_en_ru": "Russian",
+        "opus_en_zh": "Chinese",
+        "opus_en_ja": "Japanese",
+    }
+
+    for dataset_id, language in expected_languages.items():
+        prompt = resolve_prompt_template(
+            {"task_family": "translation", "dataset_id": dataset_id},
+            config,
+        )
+
+        assert prompt.source == "prompt.dataset"
+        assert prompt.template == (
+            f"Translate the following English text to {language}.\n\n"
+            "Text:\n{source_text}\n\nTranslation:"
+        )
+
+
 def test_lora_training_jobs_use_merged_parent_and_adapter_artifacts(tmp_path):
     config = _config(tmp_path, method="lora")
     config["lora"] = {
@@ -173,3 +210,75 @@ training:
     )
 
     assert load_training_config(path)["base_model"] == "base"
+
+
+def test_load_training_config_deep_merges_relative_parent(tmp_path):
+    base = tmp_path / "base.yaml"
+    base.write_text(
+        """
+training:
+  protocol_id: stable-v1
+  base_model: base
+  output_root: base-output
+  trainer:
+    max_steps: 2000
+    seed: 42
+  prompt:
+    task_templates:
+      qa: "Question: {question}"
+"""
+    )
+    child = tmp_path / "child.yaml"
+    child.write_text(
+        """
+extends: base.yaml
+training:
+  output_root: cohort-output
+  trainer:
+    require_max_steps: true
+"""
+    )
+
+    config = load_training_config(child)
+
+    assert config["protocol_id"] == "stable-v1"
+    assert config["output_root"] == "cohort-output"
+    assert config["trainer"] == {
+        "max_steps": 2000,
+        "seed": 42,
+        "require_max_steps": True,
+    }
+    assert config["prompt"]["task_templates"]["qa"] == "Question: {question}"
+
+
+def test_load_training_config_rejects_extends_cycle(tmp_path):
+    first = tmp_path / "first.yaml"
+    second = tmp_path / "second.yaml"
+    first.write_text("extends: second.yaml\ntraining: {}\n")
+    second.write_text("extends: first.yaml\ntraining: {}\n")
+
+    with pytest.raises(ValueError, match="extends cycle"):
+        load_training_config(first)
+
+
+def test_training_job_records_protocol_and_effective_config_fingerprint(tmp_path):
+    config = _config(tmp_path)
+    config["protocol_id"] = "paper-v1"
+
+    first = build_training_jobs(_rows(), config)[0]
+    second = build_training_jobs(_rows(), config)[0]
+
+    assert first.protocol_id == "paper-v1"
+    assert first.training_config_sha256 == second.training_config_sha256
+    assert len(first.training_config_sha256) == 64
+
+
+def test_stopping_can_be_explicitly_disabled_for_fixed_step_protocol(tmp_path):
+    config = _config(tmp_path)
+    config["stopping"] = {"enabled": False}
+
+    stopping = build_training_jobs(_rows(), config)[0].stopping
+
+    assert stopping["enabled"] is False
+    assert stopping["patience"] is None
+    assert stopping["plateau_window"] is None

@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-08-10T15:06:02-04:00",
+  "cluster": "wright.hss.cmu.edu",
+  "stage": "/home/export/sgallagh/WeightTraits-legacy-causal-20260810-clean",
+  "stage_policy": "immutable for the lifetime of submitted arrays",
+  "jobs": {
+    "cache": {
+      "job_id": 167743,
+      "state": "COMPLETED"
+    },
+    "row_smoke": {
+      "job_id": 167744,
+      "state": "COMPLETED"
+    },
+    "ordinary_full_finetune": {
+      "job_id": 167745,
+      "array": "1-50%50",
+      "gpu_per_tree": "1 x NVIDIA L40",
+      "submitted_at": "2026-08-10T13:21:50-04:00"
+    },
+    "matched_no_translation_full_finetune": {
+      "job_id": 167746,
+      "array": "1-50%50",
+      "gpu_per_tree": "1 x NVIDIA L40",
+      "submitted_at": "2026-08-10T13:21:51-04:00"
+    }
+  },
+  "runtime": {
+    "python": "3.11.15",
+    "torch": "2.5.1+cu121",
+    "transformers": "5.8.0",
+    "datasets": "4.8.5",
+    "accelerate": "1.13.0",
+    "tokenizers": "0.22.2",
+    "peft": "0.19.1",
+    "python_bin": "/home/export/sgallagh/.conda/envs/ellmtrees/bin/python"
+  },
+  "sha256": {
+    "src/weighttraits/cli.py": "d79ee57d2c70b744e92198a83955fda45b5c52a1612caf1ffd2e3af678ddd9cd",
+    "src/weighttraits/training/datasets.py": "a736eae702dc88208f1bd92a58b3fc6082b3361282cb427f1b7ac09e4ed4e788",
+    "src/weighttraits/training/executor.py": "e74ae834e5b7a2f952ed43c800a6d83b08ffbceb172d7c66bef1b9cd29d64740",
+    "scripts/slurm/confirm_paper_tree_sequential.sbatch": "0be7a9de404b6855222d1d518427fa7b5ced398b2dca9928b147e0052d1c0bd5",
+    "examples/training/confirm_paper_numbers/dataset_registry_legacy_causal.yaml": "040c374975141359df9c3203719a7d41c53996baa21fffdb66a04f8224f9250e",
+    "examples/training/confirm_paper_numbers/dataset_formats_legacy_causal.yaml": "39e65e4f86da5868399693c3016bd4e8c96f165ff2178084a9da0f666dcc8e98",
+    "examples/training/confirm_paper_numbers/llama32_1b_full_finetune_legacy_causal_2000.yaml": "98c899d3f1c31fa2f0047128a0125b53c34fbc05a3104e1d21725a5bccf75248",
+    "examples/training/confirm_paper_numbers/llama32_1b_full_finetune_legacy_causal_2000_training_run_list_summary.json": "b8b9e9d06abcc1f69e9083b91248eb45eaa2481daadea957e61fa406d507acb0",
+    "examples/training/translation_holdout_20260803/llama32_1b_full_finetune_legacy_causal_2000.yaml": "ab259dc0af398b2e57b92096e81b67a1a070cb1891b02afdc1f65b02f8072d4a",
+    "examples/training/translation_holdout_20260803/matched_legacy_causal_2000_training_run_list_summary.json": "494cdf2726b38e41811eadc35a50d366b417718269cd77602dd7570e9b8d13ff",
+    "examples/training/confirm_paper_numbers/legacy_causal_seed42_data_cache_summary.json": "7af12c1514409e980ff3ed160de53bc84d173e782436e431f6094e34c4155095"
+  },
+  "cache": {
+    "valid": true,
+    "n_datasets": 36,
+    "n_splits": 72,
+    "sample_strategy": "legacy_subsample",
+    "sample_seed": 42,
+    "train_limit": 10000,
+    "eval_limit": 1000,
+    "n_filtered": 0,
+    "n_dropped": 0,
+    "checked_in_source_receipt_sha256": "f3f185801afd6c7f01fb015d69544574d3d6ef48da375e1eadcd0eff32d00818"
+  },
+  "post_launch_guard_delta": {
+    "scientific_training_contract_changed": false,
+    "description": "The merge candidate adds fail-closed complete runtime/cache/source/output/parent receipts after these arrays were submitted. It does not change prompts, canonical targets, selected cached rows, tokenization, optimizer settings, seed, or the required 2000 steps.",
+    "resubmission_policy": "Any failed task from jobs 167745 or 167746 must be resubmitted from this immutable stage and its original run list; never mix a merged-branch node into these output roots."
+  }
+}

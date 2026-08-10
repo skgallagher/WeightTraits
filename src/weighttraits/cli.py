@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from typing import Mapping, Sequence
@@ -108,6 +109,7 @@ from weighttraits.training.data_formats import (
     write_data_format_report,
 )
 from weighttraits.training.datasets import (
+    DatasetCacheRecipe,
     audit_dataset_registry,
     audit_training_sample_rendering,
     cache_training_datasets,
@@ -1177,6 +1179,8 @@ def _audit_training_sample_set(args: argparse.Namespace) -> int:
 
 
 def _cache_training_dataset_set(args: argparse.Namespace) -> int:
+    if args.streaming and args.sample_strategy == "legacy_subsample":
+        raise ValueError("--sample-strategy legacy_subsample is incompatible with --streaming")
     registry = load_dataset_registry(args.registry)
     specs = load_dataset_format_specs(args.formats)
     report = cache_training_datasets(
@@ -1246,7 +1250,10 @@ def _make_training_run_list(args: argparse.Namespace) -> int:
     summary = report.to_dict()
     summary["manifest"] = str(args.manifest)
     summary["config"] = str(args.config)
+    summary["config_sha256"] = _path_sha256(args.config)
+    summary["manifest_sha256"] = _path_sha256(args.manifest)
     summary["out"] = str(args.out)
+    summary["run_list_sha256"] = _path_sha256(args.out)
     summary["report"] = str(args.report) if args.report else None
     summary["slurm_out"] = str(args.slurm_out) if args.slurm_out else None
     print(json.dumps(summary, indent=2, sort_keys=True))
@@ -1292,17 +1299,27 @@ def _make_training_run_list_set(args: argparse.Namespace) -> int:
             {
                 "tree_id": tree_id,
                 "manifest": str(manifest),
+                "manifest_sha256": _path_sha256(manifest),
                 "run_list": str(run_list_path),
+                "run_list_sha256": _path_sha256(run_list_path),
                 "report": str(report_path),
+                "report_sha256": _path_sha256(report_path),
                 "ledger": str(ledger_path),
                 "output_root": str(per_tree_config["output_root"]),
+                "training_config_sha256": (jobs[0].training_config_sha256 if jobs else None),
                 **report.to_dict(),
             }
         )
 
     summary = {
         "assignment_summary": str(args.assignment_summary),
+        "assignment_summary_sha256": _path_sha256(args.assignment_summary),
         "config": str(args.config),
+        "config_sha256": _path_sha256(args.config),
+        "registry": str(args.registry) if args.registry else None,
+        "registry_sha256": _path_sha256(args.registry) if args.registry else None,
+        "formats": str(args.formats) if args.formats else None,
+        "formats_sha256": _path_sha256(args.formats) if args.formats else None,
         "out_dir": str(args.out_dir),
         "valid": all_valid,
         "n_trees": len(tree_reports),
@@ -1343,6 +1360,11 @@ def _audit_training_row_data(args: argparse.Namespace) -> int:
     registry_path = args.registry or _optional_path(options.get("registry_path"))
     formats_path = args.formats or _optional_path(options.get("formats_path"))
     data_cache_root = args.data_cache_root or _optional_path(options.get("data_cache_root"))
+    require_data_cache = args.require_data_cache or bool(options.get("require_data_cache"))
+    expected_cache_recipe = _resolve_expected_cache_recipe(
+        args,
+        options,
+    )
     if registry_path is None or formats_path is None:
         raise ValueError(
             "audit-training-row-data requires --registry and --formats unless the run row carries them"
@@ -1355,7 +1377,8 @@ def _audit_training_row_data(args: argparse.Namespace) -> int:
         specs,
         loader=_hf_dataset_loader(args.streaming),
         data_cache_root=data_cache_root,
-        require_data_cache=args.require_data_cache or bool(options.get("require_data_cache")),
+        require_data_cache=require_data_cache,
+        expected_cache_recipe=expected_cache_recipe,
         max_train_samples=args.max_train_samples
         if args.max_train_samples is not None
         else options.get("max_train_samples"),
@@ -1374,7 +1397,10 @@ def _audit_training_row_data(args: argparse.Namespace) -> int:
         "registry": str(registry_path),
         "formats": str(formats_path),
         "data_cache_root": str(data_cache_root) if data_cache_root is not None else None,
-        "require_data_cache": args.require_data_cache or bool(options.get("require_data_cache")),
+        "require_data_cache": require_data_cache,
+        "expected_cache_recipe": (
+            expected_cache_recipe.to_dict() if expected_cache_recipe is not None else None
+        ),
         "streaming": args.streaming,
         "data": data.summary(),
     }
@@ -1406,6 +1432,11 @@ def _run_training_row(args: argparse.Namespace) -> int:
     registry_path = args.registry or _optional_path(options.get("registry_path"))
     formats_path = args.formats or _optional_path(options.get("formats_path"))
     data_cache_root = args.data_cache_root or _optional_path(options.get("data_cache_root"))
+    require_data_cache = args.require_data_cache or bool(options.get("require_data_cache"))
+    expected_cache_recipe = _resolve_expected_cache_recipe(
+        args,
+        options,
+    )
     if registry_path is None or formats_path is None:
         raise ValueError(
             "run-training-row requires --registry and --formats unless --dry-run is set"
@@ -1417,7 +1448,8 @@ def _run_training_row(args: argparse.Namespace) -> int:
         registry,
         specs,
         data_cache_root=data_cache_root,
-        require_data_cache=args.require_data_cache or bool(options.get("require_data_cache")),
+        require_data_cache=require_data_cache,
+        expected_cache_recipe=expected_cache_recipe,
         max_train_samples=args.max_train_samples
         if args.max_train_samples is not None
         else options.get("max_train_samples"),
@@ -1496,6 +1528,14 @@ def _emit_json(report: dict, out: Path | None) -> None:
 
 def _optional_path(value: object) -> Path | None:
     return None if value is None else Path(str(value))
+
+
+def _path_sha256(path: str | Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _optional_int(*values: object) -> int | None:
@@ -1582,11 +1622,18 @@ def _training_jobs_from_assignment_summary(
 def _training_runner_contract(args: argparse.Namespace) -> tuple[str, dict[str, object]]:
     if (args.registry is None) != (args.formats is None):
         raise ValueError("--registry and --formats must be provided together")
+    expected_cache_recipe = _resolve_expected_cache_recipe(
+        args,
+        {},
+    )
     runner_options = {
         "registry_path": str(args.registry) if args.registry else None,
         "formats_path": str(args.formats) if args.formats else None,
         "data_cache_root": str(args.data_cache_root) if args.data_cache_root else None,
         "require_data_cache": args.require_data_cache,
+        "expected_cache_recipe": (
+            expected_cache_recipe.to_dict() if expected_cache_recipe is not None else None
+        ),
         "max_train_samples": args.max_train_samples,
         "max_eval_samples": args.max_eval_samples,
         "allow_missing_eval": args.allow_missing_eval,
@@ -1603,6 +1650,67 @@ def _training_runner_contract(args: argparse.Namespace) -> tuple[str, dict[str, 
         else "pending_hf_peft_executor"
     )
     return runner_entrypoint, runner_options
+
+
+def _resolve_expected_cache_recipe(
+    args: argparse.Namespace,
+    options: Mapping[str, object],
+) -> DatasetCacheRecipe | None:
+    raw_options = options.get("expected_cache_recipe")
+    if raw_options is None:
+        values: dict[str, object] = {}
+    elif isinstance(raw_options, Mapping):
+        values = dict(raw_options)
+    else:
+        raise ValueError("runner expected_cache_recipe must be a mapping")
+
+    cli_fields = {
+        "sample_strategy": "expected_cache_strategy",
+        "sample_seed": "expected_cache_seed",
+        "train_limit": "expected_cache_train_limit",
+        "eval_limit": "expected_cache_eval_limit",
+    }
+    for recipe_field, arg_field in cli_fields.items():
+        value = getattr(args, arg_field, None)
+        if value is not None:
+            values[recipe_field] = value
+
+    if not values:
+        return None
+    missing = [
+        field for field in ("sample_strategy", "train_limit", "eval_limit") if field not in values
+    ]
+    if missing:
+        raise ValueError("expected cache recipe is incomplete: " + ", ".join(missing))
+    return DatasetCacheRecipe(
+        sample_strategy=str(values["sample_strategy"]),
+        sample_seed=values.get("sample_seed"),
+        train_limit=values["train_limit"],
+        eval_limit=values["eval_limit"],
+    )
+
+
+def _add_expected_cache_recipe_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--expected-cache-strategy",
+        choices=("first", "seeded_shuffle", "legacy_subsample"),
+        help="Sampling strategy required in cached split metadata",
+    )
+    parser.add_argument(
+        "--expected-cache-seed",
+        type=int,
+        help="Sampling seed required in cached split metadata",
+    )
+    parser.add_argument(
+        "--expected-cache-train-limit",
+        type=int,
+        help="Configured train split limit required in cached split metadata",
+    )
+    parser.add_argument(
+        "--expected-cache-eval-limit",
+        type=int,
+        help="Configured evaluation split limit required in cached split metadata",
+    )
 
 
 def _with_tree_output_root(training_config: dict[str, object], tree_id: str) -> dict[str, object]:
@@ -2646,15 +2754,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     cache_data.add_argument(
         "--sample-strategy",
-        choices=("first", "seeded_shuffle"),
+        choices=("first", "seeded_shuffle", "legacy_subsample"),
         default="first",
-        help="Select accepted rows in source order or after a deterministic shuffle",
+        help=(
+            "Select rows in source order, after a deterministic shuffle, or with the exact "
+            "legacy sized-split subsampling rule"
+        ),
     )
     cache_data.add_argument(
         "--sample-seed",
         type=int,
         default=42,
-        help="Random seed used by --sample-strategy seeded_shuffle",
+        help="Random seed used by seeded_shuffle or legacy_subsample",
     )
     cache_data.add_argument(
         "--shuffle-buffer-size",
@@ -2698,6 +2809,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_list.add_argument("--max-eval-samples", type=int)
     run_list.add_argument("--data-cache-root", type=Path)
     run_list.add_argument("--require-data-cache", action="store_true")
+    _add_expected_cache_recipe_args(run_list)
     run_list.add_argument("--allow-missing-eval", action="store_true")
     run_list.add_argument("--runner-dry-run", action="store_true")
     run_list.add_argument("--allow-existing-artifacts", action="store_true")
@@ -2733,6 +2845,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_list_set.add_argument("--max-eval-samples", type=int)
     run_list_set.add_argument("--data-cache-root", type=Path)
     run_list_set.add_argument("--require-data-cache", action="store_true")
+    _add_expected_cache_recipe_args(run_list_set)
     run_list_set.add_argument("--allow-missing-eval", action="store_true")
     run_list_set.add_argument("--runner-dry-run", action="store_true")
     run_list_set.add_argument("--allow-existing-artifacts", action="store_true")
@@ -2764,6 +2877,7 @@ def build_parser() -> argparse.ArgumentParser:
     audit_row_data.add_argument("--max-eval-samples", type=int)
     audit_row_data.add_argument("--data-cache-root", type=Path)
     audit_row_data.add_argument("--require-data-cache", action="store_true")
+    _add_expected_cache_recipe_args(audit_row_data)
     audit_row_data.add_argument("--allow-missing-eval", action="store_true")
     audit_row_data.add_argument(
         "--streaming",
@@ -2787,6 +2901,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_row.add_argument("--max-eval-samples", type=int)
     run_row.add_argument("--data-cache-root", type=Path)
     run_row.add_argument("--require-data-cache", action="store_true")
+    _add_expected_cache_recipe_args(run_row)
     run_row.add_argument("--allow-missing-eval", action="store_true")
     run_row.add_argument(
         "--override-max-steps",

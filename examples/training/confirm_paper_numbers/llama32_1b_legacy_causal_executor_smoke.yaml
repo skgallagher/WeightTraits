@@ -1,0 +1,9 @@
+# Non-scientific two-step executor smoke. It inherits every data/tokenization
+# setting from the rebuild protocol but writes to an isolated output root.
+extends: llama32_1b_full_finetune_legacy_causal_2000.yaml
+training:
+  protocol_id: legacy_causal_llama32_1b_executor_smoke_v1
+  model_family: llama32_1b_legacy_causal_executor_smoke
+  output_root: outputs/smokes/legacy_causal_llama32_1b_executor
+  trainer:
+    max_steps: 2

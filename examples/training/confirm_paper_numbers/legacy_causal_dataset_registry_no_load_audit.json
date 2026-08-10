@@ -1,0 +1,640 @@
+{
+  "audits": [
+    {
+      "available_splits": [],
+      "dataset_id": "ag_news",
+      "error": null,
+      "hf_args": [
+        "fancyzhx/ag_news"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "test"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "classification"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "arc_challenge",
+      "error": null,
+      "hf_args": [
+        "allenai/ai2_arc",
+        "ARC-Challenge"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "test"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "qa"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "arc_easy",
+      "error": null,
+      "hf_args": [
+        "allenai/ai2_arc",
+        "ARC-Easy"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "test"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "qa"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "arxiv_summ",
+      "error": null,
+      "hf_args": [
+        "ccdv/arxiv-summarization"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "validation"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "summarization"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "bigpatent",
+      "error": null,
+      "hf_args": [
+        "NortheasternUniversity/big_patent",
+        "all"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "validation"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "summarization"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "billsum",
+      "error": null,
+      "hf_args": [
+        "FiscalNote/billsum"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "test"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "summarization"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "boolq",
+      "error": null,
+      "hf_args": [
+        "google/boolq"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "validation"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "qa"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "cnn_dailymail",
+      "error": null,
+      "hf_args": [
+        "abisee/cnn_dailymail",
+        "3.0.0"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "validation"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "summarization"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "cola",
+      "error": null,
+      "hf_args": [
+        "glue",
+        "cola"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "validation"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "classification"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "dbpedia_14",
+      "error": null,
+      "hf_args": [
+        "fancyzhx/dbpedia_14"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "test"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "classification"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "dialogsum",
+      "error": null,
+      "hf_args": [
+        "knkarthick/dialogsum"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "validation"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "summarization"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "govreport",
+      "error": null,
+      "hf_args": [
+        "ccdv/govreport-summarization"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "validation"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "summarization"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "imdb",
+      "error": null,
+      "hf_args": [
+        "stanfordnlp/imdb"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "test"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "classification"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "mnli",
+      "error": null,
+      "hf_args": [
+        "glue",
+        "mnli"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "validation_matched"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "classification"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "opus_en_de",
+      "error": null,
+      "hf_args": [
+        "Helsinki-NLP/opus-100",
+        "de-en"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "validation"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "translation"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "opus_en_es",
+      "error": null,
+      "hf_args": [
+        "Helsinki-NLP/opus-100",
+        "en-es"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "validation"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "translation"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "opus_en_fr",
+      "error": null,
+      "hf_args": [
+        "Helsinki-NLP/opus-100",
+        "en-fr"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "validation"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "translation"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "opus_en_it",
+      "error": null,
+      "hf_args": [
+        "Helsinki-NLP/opus-100",
+        "en-it"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "validation"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "translation"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "opus_en_ja",
+      "error": null,
+      "hf_args": [
+        "Helsinki-NLP/opus-100",
+        "en-ja"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "validation"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "translation"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "opus_en_ru",
+      "error": null,
+      "hf_args": [
+        "Helsinki-NLP/opus-100",
+        "en-ru"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "validation"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "translation"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "opus_en_zh",
+      "error": null,
+      "hf_args": [
+        "Helsinki-NLP/opus-100",
+        "en-zh"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "validation"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "translation"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "pubmed",
+      "error": null,
+      "hf_args": [
+        "ccdv/pubmed-summarization"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "validation"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "summarization"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "qnli",
+      "error": null,
+      "hf_args": [
+        "glue",
+        "qnli"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "validation"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "classification"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "quartz",
+      "error": null,
+      "hf_args": [
+        "allenai/quartz"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "test"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "qa"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "rte",
+      "error": null,
+      "hf_args": [
+        "glue",
+        "rte"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "validation"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "classification"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "samsum",
+      "error": null,
+      "hf_args": [
+        "knkarthick/samsum"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "validation"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "summarization"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "sciq",
+      "error": null,
+      "hf_args": [
+        "allenai/sciq"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "test"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "qa"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "squad",
+      "error": null,
+      "hf_args": [
+        "rajpurkar/squad"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "validation"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "qa"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "squad_v2",
+      "error": null,
+      "hf_args": [
+        "rajpurkar/squad_v2"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "validation"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "qa"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "sst2",
+      "error": null,
+      "hf_args": [
+        "glue",
+        "sst2"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "validation"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "classification"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "trec",
+      "error": null,
+      "hf_args": [
+        "SetFit/TREC-QC"
+      ],
+      "hf_kwargs": {
+        "revision": "0a34640b3cac3affef6f0abdfb81e3d0ecffcf92"
+      },
+      "requested_splits": [
+        "train",
+        "test"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "classification"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "trivia_qa",
+      "error": null,
+      "hf_args": [
+        "trivia_qa",
+        "rc.nocontext"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "validation"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "qa"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "wmt14_en_de",
+      "error": null,
+      "hf_args": [
+        "wmt/wmt14",
+        "de-en"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "validation"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "translation"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "wmt14_en_fr",
+      "error": null,
+      "hf_args": [
+        "wmt/wmt14",
+        "fr-en"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "validation"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "translation"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "xsum",
+      "error": null,
+      "hf_args": [
+        "EdinburghNLP/xsum"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "validation"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "summarization"
+    },
+    {
+      "available_splits": [],
+      "dataset_id": "yelp_polarity",
+      "error": null,
+      "hf_args": [
+        "fancyzhx/yelp_polarity"
+      ],
+      "hf_kwargs": {},
+      "requested_splits": [
+        "train",
+        "test"
+      ],
+      "role": "training",
+      "row_counts": {},
+      "status": "not_loaded",
+      "task_family": "classification"
+    }
+  ],
+  "n_datasets": 36,
+  "n_ok": 36,
+  "valid": true
+}

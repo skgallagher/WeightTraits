@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import hashlib
 import json
+import operator
 from pathlib import Path
 import random
 from typing import Any, Callable, Mapping, Sequence
@@ -15,6 +17,24 @@ from weighttraits.training.prompts import render_prompt
 
 
 DatasetLoader = Callable[..., Any]
+
+
+_CACHE_METADATA_VERSION = 3
+_CACHE_SAMPLE_STRATEGIES = frozenset({"first", "seeded_shuffle", "legacy_subsample"})
+_CACHE_PROVENANCE_KEYS = (
+    "cache_metadata_version",
+    "dataset_id",
+    "split",
+    "dataset_registry_entry_sha256",
+    "dataset_format_spec_sha256",
+    "source_split_fingerprint",
+    "source_split_num_rows",
+    "cache_jsonl_sha256",
+    "cache_row_count",
+    "cache_limit",
+    "cache_n_filtered",
+    "cache_n_dropped",
+)
 
 
 @dataclass(frozen=True)
@@ -36,6 +56,47 @@ class DatasetRegistryEntry:
         if self.hf_kwargs is None:
             out["hf_kwargs"] = {}
         return out
+
+
+@dataclass(frozen=True)
+class DatasetCacheRecipe:
+    """Expected sampling recipe for required train and evaluation caches."""
+
+    sample_strategy: str
+    sample_seed: int | None
+    train_limit: int | None
+    eval_limit: int | None
+
+    def __post_init__(self) -> None:
+        if self.sample_strategy not in _CACHE_SAMPLE_STRATEGIES:
+            supported = ", ".join(sorted(_CACHE_SAMPLE_STRATEGIES))
+            raise ValueError(f"unsupported cache sample strategy; expected one of: {supported}")
+        if self.sample_strategy == "first":
+            if self.sample_seed is not None:
+                raise ValueError("cache sample seed must be None when strategy is 'first'")
+        elif isinstance(self.sample_seed, bool) or not isinstance(self.sample_seed, int):
+            raise ValueError(f"cache sample seed is required for {self.sample_strategy}")
+        for field_name in ("train_limit", "eval_limit"):
+            value = getattr(self, field_name)
+            if value is not None and (
+                isinstance(value, bool) or not isinstance(value, int) or value < 1
+            ):
+                raise ValueError(f"cache {field_name} must be a positive integer or None")
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def dataset_registry_entry_fingerprint(entry: DatasetRegistryEntry) -> str:
+    """Return a deterministic SHA-256 fingerprint for one registry entry."""
+
+    return _stable_json_sha256(entry.to_dict())
+
+
+def dataset_format_spec_fingerprint(spec: DatasetFormatSpec) -> str:
+    """Return a deterministic SHA-256 fingerprint for one canonical format spec."""
+
+    return _stable_json_sha256(spec.to_dict())
 
 
 @dataclass(frozen=True)
@@ -101,10 +162,15 @@ class TrainingSampleRenderAudit:
     split: str | None
     prompt_source: str
     prompt_fields: tuple[str, ...]
+    target_field: str | None
     n_seen: int
     n_rendered: int
     n_missing_field_rows: int
     n_empty_render_rows: int
+    n_valid_target_rows: int
+    n_missing_target_rows: int
+    n_non_string_target_rows: int
+    n_empty_target_rows: int
     status: str
     issues: tuple[SampleRenderIssue, ...] = ()
     error: str | None = None
@@ -154,7 +220,9 @@ class DatasetCacheSplitReport:
 
     @property
     def valid(self) -> bool:
-        return self.status in {"ok", "cached", "skipped"} and self.n_cached >= self.min_required
+        if self.status not in {"ok", "cached", "skipped"}:
+            return False
+        return self.sample_strategy == "legacy_subsample" or self.n_cached >= self.min_required
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -194,7 +262,9 @@ def load_dataset_registry(path: str | Path) -> dict[str, DatasetRegistryEntry]:
         raise ValueError(f"dataset registry must be a mapping: {path}")
     entries = _entries_from_task_families(raw)
     if not entries:
-        entries = _entries_from_dataset_rows(raw.get("datasets", []), task_family=None, family_status=None)
+        entries = _entries_from_dataset_rows(
+            raw.get("datasets", []), task_family=None, family_status=None
+        )
     if not entries:
         raise ValueError(f"dataset registry has no datasets: {path}")
     out: dict[str, DatasetRegistryEntry] = {}
@@ -238,7 +308,9 @@ def audit_dataset_registry(
                 )
             )
             continue
-        requested = _requested_splits(entry, None if format_specs is None else format_specs.get(dataset_id))
+        requested = _requested_splits(
+            entry, None if format_specs is None else format_specs.get(dataset_id)
+        )
         if not load:
             audits.append(
                 DatasetSplitAudit(
@@ -285,9 +357,7 @@ def audit_training_sample_rendering(
         raise ValueError("max_samples must be at least 1")
     selected_ids = set(dataset_ids or [])
     selected_jobs = [
-        job
-        for job in jobs
-        if not selected_ids or getattr(job, "dataset_id", None) in selected_ids
+        job for job in jobs if not selected_ids or getattr(job, "dataset_id", None) in selected_ids
     ]
     dataset_cache: dict[str, Any] = {}
     audits = [
@@ -315,9 +385,7 @@ def select_training_sample_jobs(
     """Select planned jobs for sample-render audits."""
     selected_ids = set(dataset_ids or [])
     filtered = [
-        job
-        for job in jobs
-        if not selected_ids or getattr(job, "dataset_id", None) in selected_ids
+        job for job in jobs if not selected_ids or getattr(job, "dataset_id", None) in selected_ids
     ]
     if selection == "all-jobs":
         return filtered
@@ -365,7 +433,9 @@ def cache_training_datasets(
 
     ``first`` preserves registry order. ``seeded_shuffle`` performs a deterministic
     shuffle before filtering and truncation. For streaming iterables the shuffle is
-    bounded by ``shuffle_buffer_size``.
+    bounded by ``shuffle_buffer_size``. ``legacy_subsample`` exactly mirrors the old
+    non-streaming selection rule: shuffle and select only when the sized source split
+    is longer than that split's limit.
     """
     if train_limit is not None and train_limit < 1:
         raise ValueError("train_limit must be positive or None")
@@ -373,11 +443,13 @@ def cache_training_datasets(
         raise ValueError("eval_limit must be positive or None")
     if max_scan is not None and max_scan < 1:
         raise ValueError("max_scan must be positive or None")
-    if sample_strategy not in {"first", "seeded_shuffle"}:
-        raise ValueError("sample_strategy must be 'first' or 'seeded_shuffle'")
+    if sample_strategy not in _CACHE_SAMPLE_STRATEGIES:
+        raise ValueError("sample_strategy must be 'first', 'seeded_shuffle', or 'legacy_subsample'")
     if shuffle_buffer_size < 1:
         raise ValueError("shuffle_buffer_size must be positive")
-    effective_seed = sample_seed if sample_strategy == "seeded_shuffle" else None
+    effective_seed = (
+        sample_seed if sample_strategy in {"seeded_shuffle", "legacy_subsample"} else None
+    )
     effective_buffer_size = shuffle_buffer_size if sample_strategy == "seeded_shuffle" else None
     out_root = Path(out_dir)
     ids = dataset_ids or sorted(registry)
@@ -511,19 +583,68 @@ def load_cached_dataset_splits(
     train_split: str,
     eval_split: str | None = None,
     require: bool = False,
+    registry_entry: DatasetRegistryEntry | None = None,
+    format_spec: DatasetFormatSpec | None = None,
+    expected_recipe: DatasetCacheRecipe | None = None,
 ) -> dict[str, Any] | None:
+    if (registry_entry is None) != (format_spec is None):
+        raise ValueError("registry_entry and format_spec must be provided together")
+    if expected_recipe is not None and registry_entry is None:
+        raise ValueError(
+            "strict cache loading requires registry_entry and format_spec with expected_recipe"
+        )
     train_path = dataset_cache_split_path(cache_root, dataset_id, train_split)
     if not train_path.exists():
         if require:
             raise FileNotFoundError(f"missing cached train split: {train_path}")
         return None
-    splits: dict[str, Any] = {train_split: _iter_jsonl_rows(train_path)}
+
+    paths = [
+        (
+            train_split,
+            train_path,
+            None if expected_recipe is None else expected_recipe.train_limit,
+        )
+    ]
     if eval_split:
         eval_path = dataset_cache_split_path(cache_root, dataset_id, eval_split)
         if eval_path.exists():
-            splits[eval_split] = _iter_jsonl_rows(eval_path)
+            paths.append(
+                (
+                    eval_split,
+                    eval_path,
+                    None if expected_recipe is None else expected_recipe.eval_limit,
+                )
+            )
         elif require:
             raise FileNotFoundError(f"missing cached eval split: {eval_path}")
+
+    if expected_recipe is None:
+        return {split_name: _iter_jsonl_rows(path) for split_name, path, _ in paths}
+
+    splits: dict[str, Any] = {}
+    for split_name, path, expected_limit in paths:
+        try:
+            metadata = _read_cache_metadata(path.with_suffix(".metadata.json"))
+            issue = _cache_metadata_issue(
+                metadata,
+                dataset_id=dataset_id,
+                split_name=split_name,
+                entry=registry_entry,
+                spec=format_spec,
+                expected_recipe=expected_recipe,
+                expected_limit=expected_limit,
+            )
+            rows = None if issue else _read_and_validate_cache_rows(path, metadata)
+        except ValueError as exc:
+            issue = str(exc)
+            rows = None
+        if issue:
+            message = f"incompatible cached dataset split {path}: {issue}"
+            if require:
+                raise ValueError(message)
+            return None
+        splits[split_name] = rows
     return splits
 
 
@@ -534,7 +655,261 @@ def canonical_dataset_example(row: Any, spec: DatasetFormatSpec) -> dict[str, An
         found, value = lookup_field(row_map, raw_field)
         if found:
             canonical[prompt_field] = value
+    if spec.transforms:
+        # Resolve every transform against the same post-field-map snapshot. This lets one
+        # specification derive both a display-friendly choices string and the correct answer
+        # text from the original choices mapping without transform ordering affecting results.
+        source_example = dict(canonical)
+        updates = {
+            output_field: _apply_canonical_transform(
+                output_field,
+                transform,
+                source_example,
+                dataset_id=spec.dataset_id,
+            )
+            for output_field, transform in spec.transforms.items()
+        }
+        canonical.update(updates)
     return canonical
+
+
+def _apply_canonical_transform(
+    output_field: str,
+    transform: Mapping[str, Any],
+    example: Mapping[str, Any],
+    *,
+    dataset_id: str,
+) -> Any:
+    op = str(transform.get("op", ""))
+    if op == "label_index":
+        value = _required_transform_source(
+            example,
+            transform.get("source"),
+            dataset_id=dataset_id,
+            output_field=output_field,
+        )
+        labels = transform.get("labels")
+        if not isinstance(labels, Sequence) or isinstance(labels, (str, bytes)):
+            raise TypeError(_transform_error(dataset_id, output_field, "labels must be a sequence"))
+        if isinstance(value, str) and value in labels:
+            return value
+        if isinstance(value, bool):
+            raise TypeError(_transform_error(dataset_id, output_field, "label index is boolean"))
+        try:
+            index = operator.index(value)
+        except TypeError as exc:
+            raise TypeError(
+                _transform_error(
+                    dataset_id, output_field, f"label index is not an integer: {value!r}"
+                )
+            ) from exc
+        if index < 0 or index >= len(labels):
+            raise IndexError(
+                _transform_error(
+                    dataset_id,
+                    output_field,
+                    f"label index {index} is outside configured labels of length {len(labels)}",
+                )
+            )
+        return str(labels[index])
+
+    if op == "first_item":
+        source = transform.get("source")
+        found, value = _transform_source(example, source)
+        if not found and output_field in example and str(source).startswith(f"{output_field}."):
+            return example[output_field]
+        if not found:
+            raise KeyError(
+                _transform_error(
+                    dataset_id,
+                    output_field,
+                    f"transform source field is missing: {source}",
+                )
+            )
+        if isinstance(value, str) and source == output_field:
+            return value
+        if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+            raise TypeError(
+                _transform_error(dataset_id, output_field, "first_item source must be a sequence")
+            )
+        return value[0] if value else transform.get("default", "")
+
+    if op == "bool_map":
+        value = _required_transform_source(
+            example,
+            transform.get("source"),
+            dataset_id=dataset_id,
+            output_field=output_field,
+        )
+        if value in (transform["true_value"], transform["false_value"]):
+            return value
+        if not isinstance(value, bool):
+            raise TypeError(
+                _transform_error(
+                    dataset_id, output_field, f"bool_map source is not boolean: {value!r}"
+                )
+            )
+        return transform["true_value"] if value else transform["false_value"]
+
+    if op == "format_choices":
+        choices = _required_transform_source(
+            example,
+            transform.get("source"),
+            dataset_id=dataset_id,
+            output_field=output_field,
+        )
+        if isinstance(choices, str):
+            return choices
+        labels, texts = _choice_parts(
+            choices,
+            transform,
+            dataset_id=dataset_id,
+            output_field=output_field,
+        )
+        separator = str(transform.get("separator", " "))
+        return separator.join(f"{label}) {text}" for label, text in zip(labels, texts))
+
+    if op == "choice_text":
+        answer_key = _required_transform_source(
+            example,
+            transform.get("key_source"),
+            dataset_id=dataset_id,
+            output_field=output_field,
+        )
+        choices = _required_transform_source(
+            example,
+            transform.get("choices_source"),
+            dataset_id=dataset_id,
+            output_field=output_field,
+        )
+        if isinstance(choices, str) and output_field in example:
+            return example[output_field]
+        labels, texts = _choice_parts(
+            choices,
+            transform,
+            dataset_id=dataset_id,
+            output_field=output_field,
+        )
+        for label, text in zip(labels, texts):
+            if label == answer_key or str(label) == str(answer_key):
+                return str(text)
+        if transform.get("fallback_to_key", False):
+            return str(answer_key)
+        raise ValueError(
+            _transform_error(
+                dataset_id,
+                output_field,
+                f"answer key {answer_key!r} is absent from choice labels",
+            )
+        )
+
+    if op == "compose_qa_input":
+        existing = example.get(output_field)
+        if isinstance(existing, str):
+            return existing
+        question = _required_transform_source(
+            example,
+            transform.get("question_source"),
+            dataset_id=dataset_id,
+            output_field=output_field,
+        )
+        qa_input = f"question: {question}"
+        if "choices_source" in transform:
+            choices = _required_transform_source(
+                example,
+                transform["choices_source"],
+                dataset_id=dataset_id,
+                output_field=output_field,
+            )
+            if isinstance(choices, str):
+                formatted_choices = choices
+            else:
+                labels, texts = _choice_parts(
+                    choices,
+                    transform,
+                    dataset_id=dataset_id,
+                    output_field=output_field,
+                )
+                separator = str(transform.get("separator", " "))
+                formatted_choices = separator.join(
+                    f"{label}) {text}" for label, text in zip(labels, texts)
+                )
+            qa_input += f" choices: {formatted_choices}"
+        if "context_source" in transform:
+            found, context = _transform_source(example, transform["context_source"])
+            if found and context:
+                qa_input += f" context: {context}"
+        return qa_input
+
+    raise ValueError(
+        _transform_error(dataset_id, output_field, f"unsupported transform op: {op!r}")
+    )
+
+
+def _required_transform_source(
+    example: Mapping[str, Any],
+    source: Any,
+    *,
+    dataset_id: str,
+    output_field: str,
+) -> Any:
+    if not isinstance(source, str) or not source:
+        raise ValueError(
+            _transform_error(dataset_id, output_field, f"invalid transform source: {source!r}")
+        )
+    found, value = _transform_source(example, source)
+    if not found:
+        raise KeyError(
+            _transform_error(
+                dataset_id, output_field, f"transform source field is missing: {source}"
+            )
+        )
+    return value
+
+
+def _transform_source(example: Mapping[str, Any], source: Any) -> tuple[bool, Any]:
+    if not isinstance(source, str) or not source:
+        return False, None
+    return lookup_field(example, source)
+
+
+def _choice_parts(
+    choices: Any,
+    transform: Mapping[str, Any],
+    *,
+    dataset_id: str,
+    output_field: str,
+) -> tuple[Sequence[Any], Sequence[Any]]:
+    if not isinstance(choices, Mapping):
+        raise TypeError(
+            _transform_error(dataset_id, output_field, "choices source must be a mapping")
+        )
+    label_field = str(transform.get("label_field", "label"))
+    text_field = str(transform.get("text_field", "text"))
+    labels = choices.get(label_field)
+    texts = choices.get(text_field)
+    if (
+        not isinstance(labels, Sequence)
+        or isinstance(labels, (str, bytes))
+        or not isinstance(texts, Sequence)
+        or isinstance(texts, (str, bytes))
+    ):
+        raise TypeError(
+            _transform_error(
+                dataset_id,
+                output_field,
+                f"choices fields {label_field!r} and {text_field!r} must be sequences",
+            )
+        )
+    if len(labels) != len(texts):
+        raise ValueError(
+            _transform_error(dataset_id, output_field, "choice label/text lengths do not match")
+        )
+    return labels, texts
+
+
+def _transform_error(dataset_id: str, output_field: str, detail: str) -> str:
+    return f"dataset {dataset_id} transform for {output_field!r}: {detail}"
 
 
 def dataset_example_passes_filter(
@@ -576,19 +951,58 @@ def _cache_dataset_split(
 ) -> DatasetCacheSplitReport:
     path = dataset_cache_split_path(out_dir, entry.dataset_id, split_name)
     metadata_path = path.with_suffix(".metadata.json")
+    requested_metadata = _cache_metadata(
+        entry=entry,
+        spec=spec,
+        split_name=split_name,
+        source_split=dataset_split,
+        sample_strategy=sample_strategy,
+        sample_seed=sample_seed,
+        shuffle_buffer_size=shuffle_buffer_size,
+        cache_limit=limit,
+    )
     if path.exists() and not overwrite:
         n_cached = _count_jsonl_rows(path)
-        metadata = _read_cache_metadata(metadata_path)
+        try:
+            metadata = _read_cache_metadata(metadata_path)
+        except ValueError as exc:
+            return _cache_provenance_mismatch_report(
+                entry=entry,
+                split_name=split_name,
+                path=path,
+                limit=limit,
+                min_required=min_required,
+                n_cached=n_cached,
+                metadata=None,
+                error=str(exc),
+            )
+        provenance_issue = _cache_metadata_issue(
+            metadata,
+            dataset_id=entry.dataset_id,
+            split_name=split_name,
+            entry=entry,
+            spec=spec,
+            source_split=dataset_split,
+            cache_path=path,
+        )
+        if provenance_issue:
+            return _cache_provenance_mismatch_report(
+                entry=entry,
+                split_name=split_name,
+                path=path,
+                limit=limit,
+                min_required=min_required,
+                n_cached=n_cached,
+                metadata=metadata,
+                error=provenance_issue,
+            )
         requested = _cache_sampling_metadata(
             sample_strategy=sample_strategy,
             sample_seed=sample_seed,
             shuffle_buffer_size=shuffle_buffer_size,
+            cache_limit=limit,
         )
-        existing = metadata or _cache_sampling_metadata(
-            sample_strategy="first",
-            sample_seed=None,
-            shuffle_buffer_size=None,
-        )
+        existing = metadata or {}
         sampling_matches = all(existing.get(key) == value for key, value in requested.items())
         if not sampling_matches:
             return DatasetCacheSplitReport(
@@ -607,6 +1021,7 @@ def _cache_dataset_split(
                 sample_seed=existing.get("sample_seed"),
                 shuffle_buffer_size=existing.get("shuffle_buffer_size"),
             )
+        cache_is_sufficient = sample_strategy == "legacy_subsample" or n_cached >= min_required
         return DatasetCacheSplitReport(
             dataset_id=entry.dataset_id,
             split=split_name,
@@ -617,25 +1032,26 @@ def _cache_dataset_split(
             n_cached=n_cached,
             n_filtered=0,
             n_dropped=0,
-            status="cached" if n_cached >= min_required else "short",
-            error=None if n_cached >= min_required else "existing cache is shorter than required",
+            status="cached" if cache_is_sufficient else "short",
+            error=None if cache_is_sufficient else "existing cache is shorter than required",
             sample_strategy=sample_strategy,
             sample_seed=sample_seed,
             shuffle_buffer_size=shuffle_buffer_size,
         )
 
-    path.parent.mkdir(parents=True, exist_ok=True)
     n_scanned = 0
     n_cached = 0
     n_filtered = 0
     n_dropped = 0
+    sampled_rows = _sample_dataset_rows(
+        dataset_split,
+        strategy=sample_strategy,
+        seed=sample_seed,
+        buffer_size=shuffle_buffer_size,
+        limit=limit,
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w") as handle:
-        sampled_rows = _sample_dataset_rows(
-            dataset_split,
-            strategy=sample_strategy,
-            seed=sample_seed,
-            buffer_size=shuffle_buffer_size,
-        )
         for row in sampled_rows:
             if limit is not None and n_cached >= limit:
                 break
@@ -647,7 +1063,9 @@ def _cache_dataset_split(
                 continue
             try:
                 canonical = canonical_dataset_example(row, spec)
-                missing = [field for field in _cache_required_fields(spec) if field not in canonical]
+                missing = [
+                    field for field in _cache_required_fields(spec) if field not in canonical
+                ]
                 if missing:
                     n_dropped += 1
                     continue
@@ -662,19 +1080,27 @@ def _cache_dataset_split(
                 json.dumps(_cache_row(canonical, spec), default=str, sort_keys=True) + "\n"
             )
             n_cached += 1
+    requested_metadata.update(_cache_content_metadata(path, row_count=n_cached))
+    requested_metadata.update(
+        {
+            "cache_n_filtered": n_filtered,
+            "cache_n_dropped": n_dropped,
+        }
+    )
+    exactness_issue = _legacy_cache_exactness_issue(requested_metadata)
     metadata_path.write_text(
         json.dumps(
-            _cache_sampling_metadata(
-                sample_strategy=sample_strategy,
-                sample_seed=sample_seed,
-                shuffle_buffer_size=shuffle_buffer_size,
-            ),
+            requested_metadata,
             indent=2,
             sort_keys=True,
         )
         + "\n"
     )
-    if n_cached >= min_required:
+    if exactness_issue:
+        status = "exactness_mismatch"
+    elif sample_strategy == "legacy_subsample":
+        status = "ok"
+    elif n_cached >= min_required:
         status = "ok"
     elif max_scan is not None and n_scanned >= max_scan:
         status = "scan_limit"
@@ -691,7 +1117,7 @@ def _cache_dataset_split(
         n_filtered=n_filtered,
         n_dropped=n_dropped,
         status=status,
-        error=None if status == "ok" else "not enough rows after filtering",
+        error=(None if status == "ok" else exactness_issue or "not enough rows after filtering"),
         sample_strategy=sample_strategy,
         sample_seed=sample_seed,
         shuffle_buffer_size=shuffle_buffer_size,
@@ -704,9 +1130,32 @@ def _sample_dataset_rows(
     strategy: str,
     seed: int | None,
     buffer_size: int | None,
+    limit: int | None,
 ):
     if strategy == "first":
         return rows
+    if strategy == "legacy_subsample":
+        if seed is None:
+            raise ValueError("legacy_subsample requires a seed")
+        try:
+            source_size = len(rows)
+        except (TypeError, AttributeError) as exc:
+            raise ValueError(
+                "legacy_subsample requires a sized, non-streaming dataset split"
+            ) from exc
+        if limit is None or source_size <= limit:
+            return rows
+        shuffle = getattr(rows, "shuffle", None)
+        select = getattr(rows, "select", None)
+        if not callable(shuffle) or not callable(select):
+            raise ValueError(
+                "legacy_subsample requires a non-streaming dataset with shuffle() and select()"
+            )
+        shuffled = shuffle(seed=seed)
+        shuffled_select = getattr(shuffled, "select", None)
+        if not callable(shuffled_select):
+            raise ValueError("legacy_subsample shuffle() result does not support select()")
+        return shuffled_select(range(limit))
     if seed is None or buffer_size is None:
         raise ValueError("seeded_shuffle requires a seed and shuffle buffer size")
     shuffle = getattr(rows, "shuffle", None)
@@ -737,19 +1186,283 @@ def _cache_sampling_metadata(
     sample_strategy: str,
     sample_seed: int | None,
     shuffle_buffer_size: int | None,
+    cache_limit: int | None,
 ) -> dict[str, Any]:
     return {
         "sample_strategy": sample_strategy,
         "sample_seed": sample_seed,
         "shuffle_buffer_size": shuffle_buffer_size,
+        "cache_limit": cache_limit,
     }
+
+
+def _cache_metadata(
+    *,
+    entry: DatasetRegistryEntry,
+    spec: DatasetFormatSpec,
+    split_name: str,
+    source_split: Any,
+    sample_strategy: str,
+    sample_seed: int | None,
+    shuffle_buffer_size: int | None,
+    cache_limit: int | None,
+) -> dict[str, Any]:
+    metadata = _cache_sampling_metadata(
+        sample_strategy=sample_strategy,
+        sample_seed=sample_seed,
+        shuffle_buffer_size=shuffle_buffer_size,
+        cache_limit=cache_limit,
+    )
+    metadata.update(_cache_provenance_metadata(entry, spec, split_name))
+    metadata.update(_source_split_metadata(source_split))
+    return metadata
+
+
+def _cache_provenance_metadata(
+    entry: DatasetRegistryEntry,
+    spec: DatasetFormatSpec,
+    split_name: str,
+) -> dict[str, Any]:
+    if entry.dataset_id != spec.dataset_id:
+        raise ValueError(
+            "cache provenance requires matching registry and format dataset ids: "
+            f"{entry.dataset_id!r} != {spec.dataset_id!r}"
+        )
+    return {
+        "cache_metadata_version": _CACHE_METADATA_VERSION,
+        "dataset_id": entry.dataset_id,
+        "split": str(split_name),
+        "dataset_registry_entry_sha256": dataset_registry_entry_fingerprint(entry),
+        "dataset_format_spec_sha256": dataset_format_spec_fingerprint(spec),
+    }
+
+
+def _cache_metadata_issue(
+    metadata: Mapping[str, Any] | None,
+    *,
+    dataset_id: str,
+    split_name: str,
+    entry: DatasetRegistryEntry | None,
+    spec: DatasetFormatSpec | None,
+    source_split: Any | None = None,
+    cache_path: Path | None = None,
+    expected_recipe: DatasetCacheRecipe | None = None,
+    expected_limit: int | None = None,
+) -> str | None:
+    if metadata is None:
+        return "cache metadata is missing, so provenance cannot be verified"
+    missing = [key for key in _CACHE_PROVENANCE_KEYS if key not in metadata]
+    if missing:
+        return "cache metadata lacks provenance fields: " + ", ".join(missing)
+    if metadata.get("cache_metadata_version") != _CACHE_METADATA_VERSION:
+        return (
+            "cache metadata version differs: "
+            f"{metadata.get('cache_metadata_version')!r} != {_CACHE_METADATA_VERSION}"
+        )
+    if metadata.get("dataset_id") != dataset_id:
+        return f"cache dataset id differs: {metadata.get('dataset_id')!r} != {dataset_id!r}"
+    if metadata.get("split") != split_name:
+        return f"cache split differs: {metadata.get('split')!r} != {split_name!r}"
+    exactness_issue = _legacy_cache_exactness_issue(metadata)
+    if exactness_issue:
+        return exactness_issue
+    if expected_recipe is not None:
+        expected_sampling = {
+            "sample_strategy": expected_recipe.sample_strategy,
+            "sample_seed": expected_recipe.sample_seed,
+            "cache_limit": expected_limit,
+        }
+        mismatched_recipe = [
+            key for key, value in expected_sampling.items() if metadata.get(key) != value
+        ]
+        if mismatched_recipe:
+            return "cache sampling recipe differs: " + ", ".join(mismatched_recipe)
+    if cache_path is not None:
+        content_issue = _cache_content_issue(metadata, cache_path)
+        if content_issue:
+            return content_issue
+    if source_split is not None:
+        expected_source = _source_split_metadata(source_split)
+        mismatched_source = [
+            key
+            for key, value in expected_source.items()
+            if value is not None and metadata.get(key) != value
+        ]
+        if mismatched_source:
+            return "cache source split provenance differs: " + ", ".join(mismatched_source)
+    if entry is None or spec is None:
+        return None
+    if entry.dataset_id != dataset_id or spec.dataset_id != dataset_id:
+        return (
+            "requested registry/format dataset id differs from cache path: "
+            f"entry={entry.dataset_id!r}, spec={spec.dataset_id!r}, path={dataset_id!r}"
+        )
+    expected = _cache_provenance_metadata(entry, spec, split_name)
+    mismatched = [
+        key
+        for key in (
+            "dataset_registry_entry_sha256",
+            "dataset_format_spec_sha256",
+        )
+        if metadata.get(key) != expected[key]
+    ]
+    if mismatched:
+        return "cache provenance fingerprint differs: " + ", ".join(mismatched)
+    return None
+
+
+def _legacy_cache_exactness_issue(metadata: Mapping[str, Any]) -> str | None:
+    if metadata.get("sample_strategy") != "legacy_subsample":
+        return None
+    n_filtered = metadata.get("cache_n_filtered")
+    n_dropped = metadata.get("cache_n_dropped")
+    if n_filtered != 0 or n_dropped != 0:
+        return (
+            "legacy cache is not exact: filtered/dropped rows must both be zero "
+            f"(filtered={n_filtered!r}, dropped={n_dropped!r})"
+        )
+    source_size = metadata.get("source_split_num_rows")
+    if isinstance(source_size, bool) or not isinstance(source_size, int) or source_size < 0:
+        return "legacy cache is not exact: source split row count is unavailable"
+    cache_limit = metadata.get("cache_limit")
+    if cache_limit is not None and (
+        isinstance(cache_limit, bool) or not isinstance(cache_limit, int) or cache_limit < 1
+    ):
+        return "legacy cache is not exact: cache_limit is invalid"
+    expected_count = source_size if cache_limit is None else min(source_size, cache_limit)
+    if metadata.get("cache_row_count") != expected_count:
+        return (
+            "legacy cache is not exact: cache_row_count differs from "
+            f"min(cache_limit, source_split_num_rows): "
+            f"{metadata.get('cache_row_count')!r} != {expected_count!r}"
+        )
+    return None
+
+
+def _cache_provenance_mismatch_report(
+    *,
+    entry: DatasetRegistryEntry,
+    split_name: str,
+    path: Path,
+    limit: int | None,
+    min_required: int,
+    n_cached: int,
+    metadata: Mapping[str, Any] | None,
+    error: str,
+) -> DatasetCacheSplitReport:
+    existing = metadata or {}
+    return DatasetCacheSplitReport(
+        dataset_id=entry.dataset_id,
+        split=split_name,
+        path=str(path),
+        limit=limit,
+        min_required=min_required,
+        n_scanned=0,
+        n_cached=n_cached,
+        n_filtered=0,
+        n_dropped=0,
+        status="provenance_mismatch",
+        error=f"existing cache provenance is incompatible: {error}; rerun with --overwrite",
+        sample_strategy=str(existing.get("sample_strategy", "unknown")),
+        sample_seed=existing.get("sample_seed"),
+        shuffle_buffer_size=existing.get("shuffle_buffer_size"),
+    )
+
+
+def _source_split_metadata(dataset_split: Any) -> dict[str, Any]:
+    fingerprint = getattr(dataset_split, "_fingerprint", None)
+    if fingerprint is not None:
+        fingerprint = str(fingerprint)
+    try:
+        row_count = len(dataset_split)
+    except (TypeError, AttributeError):
+        row_count = None
+    if isinstance(row_count, bool) or not isinstance(row_count, int) or row_count < 0:
+        row_count = None
+    return {
+        "source_split_fingerprint": fingerprint,
+        "source_split_num_rows": row_count,
+    }
+
+
+def _cache_content_metadata(path: Path, *, row_count: int) -> dict[str, Any]:
+    return {
+        "cache_jsonl_sha256": _file_sha256(path),
+        "cache_row_count": row_count,
+    }
+
+
+def _cache_content_issue(metadata: Mapping[str, Any], path: Path) -> str | None:
+    expected_count = metadata.get("cache_row_count")
+    actual_count, actual_sha256 = _cache_file_stats(path)
+    if expected_count != actual_count:
+        return f"cache row count differs: {actual_count!r} != {expected_count!r}"
+    expected_sha256 = metadata.get("cache_jsonl_sha256")
+    if expected_sha256 != actual_sha256:
+        return "cache JSONL fingerprint differs: cache_jsonl_sha256"
+    return None
+
+
+def _read_and_validate_cache_rows(path: Path, metadata: Mapping[str, Any]) -> list[Any]:
+    digest = hashlib.sha256()
+    rows: list[Any] = []
+    with path.open("rb") as handle:
+        for line_number, raw_line in enumerate(handle, start=1):
+            digest.update(raw_line)
+            if not raw_line.strip():
+                continue
+            try:
+                rows.append(json.loads(raw_line))
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise ValueError(f"invalid cached JSONL {path} at line {line_number}") from exc
+    if metadata.get("cache_row_count") != len(rows):
+        expected_count = metadata.get("cache_row_count")
+        raise ValueError(f"cache row count differs: {len(rows)!r} != {expected_count!r}")
+    if metadata.get("cache_jsonl_sha256") != digest.hexdigest():
+        raise ValueError("cache JSONL fingerprint differs: cache_jsonl_sha256")
+    return rows
+
+
+def _cache_file_stats(path: Path) -> tuple[int, str]:
+    digest = hashlib.sha256()
+    row_count = 0
+    with path.open("rb") as handle:
+        for raw_line in handle:
+            digest.update(raw_line)
+            if raw_line.strip():
+                row_count += 1
+    return row_count, digest.hexdigest()
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _stable_json_sha256(value: Mapping[str, Any]) -> str:
+    canonical = json.dumps(
+        value,
+        allow_nan=False,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def _read_cache_metadata(path: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
-    raw = json.loads(path.read_text())
-    return raw if isinstance(raw, dict) else None
+    try:
+        raw = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"invalid cache metadata {path}: {exc}") from exc
+    if not isinstance(raw, dict):
+        raise ValueError(f"invalid cache metadata {path}: expected a JSON object")
+    return raw
 
 
 def _cache_error_report(
@@ -783,6 +1496,7 @@ def _cache_row(canonical: Mapping[str, Any], spec: DatasetFormatSpec) -> dict[st
 def _cache_required_fields(spec: DatasetFormatSpec) -> set[str]:
     fields = set(spec.prompt_fields)
     fields.update((spec.field_map or {}).keys())
+    fields.update((spec.transforms or {}).keys())
     return fields
 
 
@@ -833,6 +1547,7 @@ def _audit_job_sample_rendering(
     prompt_source = str(getattr(job, "prompt_source", "unknown"))
     prompt_fields = tuple(str(field) for field in getattr(job, "prompt_fields", ()))
     prompt_template = str(getattr(job, "prompt_template", ""))
+    target_field = _configured_target_field(job)
 
     if not dataset_id:
         return _sample_render_audit(
@@ -841,6 +1556,7 @@ def _audit_job_sample_rendering(
             task_family=task_family,
             prompt_source=prompt_source,
             prompt_fields=prompt_fields,
+            target_field=target_field,
             status="missing_dataset_id",
             error="training job does not declare dataset_id",
         )
@@ -853,6 +1569,7 @@ def _audit_job_sample_rendering(
             task_family=task_family,
             prompt_source=prompt_source,
             prompt_fields=prompt_fields,
+            target_field=target_field,
             status="unknown_dataset_id",
             error=f"dataset id not found in registry: {dataset_key}",
         )
@@ -864,6 +1581,7 @@ def _audit_job_sample_rendering(
             task_family=task_family,
             prompt_source=prompt_source,
             prompt_fields=prompt_fields,
+            target_field=target_field,
             status="missing_dataset_format_spec",
             error=f"dataset id not found in format specs: {dataset_key}",
         )
@@ -878,6 +1596,7 @@ def _audit_job_sample_rendering(
             task_family=task_family,
             prompt_source=prompt_source,
             prompt_fields=prompt_fields,
+            target_field=target_field,
             split=split_name,
             status="load_failed",
             error=str(exc),
@@ -891,6 +1610,7 @@ def _audit_job_sample_rendering(
             task_family=task_family,
             prompt_source=prompt_source,
             prompt_fields=prompt_fields,
+            target_field=target_field,
             split=split_name,
             status="missing_split",
             issues=(
@@ -907,6 +1627,10 @@ def _audit_job_sample_rendering(
     n_rendered = 0
     n_missing_field_rows = 0
     n_empty_render_rows = 0
+    n_valid_target_rows = 0
+    n_missing_target_rows = 0
+    n_non_string_target_rows = 0
+    n_empty_target_rows = 0
     issues: list[SampleRenderIssue] = []
     for sample_index, row in _iter_sample_rows(split_dataset, spec, entry.filter, max_samples):
         n_seen += 1
@@ -914,6 +1638,33 @@ def _audit_job_sample_rendering(
             issues.append(SampleRenderIssue(sample_index=sample_index, issue="non_mapping_row"))
             continue
         canonical, missing = _canonical_prompt_example(row, spec, prompt_fields)
+        if target_field is not None:
+            if target_field not in canonical:
+                n_missing_target_rows += 1
+                issues.append(
+                    SampleRenderIssue(
+                        sample_index=sample_index,
+                        issue="missing_target_field",
+                        missing_fields=(target_field,),
+                    )
+                )
+            elif not isinstance(canonical[target_field], str):
+                n_non_string_target_rows += 1
+                issues.append(
+                    SampleRenderIssue(
+                        sample_index=sample_index,
+                        issue="non_string_target",
+                        error=(
+                            "expected a canonical string target; got "
+                            f"{type(canonical[target_field]).__name__}"
+                        ),
+                    )
+                )
+            elif not canonical[target_field].strip():
+                n_empty_target_rows += 1
+                issues.append(SampleRenderIssue(sample_index=sample_index, issue="empty_target"))
+            else:
+                n_valid_target_rows += 1
         if missing:
             n_missing_field_rows += 1
             issues.append(
@@ -957,10 +1708,15 @@ def _audit_job_sample_rendering(
         split=split_name,
         prompt_source=prompt_source,
         prompt_fields=prompt_fields,
+        target_field=target_field,
         n_seen=n_seen,
         n_rendered=n_rendered,
         n_missing_field_rows=n_missing_field_rows,
         n_empty_render_rows=n_empty_render_rows,
+        n_valid_target_rows=n_valid_target_rows,
+        n_missing_target_rows=n_missing_target_rows,
+        n_non_string_target_rows=n_non_string_target_rows,
+        n_empty_target_rows=n_empty_target_rows,
         status=status,
         issues=tuple(issues),
     )
@@ -974,6 +1730,7 @@ def _sample_render_audit(
     prompt_source: str,
     prompt_fields: tuple[str, ...],
     status: str,
+    target_field: str | None = None,
     split: str | None = None,
     issues: tuple[SampleRenderIssue, ...] = (),
     error: str | None = None,
@@ -985,14 +1742,30 @@ def _sample_render_audit(
         split=split,
         prompt_source=prompt_source,
         prompt_fields=prompt_fields,
+        target_field=target_field,
         n_seen=0,
         n_rendered=0,
         n_missing_field_rows=0,
         n_empty_render_rows=0,
+        n_valid_target_rows=0,
+        n_missing_target_rows=0,
+        n_non_string_target_rows=0,
+        n_empty_target_rows=0,
         status=status,
         issues=issues,
         error=error,
     )
+
+
+def _configured_target_field(job: Any) -> str | None:
+    trainer = getattr(job, "trainer", None)
+    if not isinstance(trainer, Mapping):
+        return None
+    target_field = trainer.get("target_field") or trainer.get("label_field")
+    if target_field is None:
+        return None
+    normalized = str(target_field).strip()
+    return normalized or None
 
 
 def _sample_split_name(
