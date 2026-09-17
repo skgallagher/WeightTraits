@@ -4,6 +4,7 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.ipynb_checkpoints/
 .coverage
 htmlcov/
 build/
@@ -113,5 +114,6 @@ paper/*.toc
 .DS_Store
 .idea/
 .vscode/
+node_modules/
 *.swp
 *.swo
