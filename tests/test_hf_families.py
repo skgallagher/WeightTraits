@@ -44,6 +44,7 @@ def test_per_layer_support_skips_frozen_layers(tmp_path):
     support = per_layer_clade_support(cube, LABELS, tmp_path / "truth.nwk")
     assert support["n_active_layers"] == 2
     assert all(row["fraction_of_layer_trees"] == 1.0 for row in support["clade_support"])
+    assert all(row["fraction_with_positive_length"] == 1.0 for row in support["clade_support"])
 
 
 @pytest.mark.skipif(not (ELLM / "results" / "hf_zoo").is_dir(), reason="HF family artifacts absent")

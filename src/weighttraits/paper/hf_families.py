@@ -6,8 +6,10 @@ PhyloLM: NJ on its behavioral distance) this scores the estimate against the doc
 ``A`` over all quartets of the method's distance matrix. The weight matrix is the layer-averaged
 cosine distance; the PhyloLM matrix is ``-log max(S, 1e-3)`` of its Nei similarity.
 
-``per_layer_clade_support`` gives the fraction of per-layer NJ trees that contain each
-documented clade (App. D reports 95.2% for the Llama-2 chat clade); it needs the per-layer cube.
+``per_layer_clade_support`` gives, from the per-layer cube, the fraction of per-layer NJ trees
+that contain each documented clade, both topologically and with a positive branch length. App. D's
+95.2% for the Llama-2 chat clade is the positive-length fraction (the BHV split-support presence
+frequency); topologically every per-layer tree contains that clade.
 """
 
 from __future__ import annotations
@@ -80,21 +82,34 @@ def per_layer_clade_support(
     Layers whose distances are all numerically zero are skipped (they never changed).
     """
 
+    from weighttraits.phylo import bhv
+
     truth_splits, truth_leaves = splits_from_newick_text(Path(truth_newick).read_text())
     if set(labels) != truth_leaves:
         raise ValueError("cube labels differ from the documented tree")
     cube = np.abs(np.asarray(cube, dtype=float))
     active = [i for i in range(cube.shape[0]) if np.max(cube[i]) > zero_tolerance]
-    hits = {split: 0 for split in truth_splits}
+    topological = {split: 0 for split in truth_splits}
+    positive = {split: 0 for split in truth_splits}
     for index in active:
-        splits, _ = splits_from_newick_text(neighbor_joining_newick(list(labels), cube[index]))
+        newick = neighbor_joining_newick(list(labels), cube[index])
+        splits, _ = splits_from_newick_text(newick)
+        # BHV keeps only internal edges with positive length, keyed by the side without the
+        # reference leaf; NJ can return a split with zero or negative length.
+        tree = bhv.from_newick(newick)
         for split in truth_splits:
-            hits[split] += split in splits
+            topological[split] += split in splits
+            positive[split] += tree.canonical(frozenset(split)) in tree.internal
+    ordered = sorted(truth_splits, key=lambda s: (len(s), sorted(s)))
     return {
         "n_layers": int(cube.shape[0]),
         "n_active_layers": len(active),
         "clade_support": [
-            {"clade": sorted(split), "fraction_of_layer_trees": hits[split] / len(active)}
-            for split in sorted(truth_splits, key=lambda s: (len(s), sorted(s)))
+            {
+                "clade": sorted(split),
+                "fraction_of_layer_trees": topological[split] / len(active),
+                "fraction_with_positive_length": positive[split] / len(active),
+            }
+            for split in ordered
         ],
     }
