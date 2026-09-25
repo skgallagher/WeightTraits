@@ -350,6 +350,20 @@ def _bhv_table(args: argparse.Namespace) -> int:
     return 0
 
 
+def _compare_conditions(args: argparse.Namespace) -> int:
+    from weighttraits.paper.condition_compare import compare_conditions, pairs_from_dirs
+
+    pairs = pairs_from_dirs(
+        args.left,
+        args.right,
+        pattern=args.pattern,
+        truth_pattern=args.truth_pattern,
+        tree_ids=args.tree_ids.split(",") if args.tree_ids else None,
+    )
+    _emit_json(compare_conditions(pairs), args.out)
+    return 0
+
+
 def _score_tree(args: argparse.Namespace) -> int:
     truth_splits, truth_leaves = splits_from_manifest_path(str(args.truth_manifest))
     if args.estimate_manifest:
@@ -1605,6 +1619,20 @@ def build_parser() -> argparse.ArgumentParser:
         "--expected-active", action="append", default=[], help="fail unless ID has N layers"
     )
     bhv_table.set_defaults(func=_bhv_table)
+
+    compare = sub.add_parser(
+        "compare-conditions",
+        help="Tree-by-tree comparison of two conditions' estimates against the truth",
+    )
+    compare.add_argument("--left", type=Path, required=True, help="root of the first condition")
+    compare.add_argument("--right", type=Path, required=True, help="root of the second condition")
+    compare.add_argument(
+        "--pattern", required=True, help="estimate path under each root, e.g. {tree_id}/x.newick"
+    )
+    compare.add_argument("--truth-pattern", help="truth Newick path under --left")
+    compare.add_argument("--tree-ids", help="comma-separated; default: every confirm_paper_tree_*")
+    compare.add_argument("--out", type=Path)
+    compare.set_defaults(func=_compare_conditions)
 
     aggregate = sub.add_parser(
         "aggregate-recovery", help="Aggregate recovery JSON/JSONL records with SEs"
