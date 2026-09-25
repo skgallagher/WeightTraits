@@ -305,6 +305,51 @@ def _topology_audit(args: argparse.Namespace) -> int:
     return 0
 
 
+def _chance_baseline(args: argparse.Namespace) -> int:
+    from weighttraits.phylo.chance import chance_baseline_from_manifests
+
+    manifests = sorted(args.manifest_dir.glob("*.manifest.jsonl"))
+    if not manifests:
+        raise ValueError(f"no *.manifest.jsonl files in {args.manifest_dir}")
+    report = chance_baseline_from_manifests(manifests)
+    report["manifest_dir"] = str(args.manifest_dir)
+    _emit_json(report, args.out)
+    return 0
+
+
+def _parse_suite(value: str) -> tuple[str, Path]:
+    suite_id, sep, root = value.partition("=")
+    if not sep or not suite_id.strip() or not root:
+        raise argparse.ArgumentTypeError("suite must be ID=ANALYSIS_ROOT")
+    path = Path(root).expanduser().resolve()
+    if not path.is_dir():
+        raise argparse.ArgumentTypeError(f"suite root does not exist: {path}")
+    return suite_id.strip(), path
+
+
+def _bhv_table(args: argparse.Namespace) -> int:
+    from weighttraits.paper.bhv_table import TOPOLOGY_TREE_IDS, run_bhv_table
+
+    expected = {}
+    for item in args.expected_active:
+        suite_id, _, count = item.partition("=")
+        expected[suite_id] = int(count)
+    payload = run_bhv_table(
+        args.suite,
+        truth_root=args.truth_root,
+        out_dir=args.out_dir,
+        metric=args.metric,
+        scale_modes=[mode.strip() for mode in args.scale_modes.split(",") if mode.strip()],
+        seeds=[int(seed) for seed in args.seeds.split(",") if seed.strip()],
+        epochs=args.epochs,
+        zero_tolerance=args.zero_tolerance,
+        tree_ids=args.tree_ids.split(",") if args.tree_ids else TOPOLOGY_TREE_IDS,
+        expected_active=expected,
+    )
+    print(json.dumps(payload["summaries"], indent=2, sort_keys=True))
+    return 0
+
+
 def _score_tree(args: argparse.Namespace) -> int:
     truth_splits, truth_leaves = splits_from_manifest_path(str(args.truth_manifest))
     if args.estimate_manifest:
@@ -1532,6 +1577,34 @@ def build_parser() -> argparse.ArgumentParser:
     estimate.add_argument("--estimate-newick", type=Path)
     score.add_argument("--out", type=Path)
     score.set_defaults(func=_score_tree)
+
+    chance = sub.add_parser(
+        "chance-baseline",
+        help="Exact chance clade and full estimation for a uniformly random binary tree",
+    )
+    chance.add_argument("--manifest-dir", type=Path, required=True)
+    chance.add_argument("--out", type=Path)
+    chance.set_defaults(func=_chance_baseline)
+
+    bhv_table = sub.add_parser(
+        "bhv-table",
+        help="Table 2 all-weight estimates: BHV Frechet means of per-layer NJ trees",
+    )
+    bhv_table.add_argument(
+        "--suite", type=_parse_suite, action="append", required=True, help="ID=ANALYSIS_ROOT"
+    )
+    bhv_table.add_argument("--truth-root", type=Path, required=True)
+    bhv_table.add_argument("--out-dir", type=Path, required=True)
+    bhv_table.add_argument("--metric", default="cosine")
+    bhv_table.add_argument("--scale-modes", default="raw", help="raw and/or mean_pairwise")
+    bhv_table.add_argument("--seeds", default="0")
+    bhv_table.add_argument("--epochs", type=int, default=300)
+    bhv_table.add_argument("--zero-tolerance", type=float, default=1e-12)
+    bhv_table.add_argument("--tree-ids", help="comma-separated; default: the 46 with a clade")
+    bhv_table.add_argument(
+        "--expected-active", action="append", default=[], help="fail unless ID has N layers"
+    )
+    bhv_table.set_defaults(func=_bhv_table)
 
     aggregate = sub.add_parser(
         "aggregate-recovery", help="Aggregate recovery JSON/JSONL records with SEs"
