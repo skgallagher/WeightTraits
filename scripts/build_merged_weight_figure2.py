@@ -103,11 +103,17 @@ SOURCES = (
     },
 )
 
-PHYLOLM_GROUPS = {
-    "runs_weighttraits_llama32_1b_lora_qkv_r8_fresh_phylolm": "llama_r8",
-    "runs_weighttraits_llama32_1b_lora_qkv_r64_fresh_phylolm": "llama_r64",
-    "runs_weighttraits_llama32_1b_full_finetune_fresh_phylolm": "llama_full_ft",
+# PhyloLM output groups by the Llama training they queried. "fresh" is the July training
+# (early stopping enabled); "fixed2000" is the fixed-2,000-step cohorts behind the weight rows.
+PHYLOLM_GROUP_SETS = {
+    cohort: {
+        f"runs_weighttraits_llama32_1b_lora_qkv_r8_{cohort}_phylolm": "llama_r8",
+        f"runs_weighttraits_llama32_1b_lora_qkv_r64_{cohort}_phylolm": "llama_r64",
+        f"runs_weighttraits_llama32_1b_full_finetune_{cohort}_phylolm": "llama_full_ft",
+    }
+    for cohort in ("fresh", "fixed2000")
 }
+PHYLOLM_GROUPS = PHYLOLM_GROUP_SETS["fresh"]
 
 
 def _mean_se(values: list[float]) -> tuple[float, float]:
@@ -268,7 +274,10 @@ def _simulation_row(
     return summary, sorted(str(row["source_tree_id"]) for row in rows), observations
 
 
-def _phylolm_rows(path: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def _phylolm_rows(
+    path: Path, cohort: str = "fresh"
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    PHYLOLM_GROUPS = PHYLOLM_GROUP_SETS[cohort]
     sources_by_id = {source["condition_id"]: source for source in SOURCES}
     records_by_group: dict[str, list[dict[str, Any]]] = {}
     with path.open(newline="") as handle:
@@ -287,7 +296,7 @@ def _phylolm_rows(path: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]
 
     if set(records_by_group) != set(PHYLOLM_GROUPS):
         missing = sorted(set(PHYLOLM_GROUPS) - set(records_by_group))
-        raise ValueError(f"missing fresh PhyloLM groups in {path}: {missing}")
+        raise ValueError(f"missing {cohort} PhyloLM groups in {path}: {missing}")
 
     out = []
     observations = []
@@ -553,6 +562,12 @@ def main() -> int:
         / "weighttraits_fresh_phylolm"
         / "per_run_metrics.csv",
     )
+    parser.add_argument(
+        "--phylolm-cohort",
+        choices=sorted(PHYLOLM_GROUP_SETS),
+        default="fresh",
+        help="Llama training the PhyloLM runs queried (fixed2000 matches the weight rows)",
+    )
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--csv-out", type=Path, required=True)
     parser.add_argument("--records-out", type=Path, required=True)
@@ -569,7 +584,9 @@ def main() -> int:
             details, detail_observations = _detail_rows(source, root, tree_ids)
             rows.extend(details)
             observations.extend(detail_observations)
-    phylolm, phylolm_observations = _phylolm_rows(args.phylolm_metrics.resolve())
+    phylolm, phylolm_observations = _phylolm_rows(
+        args.phylolm_metrics.resolve(), args.phylolm_cohort
+    )
     rows.extend(phylolm)
     observations.extend(phylolm_observations)
     _validate_observations(observations)
