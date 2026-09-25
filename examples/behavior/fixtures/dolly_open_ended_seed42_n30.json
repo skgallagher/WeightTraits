@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "fixture_id": "dolly_open_ended_seed42_n30",
+  "source_prompt_artifact": {
+    "location": "wright:/home/export/sgallagh/WeightTraits-behavior-20260720/outputs/behavior/llama32_r8_tree005_dolly_open_ended_s3_n30/dolly_open_ended_prompts_seed42_n30.jsonl",
+    "sha256": "10226d2a5ae731ff549d292736968bc9643dd618bc6622207f5b764da659cd4b"
+  },
+  "probes": [
+    {
+      "probe_id": "dolly_open_ended",
+      "dataset": {
+        "name": "databricks/databricks-dolly-15k",
+        "config": null,
+        "split": "train",
+        "revision": "bdd27f4d94b9c1f951818a7da7fd7aeea5dbff1a"
+      },
+      "eligibility": {
+        "field": "category",
+        "allowed_values": [
+          "open_qa",
+          "general_qa",
+          "brainstorming",
+          "creative_writing"
+        ],
+        "require_nonempty": ["instruction"]
+      },
+      "selection": {
+        "method": "eligible_rows_then_numpy.default_rng(seed).choice(n_prompts,replace=False)",
+        "seed": 42,
+        "source_row_count": null,
+        "n_prompts": 30,
+        "source_indices": [
+          9637, 7852, 6403, 12823, 1313, 1375, 2722, 12332, 11758, 10439,
+          1887, 3004, 14575, 7656, 12577, 11695, 5525, 11024, 5975, 6484,
+          6564, 8148, 6669, 7437, 11560, 13892, 10739, 9777, 1270, 11391
+        ],
+        "source_indices_sha256": "6103d90e8930ffa4feb8db9df7792fe819d0dfebdb1fa4dbdf7f71b6d0c95a86"
+      }
+    }
+  ]
+}

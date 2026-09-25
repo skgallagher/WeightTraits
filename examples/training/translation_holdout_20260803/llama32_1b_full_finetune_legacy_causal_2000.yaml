@@ -1,0 +1,7 @@
+# Matched no-translation cohort.  The optimization and rendering protocol is
+# inherited from the ordinary rebuild so the only designed difference is the
+# assigned task/data sequence.
+extends: ../confirm_paper_numbers/llama32_1b_full_finetune_legacy_causal_2000.yaml
+training:
+  model_family: llama32_1b_full_finetune_no_translation_legacy_causal_2000
+  output_root: outputs/translation_holdout_20260803/llama32_1b_full_finetune_legacy_causal_2000

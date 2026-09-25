@@ -237,9 +237,9 @@ def render_slurm_array_script(
         [
             "",
             "set -euo pipefail",
-            f"RUN_LIST=\"${{RUN_LIST:-{run_list_path}}}\"",
-            f"cd \"{repo}\"",
-            f"mkdir -p \"{logs}\"",
+            f'RUN_LIST="${{RUN_LIST:-{run_list_path}}}"',
+            f'cd "{repo}"',
+            f'mkdir -p "{logs}"',
             _slurm_runner_command(run_list, python=python),
             "",
         ]
@@ -310,14 +310,14 @@ def _run_spec_from_job(
 def _slurm_runner_command(run_list: TrainingRunList, *, python: str) -> str:
     runner = dict(run_list.runs[0].runner) if run_list.runs else {}
     entrypoint = str(runner.get("entrypoint", ""))
-    prefix = f"PYTHONPATH=\"${{PYTHONPATH:-src}}\" {python} -m weighttraits.cli"
+    prefix = f'PYTHONPATH="${{PYTHONPATH:-src}}" {python} -m weighttraits.cli'
     if entrypoint in {"weighttraits.cli run-training-row", "run-training-row"}:
         options = dict(runner.get("options", {}))
         pieces = [
             prefix,
             "run-training-row",
-            "--run-list \"${RUN_LIST}\"",
-            "--index \"${SLURM_ARRAY_TASK_ID}\"",
+            '--run-list "${RUN_LIST}"',
+            '--index "${SLURM_ARRAY_TASK_ID}"',
         ]
         if options.get("registry_path"):
             pieces.extend(["--registry", shlex.quote(str(options["registry_path"]))])
@@ -327,6 +327,30 @@ def _slurm_runner_command(run_list: TrainingRunList, *, python: str) -> str:
             pieces.extend(["--data-cache-root", shlex.quote(str(options["data_cache_root"]))])
         if options.get("require_data_cache"):
             pieces.append("--require-data-cache")
+        expected_cache_recipe = options.get("expected_cache_recipe")
+        if isinstance(expected_cache_recipe, Mapping):
+            pieces.extend(
+                [
+                    "--expected-cache-strategy",
+                    shlex.quote(str(expected_cache_recipe["sample_strategy"])),
+                ]
+            )
+            if expected_cache_recipe.get("sample_seed") is not None:
+                pieces.extend(["--expected-cache-seed", str(expected_cache_recipe["sample_seed"])])
+            if expected_cache_recipe.get("train_limit") is not None:
+                pieces.extend(
+                    [
+                        "--expected-cache-train-limit",
+                        str(expected_cache_recipe["train_limit"]),
+                    ]
+                )
+            if expected_cache_recipe.get("eval_limit") is not None:
+                pieces.extend(
+                    [
+                        "--expected-cache-eval-limit",
+                        str(expected_cache_recipe["eval_limit"]),
+                    ]
+                )
         if options.get("max_train_samples") is not None:
             pieces.extend(["--max-train-samples", str(options["max_train_samples"])])
         if options.get("max_eval_samples") is not None:
@@ -338,8 +362,8 @@ def _slurm_runner_command(run_list: TrainingRunList, *, python: str) -> str:
         return " ".join(pieces)
     return (
         f"{prefix} describe-training-run "
-        "--run-list \"${RUN_LIST}\" "
-        "--index \"${SLURM_ARRAY_TASK_ID}\""
+        '--run-list "${RUN_LIST}" '
+        '--index "${SLURM_ARRAY_TASK_ID}"'
     )
 
 
@@ -432,6 +456,8 @@ def _preflight_job(
 
 def _preflight_stopping(job_dict: Mapping[str, Any], node_id: str) -> list[RunPreflightIssue]:
     stopping = dict(job_dict.get("stopping", {}))
+    if stopping.get("enabled") is False:
+        return []
     issues = []
     if stopping.get("patience") is None:
         issues.append(

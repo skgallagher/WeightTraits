@@ -1,0 +1,31 @@
+{
+  "schema": "weighttraits.downstream_job.direct_runset_cpu.v1",
+  "kind": "direct_runset_cpu",
+  "stage_root": "/home/export/sgallagh/WeightTraits-downstream-20260831-native",
+  "output_dir": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/direct/llama_r8",
+  "cohort_id": "llama32_1b_lora_qkv_r8_legacy_causal_2000",
+  "training_summary": {
+    "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/llama32_1b_lora_qkv_r8_legacy_causal_2000_training_run_list_summary.json",
+    "sha256": "a5057868e7da98f7a682a839255f1d0ecade03cdf589a1437b8e97f4bd304825"
+  },
+  "completion_receipt": {
+    "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/LLAMA_R8_COMPLETION_BINDING.json",
+    "sha256": "bb71eac1fff67f960e24e5d6885cf4208d66fbc6a38c0ba51d6bcf0eeed3ec0d"
+  },
+  "stage_manifest": {
+    "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/.stage_provenance/STAGE_SHA256SUMS",
+    "sha256": "642912687e67d0a48162a8d5cc0a95164ad92350ea629cd396fcfdd7917cd5d1"
+  },
+  "path_base": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean",
+  "artifact_kind": "merged",
+  "metrics": [
+    "l2",
+    "cosine",
+    "correlation"
+  ],
+  "chunk_size": 1000000,
+  "eps": 0.001,
+  "aggregate": "mean",
+  "expected_n_trees": 50,
+  "expected_n_rows": 150
+}

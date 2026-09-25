@@ -1,0 +1,159 @@
+# Registry frozen for the corrected Llama causal-LM rebuild.  It restores the
+# legacy split choices and intentionally applies no character-length filters;
+# token truncation is handled by the causal tokenizer at 1024 tokens.
+version: 1
+task_families:
+  summarization:
+    datasets:
+      - id: cnn_dailymail
+        hf_args: [abisee/cnn_dailymail, "3.0.0"]
+        train_split: train
+        eval_split: validation
+      - id: xsum
+        hf_args: [EdinburghNLP/xsum]
+        train_split: train
+        eval_split: validation
+      - id: samsum
+        hf_args: [knkarthick/samsum]
+        train_split: train
+        eval_split: validation
+      - id: billsum
+        hf_args: [FiscalNote/billsum]
+        train_split: train
+        eval_split: test
+      - id: pubmed
+        hf_args: [ccdv/pubmed-summarization]
+        train_split: train
+        eval_split: validation
+      - id: govreport
+        hf_args: [ccdv/govreport-summarization]
+        train_split: train
+        eval_split: validation
+      - id: arxiv_summ
+        hf_args: [ccdv/arxiv-summarization]
+        train_split: train
+        eval_split: validation
+      - id: bigpatent
+        hf_args: [NortheasternUniversity/big_patent, all]
+        train_split: train
+        eval_split: validation
+      - id: dialogsum
+        hf_args: [knkarthick/dialogsum]
+        train_split: train
+        eval_split: validation
+  classification:
+    datasets:
+      - id: sst2
+        hf_args: [glue, sst2]
+        train_split: train
+        eval_split: validation
+      - id: ag_news
+        hf_args: [fancyzhx/ag_news]
+        train_split: train
+        eval_split: test
+      - id: mnli
+        hf_args: [glue, mnli]
+        train_split: train
+        eval_split: validation_matched
+      - id: imdb
+        hf_args: [stanfordnlp/imdb]
+        train_split: train
+        eval_split: test
+      - id: rte
+        hf_args: [glue, rte]
+        train_split: train
+        eval_split: validation
+      - id: cola
+        hf_args: [glue, cola]
+        train_split: train
+        eval_split: validation
+      - id: qnli
+        hf_args: [glue, qnli]
+        train_split: train
+        eval_split: validation
+      - id: yelp_polarity
+        hf_args: [fancyzhx/yelp_polarity]
+        train_split: train
+        eval_split: test
+      - id: dbpedia_14
+        hf_args: [fancyzhx/dbpedia_14]
+        train_split: train
+        eval_split: test
+      - id: trec
+        hf_args: [SetFit/TREC-QC]
+        hf_kwargs:
+          revision: 0a34640b3cac3affef6f0abdfb81e3d0ecffcf92
+        train_split: train
+        eval_split: test
+  qa:
+    datasets:
+      - id: squad
+        hf_args: [rajpurkar/squad]
+        train_split: train
+        eval_split: validation
+      - id: squad_v2
+        hf_args: [rajpurkar/squad_v2]
+        train_split: train
+        eval_split: validation
+      - id: trivia_qa
+        hf_args: [trivia_qa, rc.nocontext]
+        train_split: train
+        eval_split: validation
+      - id: boolq
+        hf_args: [google/boolq]
+        train_split: train
+        eval_split: validation
+      - id: quartz
+        hf_args: [allenai/quartz]
+        train_split: train
+        eval_split: test
+      - id: arc_easy
+        hf_args: [allenai/ai2_arc, ARC-Easy]
+        train_split: train
+        eval_split: test
+      - id: arc_challenge
+        hf_args: [allenai/ai2_arc, ARC-Challenge]
+        train_split: train
+        eval_split: test
+      - id: sciq
+        hf_args: [allenai/sciq]
+        train_split: train
+        eval_split: test
+  translation:
+    datasets:
+      - id: wmt14_en_fr
+        hf_args: [wmt/wmt14, fr-en]
+        train_split: train
+        eval_split: validation
+      - id: wmt14_en_de
+        hf_args: [wmt/wmt14, de-en]
+        train_split: train
+        eval_split: validation
+      - id: opus_en_de
+        hf_args: [Helsinki-NLP/opus-100, de-en]
+        train_split: train
+        eval_split: validation
+      - id: opus_en_fr
+        hf_args: [Helsinki-NLP/opus-100, en-fr]
+        train_split: train
+        eval_split: validation
+      - id: opus_en_es
+        hf_args: [Helsinki-NLP/opus-100, en-es]
+        train_split: train
+        eval_split: validation
+      - id: opus_en_it
+        hf_args: [Helsinki-NLP/opus-100, en-it]
+        train_split: train
+        eval_split: validation
+      - id: opus_en_ru
+        hf_args: [Helsinki-NLP/opus-100, en-ru]
+        train_split: train
+        eval_split: validation
+      - id: opus_en_zh
+        hf_args: [Helsinki-NLP/opus-100, en-zh]
+        train_split: train
+        eval_split: validation
+      - id: opus_en_ja
+        hf_args: [Helsinki-NLP/opus-100, en-ja]
+        train_split: train
+        eval_split: validation

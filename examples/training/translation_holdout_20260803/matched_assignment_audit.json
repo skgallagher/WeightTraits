@@ -1,0 +1,1648 @@
+{
+  "matched_summary": "examples/training/translation_holdout_20260803/matched_assignment_summary.json",
+  "n_preserved_nontranslation_rows": 479,
+  "n_replaced_translation_rows": 162,
+  "n_rows": 641,
+  "n_trees": 50,
+  "old_translation_datasets": {
+    "opus_en_de": 16,
+    "opus_en_es": 22,
+    "opus_en_fr": 21,
+    "opus_en_it": 18,
+    "opus_en_ja": 14,
+    "opus_en_ru": 9,
+    "opus_en_zh": 20,
+    "wmt14_en_de": 19,
+    "wmt14_en_fr": 23
+  },
+  "original_assignment_summary": "examples/training/confirm_paper_numbers/assignment_summary.json",
+  "replacement_task_families": {
+    "classification": 53,
+    "qa": 60,
+    "summarization": 49
+  },
+  "task_config": "examples/training/confirm_paper_numbers/paper_task_families.yaml",
+  "trees": [
+    {
+      "assignment_seed": 1,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_001.manifest.jsonl",
+      "matched_sha256": "8566507e805e0b3a5c2c87e869e0a8de862cea42f946f2cceaa595e8781bd165",
+      "n_preserved_rows": 12,
+      "n_replaced_rows": 2,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_001.manifest.jsonl",
+      "original_sha256": "49a8e44fc0756a613b5b3107c8f929ab5188e5934b968a1c8407d86448e319c7",
+      "replacements": [
+        {
+          "node_id": "n4",
+          "original_dataset_id": "wmt14_en_fr",
+          "replacement_dataset_id": "mnli",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n13",
+          "original_dataset_id": "opus_en_de",
+          "replacement_dataset_id": "dialogsum",
+          "replacement_task_family": "summarization"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_001"
+    },
+    {
+      "assignment_seed": 2,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_002.manifest.jsonl",
+      "matched_sha256": "89aadff3d1fca8d22df7dc3d3499a3d44bd7c8e3655d27039a5b4186628dc921",
+      "n_preserved_rows": 11,
+      "n_replaced_rows": 3,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_002.manifest.jsonl",
+      "original_sha256": "90450a7465543c77173bef4d8885f474b45236ca3346582f04a7b3ab6c5842e7",
+      "replacements": [
+        {
+          "node_id": "n0",
+          "original_dataset_id": "opus_en_es",
+          "replacement_dataset_id": "trivia_qa",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n1",
+          "original_dataset_id": "opus_en_zh",
+          "replacement_dataset_id": "arc_easy",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n8",
+          "original_dataset_id": "opus_en_de",
+          "replacement_dataset_id": "yelp_polarity",
+          "replacement_task_family": "classification"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_002"
+    },
+    {
+      "assignment_seed": 3,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_003.manifest.jsonl",
+      "matched_sha256": "2be5add69ccea9dbe5dffee4fdbdb00fdddba4ce3a906e382c4d90dffd7c52d0",
+      "n_preserved_rows": 11,
+      "n_replaced_rows": 3,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_003.manifest.jsonl",
+      "original_sha256": "2cff95f9f2cd3c2d60713906a35e1c1d6d4116eb64a33aaa044dc19cf1f132e4",
+      "replacements": [
+        {
+          "node_id": "n0",
+          "original_dataset_id": "opus_en_es",
+          "replacement_dataset_id": "squad_v2",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n3",
+          "original_dataset_id": "opus_en_it",
+          "replacement_dataset_id": "xsum",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n9",
+          "original_dataset_id": "wmt14_en_de",
+          "replacement_dataset_id": "sciq",
+          "replacement_task_family": "qa"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_003"
+    },
+    {
+      "assignment_seed": 4,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_004.manifest.jsonl",
+      "matched_sha256": "31a62f4c5533480acf068a9cff008bc5cbf35823096ee58264999a480fc2617c",
+      "n_preserved_rows": 10,
+      "n_replaced_rows": 4,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_004.manifest.jsonl",
+      "original_sha256": "569ad08b3cf49eb05bf7d76e1ea82bcb23c711af95f2d5ae2add60bddc291d3d",
+      "replacements": [
+        {
+          "node_id": "n1",
+          "original_dataset_id": "opus_en_zh",
+          "replacement_dataset_id": "sciq",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n4",
+          "original_dataset_id": "opus_en_it",
+          "replacement_dataset_id": "ag_news",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n7",
+          "original_dataset_id": "opus_en_fr",
+          "replacement_dataset_id": "dbpedia_14",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n11",
+          "original_dataset_id": "opus_en_es",
+          "replacement_dataset_id": "samsum",
+          "replacement_task_family": "summarization"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_004"
+    },
+    {
+      "assignment_seed": 5,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_005.manifest.jsonl",
+      "matched_sha256": "2fd5115068c782cfc321d9e0f098c44a32b23ee59e90b28b4f9fa20697636928",
+      "n_preserved_rows": 10,
+      "n_replaced_rows": 4,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_005.manifest.jsonl",
+      "original_sha256": "f89019767d9a6d9de91dbf0f674e1154c3e0f386ac95db9727413decf288a888",
+      "replacements": [
+        {
+          "node_id": "n4",
+          "original_dataset_id": "opus_en_zh",
+          "replacement_dataset_id": "quartz",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n5",
+          "original_dataset_id": "opus_en_de",
+          "replacement_dataset_id": "mnli",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n10",
+          "original_dataset_id": "wmt14_en_de",
+          "replacement_dataset_id": "billsum",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n11",
+          "original_dataset_id": "opus_en_ja",
+          "replacement_dataset_id": "cola",
+          "replacement_task_family": "classification"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_005"
+    },
+    {
+      "assignment_seed": 6,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_006.manifest.jsonl",
+      "matched_sha256": "f4c096c5fa12efa548988a2d8a0cbd4cf1628c41bb50bcb78d4901f320b77519",
+      "n_preserved_rows": 7,
+      "n_replaced_rows": 3,
+      "n_rows": 10,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_006.manifest.jsonl",
+      "original_sha256": "9e13d68d5bd0ea348173617780aa5a07a53e212751cf2045ad01aba7dcd110b5",
+      "replacements": [
+        {
+          "node_id": "n6",
+          "original_dataset_id": "wmt14_en_fr",
+          "replacement_dataset_id": "mnli",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n7",
+          "original_dataset_id": "opus_en_de",
+          "replacement_dataset_id": "pubmed",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n9",
+          "original_dataset_id": "opus_en_es",
+          "replacement_dataset_id": "squad_v2",
+          "replacement_task_family": "qa"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_006"
+    },
+    {
+      "assignment_seed": 7,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_007.manifest.jsonl",
+      "matched_sha256": "308ca4b4d992dc84e985f8af73b46a93622d9eac31413ef870a018529af63119",
+      "n_preserved_rows": 11,
+      "n_replaced_rows": 3,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_007.manifest.jsonl",
+      "original_sha256": "c3906fb4e7c05ed715416cc0e53e0f777e0b0123cd2a728c42df83bf801a65dd",
+      "replacements": [
+        {
+          "node_id": "n1",
+          "original_dataset_id": "opus_en_es",
+          "replacement_dataset_id": "rte",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n5",
+          "original_dataset_id": "opus_en_fr",
+          "replacement_dataset_id": "trivia_qa",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n13",
+          "original_dataset_id": "wmt14_en_de",
+          "replacement_dataset_id": "arc_easy",
+          "replacement_task_family": "qa"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_007"
+    },
+    {
+      "assignment_seed": 8,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_008.manifest.jsonl",
+      "matched_sha256": "75f076bf2da0465f5e51a6bec0aa4e0450459987adb3834650699d873d62efd5",
+      "n_preserved_rows": 11,
+      "n_replaced_rows": 3,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_008.manifest.jsonl",
+      "original_sha256": "4c7407cfd46dc9c1fc3e040732fc37b3ba0cf19dbeb79aac362dd8636ae9590b",
+      "replacements": [
+        {
+          "node_id": "n1",
+          "original_dataset_id": "wmt14_en_fr",
+          "replacement_dataset_id": "arxiv_summ",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n8",
+          "original_dataset_id": "opus_en_fr",
+          "replacement_dataset_id": "imdb",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n9",
+          "original_dataset_id": "opus_en_de",
+          "replacement_dataset_id": "ag_news",
+          "replacement_task_family": "classification"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_008"
+    },
+    {
+      "assignment_seed": 9,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_009.manifest.jsonl",
+      "matched_sha256": "e6e6eef202ac570a4869d53df636d525ed011e92a31a1b04aaf134974abed877",
+      "n_preserved_rows": 10,
+      "n_replaced_rows": 4,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_009.manifest.jsonl",
+      "original_sha256": "5286d36f7d31760620f0c6710dd6a8cb4c009300e62f295cf5afa3514f50b59d",
+      "replacements": [
+        {
+          "node_id": "n3",
+          "original_dataset_id": "opus_en_es",
+          "replacement_dataset_id": "squad_v2",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n6",
+          "original_dataset_id": "opus_en_fr",
+          "replacement_dataset_id": "mnli",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n9",
+          "original_dataset_id": "opus_en_ja",
+          "replacement_dataset_id": "arc_challenge",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n13",
+          "original_dataset_id": "opus_en_de",
+          "replacement_dataset_id": "sciq",
+          "replacement_task_family": "qa"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_009"
+    },
+    {
+      "assignment_seed": 10,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_010.manifest.jsonl",
+      "matched_sha256": "ff7024f704b64188450f44aea075667037ccb448b85b3b0301477806ae869ba6",
+      "n_preserved_rows": 10,
+      "n_replaced_rows": 4,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_010.manifest.jsonl",
+      "original_sha256": "39255518012463a1a56d2383cf80b0d0c0b9e8f942656fb86e180a9bb5574dad",
+      "replacements": [
+        {
+          "node_id": "n1",
+          "original_dataset_id": "wmt14_en_fr",
+          "replacement_dataset_id": "cola",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n4",
+          "original_dataset_id": "opus_en_ru",
+          "replacement_dataset_id": "sst2",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n7",
+          "original_dataset_id": "wmt14_en_de",
+          "replacement_dataset_id": "arc_easy",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n10",
+          "original_dataset_id": "opus_en_es",
+          "replacement_dataset_id": "trivia_qa",
+          "replacement_task_family": "qa"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_010"
+    },
+    {
+      "assignment_seed": 11,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_011.manifest.jsonl",
+      "matched_sha256": "47ea8d0d77ecc0ba47a70782cb034ca886b3aa3418487ca3abcf060b527b5b57",
+      "n_preserved_rows": 10,
+      "n_replaced_rows": 4,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_011.manifest.jsonl",
+      "original_sha256": "b9c40d7d3be040f4e3e40e4df859ac812dcc5116efe60ba9dcba9c1b13629143",
+      "replacements": [
+        {
+          "node_id": "n5",
+          "original_dataset_id": "opus_en_fr",
+          "replacement_dataset_id": "trec",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n6",
+          "original_dataset_id": "opus_en_zh",
+          "replacement_dataset_id": "squad_v2",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n7",
+          "original_dataset_id": "opus_en_de",
+          "replacement_dataset_id": "xsum",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n12",
+          "original_dataset_id": "wmt14_en_fr",
+          "replacement_dataset_id": "dialogsum",
+          "replacement_task_family": "summarization"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_011"
+    },
+    {
+      "assignment_seed": 12,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_012.manifest.jsonl",
+      "matched_sha256": "e4f96cf383a8916ed272a655a10906de5270a94b68a9b5c64cecfd347a6460a5",
+      "n_preserved_rows": 12,
+      "n_replaced_rows": 2,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_012.manifest.jsonl",
+      "original_sha256": "8064e5cc3c0ccbd97a72dcad7e339cf265688b8a36472f5a0fdd60322cdef050",
+      "replacements": [
+        {
+          "node_id": "n6",
+          "original_dataset_id": "wmt14_en_fr",
+          "replacement_dataset_id": "trec",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n9",
+          "original_dataset_id": "opus_en_zh",
+          "replacement_dataset_id": "boolq",
+          "replacement_task_family": "qa"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_012"
+    },
+    {
+      "assignment_seed": 13,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_013.manifest.jsonl",
+      "matched_sha256": "e4b88d4578e407ad20ffb838262412d4cc36e36188bc63e2488167df93e2947f",
+      "n_preserved_rows": 11,
+      "n_replaced_rows": 3,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_013.manifest.jsonl",
+      "original_sha256": "99222927e67447bc433b37db3ea902b1889c0ff385bd785d35fe52f565dbc5d2",
+      "replacements": [
+        {
+          "node_id": "n0",
+          "original_dataset_id": "opus_en_de",
+          "replacement_dataset_id": "squad",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n8",
+          "original_dataset_id": "opus_en_it",
+          "replacement_dataset_id": "mnli",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n13",
+          "original_dataset_id": "opus_en_es",
+          "replacement_dataset_id": "qnli",
+          "replacement_task_family": "classification"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_013"
+    },
+    {
+      "assignment_seed": 14,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_014.manifest.jsonl",
+      "matched_sha256": "10f5ccb9d2ba2750a13e514fa119355fc6f482286a1ecdc9710b30c24fb40084",
+      "n_preserved_rows": 10,
+      "n_replaced_rows": 4,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_014.manifest.jsonl",
+      "original_sha256": "c0230600a4179a31820f54b98b3c36d4ce2bffa4135b36e6da71f60e1cc8a067",
+      "replacements": [
+        {
+          "node_id": "n0",
+          "original_dataset_id": "opus_en_fr",
+          "replacement_dataset_id": "squad",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n1",
+          "original_dataset_id": "opus_en_es",
+          "replacement_dataset_id": "arc_easy",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n7",
+          "original_dataset_id": "opus_en_zh",
+          "replacement_dataset_id": "sciq",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n11",
+          "original_dataset_id": "opus_en_de",
+          "replacement_dataset_id": "rte",
+          "replacement_task_family": "classification"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_014"
+    },
+    {
+      "assignment_seed": 15,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_015.manifest.jsonl",
+      "matched_sha256": "34bcf657b83dcf1c7a65892dff526b0e575162a87b4f8d3bfe68e6d820ad9eef",
+      "n_preserved_rows": 6,
+      "n_replaced_rows": 2,
+      "n_rows": 8,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_015.manifest.jsonl",
+      "original_sha256": "37c80fd92cb95ac13f49a71c7f2c501dae0f9a9ae069e3885e7ddfed4d5999a6",
+      "replacements": [
+        {
+          "node_id": "n1",
+          "original_dataset_id": "opus_en_it",
+          "replacement_dataset_id": "arc_challenge",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n6",
+          "original_dataset_id": "wmt14_en_de",
+          "replacement_dataset_id": "billsum",
+          "replacement_task_family": "summarization"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_015"
+    },
+    {
+      "assignment_seed": 16,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_016.manifest.jsonl",
+      "matched_sha256": "1ed73ad8ceb5e444702ae38e5dfaf60719c6e34431cae068c522cf41a34f8793",
+      "n_preserved_rows": 11,
+      "n_replaced_rows": 3,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_016.manifest.jsonl",
+      "original_sha256": "07d6075a9777c60cb161c469938517c1aeddec64f2fc390733af1ca9fabe2fdc",
+      "replacements": [
+        {
+          "node_id": "n5",
+          "original_dataset_id": "opus_en_ru",
+          "replacement_dataset_id": "arxiv_summ",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n12",
+          "original_dataset_id": "opus_en_it",
+          "replacement_dataset_id": "sciq",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n13",
+          "original_dataset_id": "opus_en_fr",
+          "replacement_dataset_id": "quartz",
+          "replacement_task_family": "qa"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_016"
+    },
+    {
+      "assignment_seed": 17,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_017.manifest.jsonl",
+      "matched_sha256": "f1098bfb793d6b630034a6a68319081c7a6c989ddd2ab49e389c3f82b8d1cffb",
+      "n_preserved_rows": 9,
+      "n_replaced_rows": 5,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_017.manifest.jsonl",
+      "original_sha256": "ea4284c508fb88e04c722c565a7bd0cd76219dc24b270e69ac2c1b1119591185",
+      "replacements": [
+        {
+          "node_id": "n1",
+          "original_dataset_id": "opus_en_ja",
+          "replacement_dataset_id": "sst2",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n4",
+          "original_dataset_id": "wmt14_en_de",
+          "replacement_dataset_id": "trec",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n7",
+          "original_dataset_id": "opus_en_de",
+          "replacement_dataset_id": "yelp_polarity",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n9",
+          "original_dataset_id": "opus_en_zh",
+          "replacement_dataset_id": "cnn_dailymail",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n13",
+          "original_dataset_id": "opus_en_es",
+          "replacement_dataset_id": "pubmed",
+          "replacement_task_family": "summarization"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_017"
+    },
+    {
+      "assignment_seed": 18,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_018.manifest.jsonl",
+      "matched_sha256": "87108213737878947f912ed3a4abe4cc45537d38cfcd4d83ebf83ff5fe4cfa36",
+      "n_preserved_rows": 10,
+      "n_replaced_rows": 4,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_018.manifest.jsonl",
+      "original_sha256": "7c3b33492ebd77dd52696d8d7c0e535a64c7134775c430b837174e689b492c8f",
+      "replacements": [
+        {
+          "node_id": "n1",
+          "original_dataset_id": "opus_en_ja",
+          "replacement_dataset_id": "arc_challenge",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n9",
+          "original_dataset_id": "opus_en_fr",
+          "replacement_dataset_id": "quartz",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n10",
+          "original_dataset_id": "wmt14_en_fr",
+          "replacement_dataset_id": "rte",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n13",
+          "original_dataset_id": "opus_en_es",
+          "replacement_dataset_id": "trivia_qa",
+          "replacement_task_family": "qa"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_018"
+    },
+    {
+      "assignment_seed": 19,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_019.manifest.jsonl",
+      "matched_sha256": "6cfb6e34a786efb17cb3d9500175b9856a6441b3550c9ac739a9d8a4b2f10d26",
+      "n_preserved_rows": 10,
+      "n_replaced_rows": 4,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_019.manifest.jsonl",
+      "original_sha256": "2e567e02f9452215561862106f7ca3add4f34ebfb77ec35b6137936595234904",
+      "replacements": [
+        {
+          "node_id": "n6",
+          "original_dataset_id": "opus_en_fr",
+          "replacement_dataset_id": "squad",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n8",
+          "original_dataset_id": "opus_en_it",
+          "replacement_dataset_id": "sst2",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n12",
+          "original_dataset_id": "opus_en_ja",
+          "replacement_dataset_id": "trec",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n13",
+          "original_dataset_id": "wmt14_en_de",
+          "replacement_dataset_id": "govreport",
+          "replacement_task_family": "summarization"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_019"
+    },
+    {
+      "assignment_seed": 20,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_020.manifest.jsonl",
+      "matched_sha256": "55caccc8ac6426dd9b9bc1e1355fcea3dca03a9e27e86eb74999fb460961d51a",
+      "n_preserved_rows": 7,
+      "n_replaced_rows": 0,
+      "n_rows": 7,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_020.manifest.jsonl",
+      "original_sha256": "55caccc8ac6426dd9b9bc1e1355fcea3dca03a9e27e86eb74999fb460961d51a",
+      "replacements": [],
+      "tree_id": "confirm_paper_tree_020"
+    },
+    {
+      "assignment_seed": 21,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_021.manifest.jsonl",
+      "matched_sha256": "f7fc84ee4110105796fa8f3f8479f81ff59a66b7257f0fd8bd4ce62d770676fc",
+      "n_preserved_rows": 11,
+      "n_replaced_rows": 1,
+      "n_rows": 12,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_021.manifest.jsonl",
+      "original_sha256": "6fcb745520d5538e5d7ec3e1f88d16cb2e0870674629766987985aa1356cd236",
+      "replacements": [
+        {
+          "node_id": "n2",
+          "original_dataset_id": "opus_en_ru",
+          "replacement_dataset_id": "qnli",
+          "replacement_task_family": "classification"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_021"
+    },
+    {
+      "assignment_seed": 22,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_022.manifest.jsonl",
+      "matched_sha256": "003df00cb2f9182ba5d7a6ba6ba8ca7d7a065abd32533fd30425020cceb3838a",
+      "n_preserved_rows": 6,
+      "n_replaced_rows": 3,
+      "n_rows": 9,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_022.manifest.jsonl",
+      "original_sha256": "244fd087efb37ce09adbdf460d32d64d733bdf12903fbf25e2cc9985697fa47d",
+      "replacements": [
+        {
+          "node_id": "n0",
+          "original_dataset_id": "opus_en_fr",
+          "replacement_dataset_id": "bigpatent",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n1",
+          "original_dataset_id": "opus_en_de",
+          "replacement_dataset_id": "sst2",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n2",
+          "original_dataset_id": "opus_en_zh",
+          "replacement_dataset_id": "trivia_qa",
+          "replacement_task_family": "qa"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_022"
+    },
+    {
+      "assignment_seed": 23,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_023.manifest.jsonl",
+      "matched_sha256": "57557761c1bbc281eb07d83087c446f74a3e27455c191729a8a68cfe689ea766",
+      "n_preserved_rows": 12,
+      "n_replaced_rows": 2,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_023.manifest.jsonl",
+      "original_sha256": "68ba343f9a429dcba2e6c3efa379d7a8b2ca629bf7e2c82217760c3ab03c93f6",
+      "replacements": [
+        {
+          "node_id": "n1",
+          "original_dataset_id": "wmt14_en_fr",
+          "replacement_dataset_id": "mnli",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n8",
+          "original_dataset_id": "opus_en_fr",
+          "replacement_dataset_id": "arc_easy",
+          "replacement_task_family": "qa"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_023"
+    },
+    {
+      "assignment_seed": 24,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_024.manifest.jsonl",
+      "matched_sha256": "809751ad43e9b34221bf9b70c4de9e7670c097985c76049b0a5aa4d7ef5fc3da",
+      "n_preserved_rows": 11,
+      "n_replaced_rows": 3,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_024.manifest.jsonl",
+      "original_sha256": "14014d39d1c4c47e279686daa8fa7b6419549aaca16d091ee20cd580ab11373d",
+      "replacements": [
+        {
+          "node_id": "n0",
+          "original_dataset_id": "opus_en_ru",
+          "replacement_dataset_id": "imdb",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n6",
+          "original_dataset_id": "wmt14_en_de",
+          "replacement_dataset_id": "qnli",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n8",
+          "original_dataset_id": "opus_en_zh",
+          "replacement_dataset_id": "xsum",
+          "replacement_task_family": "summarization"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_024"
+    },
+    {
+      "assignment_seed": 25,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_025.manifest.jsonl",
+      "matched_sha256": "6f30656157e338ba4cf250c876ad4bad9ca11497e03dfc59f717cc472828ad85",
+      "n_preserved_rows": 10,
+      "n_replaced_rows": 4,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_025.manifest.jsonl",
+      "original_sha256": "9ddfe080eb540e74ad2208995dbeb325f9bbb6d701627d91d908c84421903042",
+      "replacements": [
+        {
+          "node_id": "n4",
+          "original_dataset_id": "opus_en_zh",
+          "replacement_dataset_id": "billsum",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n5",
+          "original_dataset_id": "opus_en_ja",
+          "replacement_dataset_id": "trec",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n8",
+          "original_dataset_id": "opus_en_ru",
+          "replacement_dataset_id": "arc_easy",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n9",
+          "original_dataset_id": "opus_en_fr",
+          "replacement_dataset_id": "mnli",
+          "replacement_task_family": "classification"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_025"
+    },
+    {
+      "assignment_seed": 26,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_026.manifest.jsonl",
+      "matched_sha256": "397509576cf8d9b41335d79f8d20db66b889e7b4264c60e106ee00c63a1e9a57",
+      "n_preserved_rows": 11,
+      "n_replaced_rows": 3,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_026.manifest.jsonl",
+      "original_sha256": "2cb9d95194efc0ac838d3eb94957cbc8f81000fe4e64ef4b9c0186f340955608",
+      "replacements": [
+        {
+          "node_id": "n7",
+          "original_dataset_id": "opus_en_ja",
+          "replacement_dataset_id": "trec",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n9",
+          "original_dataset_id": "opus_en_zh",
+          "replacement_dataset_id": "squad_v2",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n10",
+          "original_dataset_id": "opus_en_ru",
+          "replacement_dataset_id": "quartz",
+          "replacement_task_family": "qa"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_026"
+    },
+    {
+      "assignment_seed": 27,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_027.manifest.jsonl",
+      "matched_sha256": "6ac7c9139a0de79d7e5313ef8534492b772915d63cd97177fe8935fe6300c3a6",
+      "n_preserved_rows": 9,
+      "n_replaced_rows": 5,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_027.manifest.jsonl",
+      "original_sha256": "9b70bcbc5ba08a9fec6f1977dab929cb0c9f0d5d6ecd15a04dc6c2fcf0feb47a",
+      "replacements": [
+        {
+          "node_id": "n0",
+          "original_dataset_id": "opus_en_fr",
+          "replacement_dataset_id": "samsum",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n1",
+          "original_dataset_id": "opus_en_zh",
+          "replacement_dataset_id": "quartz",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n2",
+          "original_dataset_id": "wmt14_en_de",
+          "replacement_dataset_id": "rte",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n4",
+          "original_dataset_id": "opus_en_it",
+          "replacement_dataset_id": "arc_easy",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n5",
+          "original_dataset_id": "opus_en_es",
+          "replacement_dataset_id": "trec",
+          "replacement_task_family": "classification"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_027"
+    },
+    {
+      "assignment_seed": 28,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_028.manifest.jsonl",
+      "matched_sha256": "294cbdca244363d6648d6a23c61ce6dbe6711f86d4091e2b8835858956db8af2",
+      "n_preserved_rows": 9,
+      "n_replaced_rows": 5,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_028.manifest.jsonl",
+      "original_sha256": "ebe36cb109239fa3ecb76ba5f997dceaced325b075443e349b4a49933d53d594",
+      "replacements": [
+        {
+          "node_id": "n0",
+          "original_dataset_id": "opus_en_zh",
+          "replacement_dataset_id": "ag_news",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n3",
+          "original_dataset_id": "opus_en_it",
+          "replacement_dataset_id": "trivia_qa",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n8",
+          "original_dataset_id": "opus_en_ja",
+          "replacement_dataset_id": "qnli",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n10",
+          "original_dataset_id": "wmt14_en_fr",
+          "replacement_dataset_id": "arc_easy",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n13",
+          "original_dataset_id": "opus_en_es",
+          "replacement_dataset_id": "dbpedia_14",
+          "replacement_task_family": "classification"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_028"
+    },
+    {
+      "assignment_seed": 29,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_029.manifest.jsonl",
+      "matched_sha256": "d57dd912cd15bd19dc679cc6466fc5be82ab80b8da230fd9c4e6242f387e8576",
+      "n_preserved_rows": 7,
+      "n_replaced_rows": 3,
+      "n_rows": 10,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_029.manifest.jsonl",
+      "original_sha256": "1aa6fddaf5724d79a8739222697ce54b97609fd6511ddc568e7620a3de044dfe",
+      "replacements": [
+        {
+          "node_id": "n4",
+          "original_dataset_id": "opus_en_es",
+          "replacement_dataset_id": "dbpedia_14",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n5",
+          "original_dataset_id": "wmt14_en_fr",
+          "replacement_dataset_id": "boolq",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n7",
+          "original_dataset_id": "opus_en_it",
+          "replacement_dataset_id": "arc_easy",
+          "replacement_task_family": "qa"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_029"
+    },
+    {
+      "assignment_seed": 30,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_030.manifest.jsonl",
+      "matched_sha256": "331c578f870ebc1648f71270565e48c8732700d3cda2681c3b1bcebf0ed19c35",
+      "n_preserved_rows": 10,
+      "n_replaced_rows": 4,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_030.manifest.jsonl",
+      "original_sha256": "1e26815072f3f4aa0dc152f816ca8f9a684614f760db75ad6219e4aae0712ffd",
+      "replacements": [
+        {
+          "node_id": "n3",
+          "original_dataset_id": "opus_en_es",
+          "replacement_dataset_id": "pubmed",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n4",
+          "original_dataset_id": "opus_en_zh",
+          "replacement_dataset_id": "arc_challenge",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n5",
+          "original_dataset_id": "wmt14_en_fr",
+          "replacement_dataset_id": "sciq",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n10",
+          "original_dataset_id": "opus_en_it",
+          "replacement_dataset_id": "sst2",
+          "replacement_task_family": "classification"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_030"
+    },
+    {
+      "assignment_seed": 31,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_031.manifest.jsonl",
+      "matched_sha256": "4012f2195a3a630e695438ded184a41e0753923b89b48d490a4d5e62bff20c1e",
+      "n_preserved_rows": 8,
+      "n_replaced_rows": 4,
+      "n_rows": 12,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_031.manifest.jsonl",
+      "original_sha256": "86fc45c54443a2f1da9e06f1d9a83a2054e3c296e1707fa8294a19a32d8b2edd",
+      "replacements": [
+        {
+          "node_id": "n0",
+          "original_dataset_id": "opus_en_it",
+          "replacement_dataset_id": "trivia_qa",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n5",
+          "original_dataset_id": "opus_en_fr",
+          "replacement_dataset_id": "arc_challenge",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n9",
+          "original_dataset_id": "wmt14_en_de",
+          "replacement_dataset_id": "xsum",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n10",
+          "original_dataset_id": "wmt14_en_fr",
+          "replacement_dataset_id": "billsum",
+          "replacement_task_family": "summarization"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_031"
+    },
+    {
+      "assignment_seed": 32,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_032.manifest.jsonl",
+      "matched_sha256": "1557d5e2b69f2631070cf4e574889b48357a38f9aa09ec187c4996e38bbadefb",
+      "n_preserved_rows": 9,
+      "n_replaced_rows": 5,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_032.manifest.jsonl",
+      "original_sha256": "375165e4b33f0078b5a6efd21db4ab72dfe37660c9b49b5d9be74d1fc555b316",
+      "replacements": [
+        {
+          "node_id": "n0",
+          "original_dataset_id": "wmt14_en_de",
+          "replacement_dataset_id": "squad",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n3",
+          "original_dataset_id": "opus_en_it",
+          "replacement_dataset_id": "billsum",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n10",
+          "original_dataset_id": "opus_en_ru",
+          "replacement_dataset_id": "trivia_qa",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n11",
+          "original_dataset_id": "opus_en_es",
+          "replacement_dataset_id": "bigpatent",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n13",
+          "original_dataset_id": "opus_en_de",
+          "replacement_dataset_id": "xsum",
+          "replacement_task_family": "summarization"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_032"
+    },
+    {
+      "assignment_seed": 33,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_033.manifest.jsonl",
+      "matched_sha256": "131ca2bf69d98cfb6d069c6609aec0fbe5fb284699b88698c1ffe3881af76877",
+      "n_preserved_rows": 11,
+      "n_replaced_rows": 3,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_033.manifest.jsonl",
+      "original_sha256": "6235fec37c5c4a06f3deb8eafa14fc946c1d6e6086e1075c6610caebdf6c3d36",
+      "replacements": [
+        {
+          "node_id": "n0",
+          "original_dataset_id": "wmt14_en_fr",
+          "replacement_dataset_id": "arxiv_summ",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n4",
+          "original_dataset_id": "opus_en_de",
+          "replacement_dataset_id": "sciq",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n7",
+          "original_dataset_id": "opus_en_ja",
+          "replacement_dataset_id": "qnli",
+          "replacement_task_family": "classification"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_033"
+    },
+    {
+      "assignment_seed": 34,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_034.manifest.jsonl",
+      "matched_sha256": "43ed0923d7ada473d7cbb3db3fac7da01622908355c882fc90dc56b8c31aaecf",
+      "n_preserved_rows": 11,
+      "n_replaced_rows": 3,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_034.manifest.jsonl",
+      "original_sha256": "1ba577a240427d16a01f1a4b8aca549bc00dd70b1985c83b3cc644d2a7d5c7d0",
+      "replacements": [
+        {
+          "node_id": "n1",
+          "original_dataset_id": "wmt14_en_de",
+          "replacement_dataset_id": "xsum",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n6",
+          "original_dataset_id": "wmt14_en_fr",
+          "replacement_dataset_id": "mnli",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n8",
+          "original_dataset_id": "opus_en_es",
+          "replacement_dataset_id": "cola",
+          "replacement_task_family": "classification"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_034"
+    },
+    {
+      "assignment_seed": 35,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_035.manifest.jsonl",
+      "matched_sha256": "8bef89ffbfebda11caaaf96a5cb38d23aa83933057e37dcd17f845fa3611e386",
+      "n_preserved_rows": 10,
+      "n_replaced_rows": 4,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_035.manifest.jsonl",
+      "original_sha256": "079c9ec2b71e90450c4ee16d41e0c8f6bae64f8a80c8f1a4563381620cf004d5",
+      "replacements": [
+        {
+          "node_id": "n9",
+          "original_dataset_id": "opus_en_it",
+          "replacement_dataset_id": "dbpedia_14",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n10",
+          "original_dataset_id": "wmt14_en_fr",
+          "replacement_dataset_id": "bigpatent",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n11",
+          "original_dataset_id": "opus_en_es",
+          "replacement_dataset_id": "squad",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n12",
+          "original_dataset_id": "opus_en_zh",
+          "replacement_dataset_id": "dialogsum",
+          "replacement_task_family": "summarization"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_035"
+    },
+    {
+      "assignment_seed": 36,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_036.manifest.jsonl",
+      "matched_sha256": "311a65d9d0168fc9e16bd2483f333b9382f7dbcd0b887ab3dc1423a519d301bb",
+      "n_preserved_rows": 8,
+      "n_replaced_rows": 3,
+      "n_rows": 11,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_036.manifest.jsonl",
+      "original_sha256": "080b0fb9ffb628d91a3b3dc13292dba9e0f053243f9b966c8115cf1bfb49c56e",
+      "replacements": [
+        {
+          "node_id": "n4",
+          "original_dataset_id": "opus_en_ja",
+          "replacement_dataset_id": "arxiv_summ",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n7",
+          "original_dataset_id": "opus_en_fr",
+          "replacement_dataset_id": "cola",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n10",
+          "original_dataset_id": "opus_en_zh",
+          "replacement_dataset_id": "govreport",
+          "replacement_task_family": "summarization"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_036"
+    },
+    {
+      "assignment_seed": 37,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_037.manifest.jsonl",
+      "matched_sha256": "59d5c6783dadb63bd81a3b36e61b27f46e379586b3da2de074f0ed19314d7b3a",
+      "n_preserved_rows": 6,
+      "n_replaced_rows": 2,
+      "n_rows": 8,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_037.manifest.jsonl",
+      "original_sha256": "8bb64dd2b8c4467641fb4a085b1394ba2278eabd0d1a24ea688cf194bd8b7832",
+      "replacements": [
+        {
+          "node_id": "n2",
+          "original_dataset_id": "wmt14_en_fr",
+          "replacement_dataset_id": "arc_challenge",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n7",
+          "original_dataset_id": "wmt14_en_de",
+          "replacement_dataset_id": "samsum",
+          "replacement_task_family": "summarization"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_037"
+    },
+    {
+      "assignment_seed": 38,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_038.manifest.jsonl",
+      "matched_sha256": "21f8c9a9104441f6dcc516552ac2f0a86177e70d6d648ee437636fc26335a090",
+      "n_preserved_rows": 11,
+      "n_replaced_rows": 3,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_038.manifest.jsonl",
+      "original_sha256": "fc33a07bdaba56229d3c480bb44f3fb9c116e23dd6039e4dd897e73f3a6a8d2f",
+      "replacements": [
+        {
+          "node_id": "n0",
+          "original_dataset_id": "opus_en_it",
+          "replacement_dataset_id": "arxiv_summ",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n2",
+          "original_dataset_id": "opus_en_es",
+          "replacement_dataset_id": "arc_easy",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n4",
+          "original_dataset_id": "wmt14_en_de",
+          "replacement_dataset_id": "billsum",
+          "replacement_task_family": "summarization"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_038"
+    },
+    {
+      "assignment_seed": 39,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_039.manifest.jsonl",
+      "matched_sha256": "78bd21ad02c7e22e6291b6aeac4e3ac9743b1b2f00e60437a06ce40453358e45",
+      "n_preserved_rows": 8,
+      "n_replaced_rows": 3,
+      "n_rows": 11,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_039.manifest.jsonl",
+      "original_sha256": "bed2063395edea8fbdf15b7d5d474c7ba066d0d24d74f872cc7fddca0e923d25",
+      "replacements": [
+        {
+          "node_id": "n1",
+          "original_dataset_id": "opus_en_it",
+          "replacement_dataset_id": "xsum",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n9",
+          "original_dataset_id": "wmt14_en_de",
+          "replacement_dataset_id": "samsum",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n10",
+          "original_dataset_id": "opus_en_zh",
+          "replacement_dataset_id": "pubmed",
+          "replacement_task_family": "summarization"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_039"
+    },
+    {
+      "assignment_seed": 40,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_040.manifest.jsonl",
+      "matched_sha256": "7911d297382782439b18e029009c288697da3338f2d712fff84ceafdc1be90e1",
+      "n_preserved_rows": 4,
+      "n_replaced_rows": 3,
+      "n_rows": 7,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_040.manifest.jsonl",
+      "original_sha256": "23ff13b5c985222db58a9fd32d757b5e925296918087d517139cd5f7c134540b",
+      "replacements": [
+        {
+          "node_id": "n2",
+          "original_dataset_id": "wmt14_en_fr",
+          "replacement_dataset_id": "trivia_qa",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n4",
+          "original_dataset_id": "opus_en_ja",
+          "replacement_dataset_id": "govreport",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n5",
+          "original_dataset_id": "opus_en_it",
+          "replacement_dataset_id": "imdb",
+          "replacement_task_family": "classification"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_040"
+    },
+    {
+      "assignment_seed": 41,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_041.manifest.jsonl",
+      "matched_sha256": "f8234aef0cf60f452516c4a436062565086b005e9c202d46e061ac0bf1dd8585",
+      "n_preserved_rows": 11,
+      "n_replaced_rows": 3,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_041.manifest.jsonl",
+      "original_sha256": "a757a2bf4c85c0693229805c9262406e3cf3fdbfd4219350b1213d5d72f782fb",
+      "replacements": [
+        {
+          "node_id": "n3",
+          "original_dataset_id": "opus_en_fr",
+          "replacement_dataset_id": "trivia_qa",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n11",
+          "original_dataset_id": "opus_en_es",
+          "replacement_dataset_id": "squad_v2",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n12",
+          "original_dataset_id": "wmt14_en_de",
+          "replacement_dataset_id": "samsum",
+          "replacement_task_family": "summarization"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_041"
+    },
+    {
+      "assignment_seed": 42,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_042.manifest.jsonl",
+      "matched_sha256": "be7d26fd2a0fe23888ea4327dae1362b2560d6286c1f163b4c6b88909cc5a540",
+      "n_preserved_rows": 8,
+      "n_replaced_rows": 3,
+      "n_rows": 11,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_042.manifest.jsonl",
+      "original_sha256": "fd8a288e9df20de5f3b9cf226f77e41ad5e143d860593186f5db0d1e7571f56a",
+      "replacements": [
+        {
+          "node_id": "n0",
+          "original_dataset_id": "opus_en_de",
+          "replacement_dataset_id": "bigpatent",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n6",
+          "original_dataset_id": "wmt14_en_fr",
+          "replacement_dataset_id": "quartz",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n9",
+          "original_dataset_id": "opus_en_ru",
+          "replacement_dataset_id": "dialogsum",
+          "replacement_task_family": "summarization"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_042"
+    },
+    {
+      "assignment_seed": 43,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_043.manifest.jsonl",
+      "matched_sha256": "504bb8080891568b0aefcd2ab78e613203b6c17d6656d8a1e43d922d8b8d4194",
+      "n_preserved_rows": 12,
+      "n_replaced_rows": 2,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_043.manifest.jsonl",
+      "original_sha256": "6d329447af81d3528e53623707825ae44d53e50886d28e5607f8a72541962c1b",
+      "replacements": [
+        {
+          "node_id": "n7",
+          "original_dataset_id": "opus_en_it",
+          "replacement_dataset_id": "imdb",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n9",
+          "original_dataset_id": "wmt14_en_fr",
+          "replacement_dataset_id": "sciq",
+          "replacement_task_family": "qa"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_043"
+    },
+    {
+      "assignment_seed": 44,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_044.manifest.jsonl",
+      "matched_sha256": "6728544dbaad727a33801c002da52adc30e063fd7a28deef5c40c21b73f9f5f4",
+      "n_preserved_rows": 10,
+      "n_replaced_rows": 4,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_044.manifest.jsonl",
+      "original_sha256": "9301e6f9d45e665358d7bc87c83fd74786f51e95ff68274a90e4930052b61c3e",
+      "replacements": [
+        {
+          "node_id": "n3",
+          "original_dataset_id": "opus_en_fr",
+          "replacement_dataset_id": "sst2",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n5",
+          "original_dataset_id": "opus_en_it",
+          "replacement_dataset_id": "arxiv_summ",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n7",
+          "original_dataset_id": "opus_en_ja",
+          "replacement_dataset_id": "dbpedia_14",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n10",
+          "original_dataset_id": "opus_en_zh",
+          "replacement_dataset_id": "pubmed",
+          "replacement_task_family": "summarization"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_044"
+    },
+    {
+      "assignment_seed": 45,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_045.manifest.jsonl",
+      "matched_sha256": "8fddd5232cbfcf518b5e626628d810475e020099cc0b2ce0a07cb4df8c93f809",
+      "n_preserved_rows": 8,
+      "n_replaced_rows": 4,
+      "n_rows": 12,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_045.manifest.jsonl",
+      "original_sha256": "1d69bea36fa109885694dc6f7fe57cd05f0a5178dd6147c938bc765c77630cea",
+      "replacements": [
+        {
+          "node_id": "n1",
+          "original_dataset_id": "opus_en_ru",
+          "replacement_dataset_id": "arxiv_summ",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n4",
+          "original_dataset_id": "opus_en_fr",
+          "replacement_dataset_id": "qnli",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n6",
+          "original_dataset_id": "opus_en_de",
+          "replacement_dataset_id": "trivia_qa",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n9",
+          "original_dataset_id": "wmt14_en_fr",
+          "replacement_dataset_id": "govreport",
+          "replacement_task_family": "summarization"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_045"
+    },
+    {
+      "assignment_seed": 46,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_046.manifest.jsonl",
+      "matched_sha256": "03bbedada1fc83cc743cbf8c354f20fa2074c3bdc081e0c7bfc98a39c388a42b",
+      "n_preserved_rows": 12,
+      "n_replaced_rows": 2,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_046.manifest.jsonl",
+      "original_sha256": "6f78373f80ec0add4d0271a02d91294d23f69f70bf7c388f59f783343331ef0a",
+      "replacements": [
+        {
+          "node_id": "n4",
+          "original_dataset_id": "wmt14_en_fr",
+          "replacement_dataset_id": "imdb",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n6",
+          "original_dataset_id": "opus_en_fr",
+          "replacement_dataset_id": "boolq",
+          "replacement_task_family": "qa"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_046"
+    },
+    {
+      "assignment_seed": 47,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_047.manifest.jsonl",
+      "matched_sha256": "768b0369975b8e33ca3bc9034f42461597f45858948c13b6be3b33c35d3d26b5",
+      "n_preserved_rows": 8,
+      "n_replaced_rows": 1,
+      "n_rows": 9,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_047.manifest.jsonl",
+      "original_sha256": "4eb62b1c822b90ce0a62f3576b435c111def7141ae990a88a84c921186e7a5e0",
+      "replacements": [
+        {
+          "node_id": "n7",
+          "original_dataset_id": "wmt14_en_de",
+          "replacement_dataset_id": "quartz",
+          "replacement_task_family": "qa"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_047"
+    },
+    {
+      "assignment_seed": 48,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_048.manifest.jsonl",
+      "matched_sha256": "d142f9ff9d19cfa2aa92637160f5cec7efb5060819e6fccecc8765a12b910ed3",
+      "n_preserved_rows": 10,
+      "n_replaced_rows": 4,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_048.manifest.jsonl",
+      "original_sha256": "b18b6aa4c848f804ed1de3a264429eaa9984defbb02d54d887f738d6b26c82af",
+      "replacements": [
+        {
+          "node_id": "n1",
+          "original_dataset_id": "opus_en_fr",
+          "replacement_dataset_id": "samsum",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n6",
+          "original_dataset_id": "opus_en_es",
+          "replacement_dataset_id": "qnli",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n7",
+          "original_dataset_id": "wmt14_en_fr",
+          "replacement_dataset_id": "govreport",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n12",
+          "original_dataset_id": "opus_en_de",
+          "replacement_dataset_id": "bigpatent",
+          "replacement_task_family": "summarization"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_048"
+    },
+    {
+      "assignment_seed": 49,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_049.manifest.jsonl",
+      "matched_sha256": "28768a171ee00f7d354c1f09652e98341e1c37124349fe66a114b467bdc2019d",
+      "n_preserved_rows": 9,
+      "n_replaced_rows": 5,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_049.manifest.jsonl",
+      "original_sha256": "a0dde33cb551bd6783ce7f27f8478c183a932bdbab9554dbc85c5b397cdff349",
+      "replacements": [
+        {
+          "node_id": "n3",
+          "original_dataset_id": "opus_en_es",
+          "replacement_dataset_id": "dialogsum",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n6",
+          "original_dataset_id": "opus_en_ja",
+          "replacement_dataset_id": "dbpedia_14",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n7",
+          "original_dataset_id": "wmt14_en_fr",
+          "replacement_dataset_id": "squad_v2",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n8",
+          "original_dataset_id": "wmt14_en_de",
+          "replacement_dataset_id": "arc_easy",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n13",
+          "original_dataset_id": "opus_en_zh",
+          "replacement_dataset_id": "boolq",
+          "replacement_task_family": "qa"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_049"
+    },
+    {
+      "assignment_seed": 50,
+      "matched_manifest": "examples/training/translation_holdout_20260803/matched_assigned_manifests/confirm_paper_tree_050.manifest.jsonl",
+      "matched_sha256": "baaa05cbd78f31333ed8d0cfb0cdc7cc620e9268c54e76fb86405546588820de",
+      "n_preserved_rows": 10,
+      "n_replaced_rows": 4,
+      "n_rows": 14,
+      "original_manifest": "examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_050.manifest.jsonl",
+      "original_sha256": "b81458e9cc29edb5d980ccd943b8af1ad8238d915d867197ba478ec88637bcb8",
+      "replacements": [
+        {
+          "node_id": "n1",
+          "original_dataset_id": "opus_en_fr",
+          "replacement_dataset_id": "mnli",
+          "replacement_task_family": "classification"
+        },
+        {
+          "node_id": "n8",
+          "original_dataset_id": "opus_en_zh",
+          "replacement_dataset_id": "arc_challenge",
+          "replacement_task_family": "qa"
+        },
+        {
+          "node_id": "n10",
+          "original_dataset_id": "wmt14_en_de",
+          "replacement_dataset_id": "samsum",
+          "replacement_task_family": "summarization"
+        },
+        {
+          "node_id": "n12",
+          "original_dataset_id": "opus_en_ja",
+          "replacement_dataset_id": "govreport",
+          "replacement_task_family": "summarization"
+        }
+      ],
+      "tree_id": "confirm_paper_tree_050"
+    }
+  ]
+}

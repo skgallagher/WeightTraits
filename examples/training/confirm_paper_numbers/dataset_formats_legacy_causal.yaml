@@ -1,0 +1,367 @@
+# Canonical data contracts for the corrected Llama causal-LM rebuild.
+#
+# These mappings reproduce the dataset-specific target semantics used by the
+# legacy ELLMTrees causal pipeline.  Keep this file immutable for the rebuild;
+# cache metadata fingerprints it so format changes require a new cache.
+datasets:
+  - dataset_id: cnn_dailymail
+    task_family: summarization
+    train_split: train
+    eval_split: validation
+    prompt_fields: [document]
+    raw_fields: [article, highlights]
+    field_map:
+      document: article
+      target: highlights
+  - dataset_id: xsum
+    task_family: summarization
+    train_split: train
+    eval_split: validation
+    prompt_fields: [document]
+    raw_fields: [document, summary]
+    field_map:
+      target: summary
+  - dataset_id: samsum
+    task_family: summarization
+    train_split: train
+    eval_split: validation
+    prompt_fields: [document]
+    raw_fields: [dialogue, summary]
+    field_map:
+      document: dialogue
+      target: summary
+  - dataset_id: billsum
+    task_family: summarization
+    train_split: train
+    eval_split: test
+    prompt_fields: [document]
+    raw_fields: [text, summary]
+    field_map:
+      document: text
+      target: summary
+  - dataset_id: pubmed
+    task_family: summarization
+    train_split: train
+    eval_split: validation
+    prompt_fields: [document]
+    raw_fields: [article, abstract]
+    field_map:
+      document: article
+      target: abstract
+  - dataset_id: govreport
+    task_family: summarization
+    train_split: train
+    eval_split: validation
+    prompt_fields: [document]
+    raw_fields: [report, summary]
+    field_map:
+      document: report
+      target: summary
+  - dataset_id: arxiv_summ
+    task_family: summarization
+    train_split: train
+    eval_split: validation
+    prompt_fields: [document]
+    raw_fields: [article, abstract]
+    field_map:
+      document: article
+      target: abstract
+  - dataset_id: bigpatent
+    task_family: summarization
+    train_split: train
+    eval_split: validation
+    prompt_fields: [document]
+    raw_fields: [description, abstract]
+    field_map:
+      document: description
+      target: abstract
+  - dataset_id: dialogsum
+    task_family: summarization
+    train_split: train
+    eval_split: validation
+    prompt_fields: [document]
+    raw_fields: [dialogue, summary]
+    field_map:
+      document: dialogue
+      target: summary
+
+  - dataset_id: sst2
+    task_family: classification
+    train_split: train
+    eval_split: validation
+    prompt_fields: [text]
+    raw_fields: [sentence, label]
+    field_map:
+      text: sentence
+      target: label
+    transforms:
+      target: {op: label_index, source: target, labels: [negative, positive]}
+  - dataset_id: ag_news
+    task_family: classification
+    train_split: train
+    eval_split: test
+    prompt_fields: [text]
+    raw_fields: [text, label]
+    field_map:
+      target: label
+    transforms:
+      target: {op: label_index, source: target, labels: [world, sports, business, sci/tech]}
+  - dataset_id: mnli
+    task_family: classification
+    train_split: train
+    eval_split: validation_matched
+    prompt_fields: [text, hypothesis]
+    raw_fields: [premise, hypothesis, label]
+    field_map:
+      text: premise
+      target: label
+    transforms:
+      target: {op: label_index, source: target, labels: [entailment, neutral, contradiction]}
+  - dataset_id: imdb
+    task_family: classification
+    train_split: train
+    eval_split: test
+    prompt_fields: [text]
+    raw_fields: [text, label]
+    field_map:
+      target: label
+    transforms:
+      target: {op: label_index, source: target, labels: [negative, positive]}
+  - dataset_id: rte
+    task_family: classification
+    train_split: train
+    eval_split: validation
+    prompt_fields: [text, hypothesis]
+    raw_fields: [sentence1, sentence2, label]
+    field_map:
+      text: sentence1
+      hypothesis: sentence2
+      target: label
+    transforms:
+      target: {op: label_index, source: target, labels: [entailment, not_entailment]}
+  - dataset_id: cola
+    task_family: classification
+    train_split: train
+    eval_split: validation
+    prompt_fields: [text]
+    raw_fields: [sentence, label]
+    field_map:
+      text: sentence
+      target: label
+    transforms:
+      target: {op: label_index, source: target, labels: [unacceptable, acceptable]}
+  - dataset_id: qnli
+    task_family: classification
+    train_split: train
+    eval_split: validation
+    prompt_fields: [text, hypothesis]
+    raw_fields: [question, sentence, label]
+    field_map:
+      text: question
+      hypothesis: sentence
+      target: label
+    transforms:
+      target: {op: label_index, source: target, labels: [entailment, not_entailment]}
+  - dataset_id: yelp_polarity
+    task_family: classification
+    train_split: train
+    eval_split: test
+    prompt_fields: [text]
+    raw_fields: [text, label]
+    field_map:
+      target: label
+    transforms:
+      target: {op: label_index, source: target, labels: [negative, positive]}
+  - dataset_id: dbpedia_14
+    task_family: classification
+    train_split: train
+    eval_split: test
+    prompt_fields: [text]
+    raw_fields: [content, label]
+    field_map:
+      text: content
+      target: label
+    transforms:
+      target:
+        op: label_index
+        source: target
+        labels:
+          - company
+          - educational_institution
+          - artist
+          - athlete
+          - office_holder
+          - transportation
+          - building
+          - natural_place
+          - village
+          - animal
+          - plant
+          - album
+          - film
+          - written_work
+  - dataset_id: trec
+    task_family: classification
+    train_split: train
+    eval_split: test
+    prompt_fields: [text]
+    raw_fields: [text, label_text]
+    field_map:
+      target: label_text
+
+  - dataset_id: squad
+    task_family: qa
+    train_split: train
+    eval_split: validation
+    prompt_fields: [qa_input]
+    raw_fields: [question, context, answers]
+    field_map:
+      target: answers
+    transforms:
+      qa_input: {op: compose_qa_input, question_source: question, context_source: context}
+      target: {op: first_item, source: target.text, default: ""}
+  - dataset_id: squad_v2
+    task_family: qa
+    train_split: train
+    eval_split: validation
+    prompt_fields: [qa_input]
+    raw_fields: [question, context, answers]
+    field_map:
+      target: answers
+    transforms:
+      qa_input: {op: compose_qa_input, question_source: question, context_source: context}
+      target: {op: first_item, source: target.text, default: unanswerable}
+  - dataset_id: trivia_qa
+    task_family: qa
+    train_split: train
+    eval_split: validation
+    prompt_fields: [qa_input]
+    raw_fields: [question, answer]
+    field_map:
+      target: answer.value
+    transforms:
+      qa_input: {op: compose_qa_input, question_source: question}
+  - dataset_id: boolq
+    task_family: qa
+    train_split: train
+    eval_split: validation
+    prompt_fields: [qa_input]
+    raw_fields: [question, passage, answer]
+    field_map:
+      context: passage
+      target: answer
+    transforms:
+      qa_input: {op: compose_qa_input, question_source: question, context_source: context}
+      target: {op: bool_map, source: target, true_value: "yes", false_value: "no"}
+  - dataset_id: quartz
+    task_family: qa
+    train_split: train
+    eval_split: test
+    prompt_fields: [qa_input]
+    raw_fields: [question, para, choices, answerKey]
+    field_map:
+      context: para
+      target: answerKey
+    transforms:
+      choices: {op: format_choices, source: choices}
+      qa_input: {op: compose_qa_input, question_source: question, choices_source: choices, context_source: context}
+      target: {op: choice_text, key_source: target, choices_source: choices, fallback_to_key: true}
+  - dataset_id: arc_easy
+    task_family: qa
+    train_split: train
+    eval_split: test
+    prompt_fields: [qa_input]
+    raw_fields: [question, choices, answerKey]
+    field_map:
+      target: answerKey
+    transforms:
+      choices: {op: format_choices, source: choices}
+      qa_input: {op: compose_qa_input, question_source: question, choices_source: choices}
+      target: {op: choice_text, key_source: target, choices_source: choices, fallback_to_key: true}
+  - dataset_id: arc_challenge
+    task_family: qa
+    train_split: train
+    eval_split: test
+    prompt_fields: [qa_input]
+    raw_fields: [question, choices, answerKey]
+    field_map:
+      target: answerKey
+    transforms:
+      choices: {op: format_choices, source: choices}
+      qa_input: {op: compose_qa_input, question_source: question, choices_source: choices}
+      target: {op: choice_text, key_source: target, choices_source: choices, fallback_to_key: true}
+  - dataset_id: sciq
+    task_family: qa
+    train_split: train
+    eval_split: test
+    prompt_fields: [qa_input]
+    raw_fields: [question, support, correct_answer]
+    field_map:
+      context: support
+      target: correct_answer
+    transforms:
+      qa_input: {op: compose_qa_input, question_source: question, context_source: context}
+
+  - dataset_id: wmt14_en_fr
+    task_family: translation
+    train_split: train
+    eval_split: validation
+    prompt_fields: [source_text]
+    raw_fields: [translation]
+    field_map: {source_text: translation.en, target: translation.fr}
+  - dataset_id: wmt14_en_de
+    task_family: translation
+    train_split: train
+    eval_split: validation
+    prompt_fields: [source_text]
+    raw_fields: [translation]
+    field_map: {source_text: translation.en, target: translation.de}
+  - dataset_id: opus_en_de
+    task_family: translation
+    train_split: train
+    eval_split: validation
+    prompt_fields: [source_text]
+    raw_fields: [translation]
+    field_map: {source_text: translation.en, target: translation.de}
+  - dataset_id: opus_en_fr
+    task_family: translation
+    train_split: train
+    eval_split: validation
+    prompt_fields: [source_text]
+    raw_fields: [translation]
+    field_map: {source_text: translation.en, target: translation.fr}
+  - dataset_id: opus_en_es
+    task_family: translation
+    train_split: train
+    eval_split: validation
+    prompt_fields: [source_text]
+    raw_fields: [translation]
+    field_map: {source_text: translation.en, target: translation.es}
+  - dataset_id: opus_en_it
+    task_family: translation
+    train_split: train
+    eval_split: validation
+    prompt_fields: [source_text]
+    raw_fields: [translation]
+    field_map: {source_text: translation.en, target: translation.it}
+  - dataset_id: opus_en_ru
+    task_family: translation
+    train_split: train
+    eval_split: validation
+    prompt_fields: [source_text]
+    raw_fields: [translation]
+    field_map: {source_text: translation.en, target: translation.ru}
+  - dataset_id: opus_en_zh
+    task_family: translation
+    train_split: train
+    eval_split: validation
+    prompt_fields: [source_text]
+    raw_fields: [translation]
+    field_map: {source_text: translation.en, target: translation.zh}
+  - dataset_id: opus_en_ja
+    task_family: translation
+    train_split: train
+    eval_split: validation
+    prompt_fields: [source_text]
+    raw_fields: [translation]
+    field_map: {source_text: translation.en, target: translation.ja}

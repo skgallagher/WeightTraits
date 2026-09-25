@@ -1,0 +1,8 @@
+# Matched no-translation Flan-T5 full-fine-tuning cohort. The optimization and
+# rendering protocol is inherited from the ordinary Flan-T5 rebuild so the
+# only designed difference is the assigned task/data sequence.
+extends: ../confirm_paper_numbers/flan_t5_full_finetune_legacy_seq2seq_2000.yaml
+
+training:
+  model_family: flan_t5_full_finetune_no_translation_legacy_seq2seq_2000
+  output_root: outputs/translation_holdout_20260803/flan_t5_full_finetune_legacy_seq2seq_2000

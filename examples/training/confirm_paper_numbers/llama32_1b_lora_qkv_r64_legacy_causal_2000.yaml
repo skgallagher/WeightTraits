@@ -1,0 +1,19 @@
+# Rank-64 counterpart of the exact legacy Llama causal-LM QKV LoRA protocol.
+# It differs from rank 8 only in rank, alpha, model-family identity, and output
+# lineage; alpha remains the historical 2r value.
+extends: llama32_1b_full_finetune_legacy_causal_2000.yaml
+
+training:
+  protocol_id: legacy_causal_llama32_1b_lora_qkv_r64_2000_seed42_v1
+  model_family: llama32_1b_lora_qkv_r64_legacy_causal_2000
+  method: lora
+  output_root: outputs/confirm_paper_numbers/llama32_1b_lora_qkv_r64_legacy_causal_2000
+  trainer:
+    learning_rate: 0.0003
+    gradient_checkpointing: false
+  lora:
+    r: 64
+    lora_alpha: 128
+    lora_dropout: 0.05
+    target_modules: [q_proj, k_proj, v_proj]
+    merge_after_train: true

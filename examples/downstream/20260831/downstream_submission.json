@@ -1,0 +1,365 @@
+{
+  "schema": "weighttraits.downstream_submission.v1",
+  "submission_id": "weighttraits-native-downstream-20260831",
+  "stage_root": "/home/export/sgallagh/WeightTraits-downstream-20260831-native",
+  "frozen_stage": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean",
+  "code_manifest": {
+    "root": "/home/export/sgallagh/WeightTraits-downstream-20260831-native",
+    "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/DEPLOYED_CODE_SHA256_SUBMISSION_20260831_V2",
+    "sha256": "11a95522b1e046731666d4f678a39d39103961bc0b83ae9fe75cfbd4f1a433cb"
+  },
+  "intent_path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/DOWNSTREAM_SUBMIT_INTENT_20260831.json",
+  "jobs_receipt_path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/DOWNSTREAM_SUBMIT_JOBS_20260831.json",
+  "log_dir": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/slurm_logs/downstream_20260831",
+  "jobs": [
+    {
+      "kind": "direct_runset_cpu",
+      "name": "wt-ds-20260831-direct-flan-full",
+      "config": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/examples/downstream/20260831/jobs/direct_flan_full.json",
+        "sha256": "ca6a727d85295f58a91c899b7c39db980024116e3ebc6191190c5398a35be7a2"
+      },
+      "wrapper": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/scripts/slurm/downstream_direct_runset_cpu.sbatch",
+        "sha256": "ebb7727fa7f82770c8a0193bfb01adf7be5fdce93f75b227b26da7467d12fee8"
+      },
+      "output_dir": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/direct/flan_full",
+      "input_pins": [
+        {
+          "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/flan_t5_full_finetune_legacy_seq2seq_2000_training_run_list_summary.json",
+          "sha256": "2301eaac23551aa9b9489105d0f0f0b3f95611119d8573ecf1ad6da536244f47"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/FLAN_FULL_COMPLETION_BINDING.json",
+          "sha256": "648e86ed54a147ce61d4eb67e364f9d992ad8b67fb3d763e62a3e88288933fbf"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/.stage_provenance/STAGE_SHA256SUMS",
+          "sha256": "642912687e67d0a48162a8d5cc0a95164ad92350ea629cd396fcfdd7917cd5d1"
+        }
+      ]
+    },
+    {
+      "kind": "direct_runset_cpu",
+      "name": "wt-ds-20260831-direct-flan-notrans",
+      "config": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/examples/downstream/20260831/jobs/direct_flan_notrans.json",
+        "sha256": "f6d30e985fe227922e789bc5eb147a427ede1b7df4456241b45781a3be85d7a3"
+      },
+      "wrapper": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/scripts/slurm/downstream_direct_runset_cpu.sbatch",
+        "sha256": "ebb7727fa7f82770c8a0193bfb01adf7be5fdce93f75b227b26da7467d12fee8"
+      },
+      "output_dir": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/direct/flan_notrans",
+      "input_pins": [
+        {
+          "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/translation_holdout_20260803/matched_legacy_seq2seq_2000_training_run_list_summary.json",
+          "sha256": "f6d58e94b109bf35b8fa503d2901d96c3f8b884140dcb89b6a8349ea6d862eb9"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/FLAN_NOTRANS_COMPLETION_BINDING.json",
+          "sha256": "fc850dd7b8838bb36350a1834dfc5563df3945d2c1c037f7fef712b7a62ace38"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/.stage_provenance/STAGE_SHA256SUMS",
+          "sha256": "642912687e67d0a48162a8d5cc0a95164ad92350ea629cd396fcfdd7917cd5d1"
+        }
+      ]
+    },
+    {
+      "kind": "direct_runset_cpu",
+      "name": "wt-ds-20260831-direct-llama-r8",
+      "config": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/examples/downstream/20260831/jobs/direct_llama_r8.json",
+        "sha256": "be128ae13888fe520a06d751e22dbeb4b301f18473fbdd1c9ada570e345428d3"
+      },
+      "wrapper": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/scripts/slurm/downstream_direct_runset_cpu.sbatch",
+        "sha256": "ebb7727fa7f82770c8a0193bfb01adf7be5fdce93f75b227b26da7467d12fee8"
+      },
+      "output_dir": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/direct/llama_r8",
+      "input_pins": [
+        {
+          "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/llama32_1b_lora_qkv_r8_legacy_causal_2000_training_run_list_summary.json",
+          "sha256": "a5057868e7da98f7a682a839255f1d0ecade03cdf589a1437b8e97f4bd304825"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/LLAMA_R8_COMPLETION_BINDING.json",
+          "sha256": "bb71eac1fff67f960e24e5d6885cf4208d66fbc6a38c0ba51d6bcf0eeed3ec0d"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/.stage_provenance/STAGE_SHA256SUMS",
+          "sha256": "642912687e67d0a48162a8d5cc0a95164ad92350ea629cd396fcfdd7917cd5d1"
+        }
+      ]
+    },
+    {
+      "kind": "direct_runset_cpu",
+      "name": "wt-ds-20260831-direct-llama-r64",
+      "config": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/examples/downstream/20260831/jobs/direct_llama_r64.json",
+        "sha256": "b1c19e51860c6eb0c6323c73b85b37255ae6a5dc96922b6dc77f61dab9f3f4d5"
+      },
+      "wrapper": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/scripts/slurm/downstream_direct_runset_cpu.sbatch",
+        "sha256": "ebb7727fa7f82770c8a0193bfb01adf7be5fdce93f75b227b26da7467d12fee8"
+      },
+      "output_dir": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/direct/llama_r64",
+      "input_pins": [
+        {
+          "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/llama32_1b_lora_qkv_r64_legacy_causal_2000_training_run_list_summary.json",
+          "sha256": "5c85ff4d84b06cc67fe0bb2e68d7f9fa9d1d0822b6ecaae2711a53b4870168d4"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/LLAMA_R64_COMPLETION_BINDING.json",
+          "sha256": "a815458f5d5850340409e708b3c2a949867a9d22db6c5602c9cc912c1ff7c4c9"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/.stage_provenance/STAGE_SHA256SUMS",
+          "sha256": "642912687e67d0a48162a8d5cc0a95164ad92350ea629cd396fcfdd7917cd5d1"
+        }
+      ]
+    },
+    {
+      "kind": "behavior_smoke",
+      "name": "wt-ds-20260831-behavior-llama-full",
+      "config": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/examples/downstream/20260831/jobs/behavior_llama_full_smoke.json",
+        "sha256": "28ab83c14b52c9b5dd6a746f8fe7d03a881eb6871c3ccc045fa469dd7af01c31"
+      },
+      "wrapper": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/scripts/slurm/downstream_behavior_smoke.sbatch",
+        "sha256": "6ceec24cd1851453aecad79aff6548a12be4bf14f85514941494bae0e4a88400"
+      },
+      "output_dir": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/behavior_smoke/llama_full",
+      "input_pins": [
+        {
+          "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/examples/behavior/corrected_behavior_protocols_v1.json",
+          "sha256": "c13b025802b7fae7b5c1770626865e2bab7d45e5783137b85fd041e2b4689bab"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/llama32_1b_full_finetune_legacy_causal_2000_training_run_list_summary.json",
+          "sha256": "b8b9e9d06abcc1f69e9083b91248eb45eaa2481daadea957e61fa406d507acb0"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/LLAMA_FULL_COMPLETION_BINDING.json",
+          "sha256": "31628eca9fcc693f0aade432fc5774b0b3e7bb3ab7fb249b80c0e8eef998d5ba"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/prompts/causal_lm/dolly_open_ended_30x3_sampled.causal_lm.prompts.jsonl",
+          "sha256": "081c850c0f636c03ee2e1c512e7cbb2c8d1dd0871a51f46c388cbfbb091096e3"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/prompts/causal_lm/legacy_translation_200x1_greedy.causal_lm.prompts.jsonl",
+          "sha256": "b752ed42f75d7470bd13333a52e7e48c7caf184d7f001ed51881c6bca2244520"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/prompts/causal_lm/modern_mc_100x3_sampled.causal_lm.prompts.jsonl",
+          "sha256": "7d89a05453cd885950d7168dace7e95b6c4005f94d632a10da5262bd830408d2"
+        }
+      ]
+    },
+    {
+      "kind": "behavior_smoke",
+      "name": "wt-ds-20260831-behavior-llama-notrans",
+      "config": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/examples/downstream/20260831/jobs/behavior_llama_notrans_smoke.json",
+        "sha256": "b2ad18d6f29f9fea4655396e679926fb0cff0349a1d6b3aef717d34b41135e1c"
+      },
+      "wrapper": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/scripts/slurm/downstream_behavior_smoke.sbatch",
+        "sha256": "6ceec24cd1851453aecad79aff6548a12be4bf14f85514941494bae0e4a88400"
+      },
+      "output_dir": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/behavior_smoke/llama_notrans",
+      "input_pins": [
+        {
+          "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/examples/behavior/corrected_behavior_protocols_v1.json",
+          "sha256": "c13b025802b7fae7b5c1770626865e2bab7d45e5783137b85fd041e2b4689bab"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/translation_holdout_20260803/matched_legacy_causal_2000_training_run_list_summary.json",
+          "sha256": "494cdf2726b38e41811eadc35a50d366b417718269cd77602dd7570e9b8d13ff"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/LLAMA_NOTRANS_COMPLETION_BINDING.json",
+          "sha256": "51449fc0e62d1681b0a3073401efc555178def762ef848609e8bd4ebd7ef5e59"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/prompts/causal_lm/legacy_translation_200x1_greedy.causal_lm.prompts.jsonl",
+          "sha256": "b752ed42f75d7470bd13333a52e7e48c7caf184d7f001ed51881c6bca2244520"
+        }
+      ]
+    },
+    {
+      "kind": "behavior_smoke",
+      "name": "wt-ds-20260831-behavior-flan-full",
+      "config": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/examples/downstream/20260831/jobs/behavior_flan_full_smoke.json",
+        "sha256": "d95e1109045b1fee8884425b7aad546720d1a34b7ad716acd4b492f7c341e47b"
+      },
+      "wrapper": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/scripts/slurm/downstream_behavior_smoke.sbatch",
+        "sha256": "6ceec24cd1851453aecad79aff6548a12be4bf14f85514941494bae0e4a88400"
+      },
+      "output_dir": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/behavior_smoke/flan_full",
+      "input_pins": [
+        {
+          "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/examples/behavior/corrected_behavior_protocols_v1.json",
+          "sha256": "c13b025802b7fae7b5c1770626865e2bab7d45e5783137b85fd041e2b4689bab"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/flan_t5_full_finetune_legacy_seq2seq_2000_training_run_list_summary.json",
+          "sha256": "2301eaac23551aa9b9489105d0f0f0b3f95611119d8573ecf1ad6da536244f47"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/FLAN_FULL_COMPLETION_BINDING.json",
+          "sha256": "648e86ed54a147ce61d4eb67e364f9d992ad8b67fb3d763e62a3e88288933fbf"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/prompts/seq2seq/legacy_translation_200x1_greedy.seq2seq.prompts.jsonl",
+          "sha256": "8e611e4e1ede859d47b7a61baf6fc563576b7de5bf1e231efc37c66d164957fe"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/prompts/seq2seq/modern_mc_100x3_sampled.seq2seq.prompts.jsonl",
+          "sha256": "493a7353f8beb700257e32910e277b2d12ce8931f69db008ec7c7a97197ec05f"
+        }
+      ]
+    },
+    {
+      "kind": "behavior_smoke",
+      "name": "wt-ds-20260831-behavior-flan-notrans",
+      "config": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/examples/downstream/20260831/jobs/behavior_flan_notrans_smoke.json",
+        "sha256": "0e033a00a10f7b99eeeca1aa292c786a21d3f4178b2eeba167147f996806734b"
+      },
+      "wrapper": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/scripts/slurm/downstream_behavior_smoke.sbatch",
+        "sha256": "6ceec24cd1851453aecad79aff6548a12be4bf14f85514941494bae0e4a88400"
+      },
+      "output_dir": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/behavior_smoke/flan_notrans",
+      "input_pins": [
+        {
+          "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/examples/behavior/corrected_behavior_protocols_v1.json",
+          "sha256": "c13b025802b7fae7b5c1770626865e2bab7d45e5783137b85fd041e2b4689bab"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/translation_holdout_20260803/matched_legacy_seq2seq_2000_training_run_list_summary.json",
+          "sha256": "f6d58e94b109bf35b8fa503d2901d96c3f8b884140dcb89b6a8349ea6d862eb9"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/FLAN_NOTRANS_COMPLETION_BINDING.json",
+          "sha256": "fc850dd7b8838bb36350a1834dfc5563df3945d2c1c037f7fef712b7a62ace38"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/prompts/seq2seq/legacy_translation_200x1_greedy.seq2seq.prompts.jsonl",
+          "sha256": "8e611e4e1ede859d47b7a61baf6fc563576b7de5bf1e231efc37c66d164957fe"
+        }
+      ]
+    },
+    {
+      "kind": "phylolm_smoke",
+      "name": "wt-ds-20260831-phylolm-llama-r8",
+      "config": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/examples/downstream/20260831/jobs/phylolm_llama_r8_smoke.json",
+        "sha256": "16ee62e1c2be52d16532695ad4dae845fe706c05155773e59297a7f225b413c6"
+      },
+      "wrapper": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/scripts/slurm/downstream_phylolm_smoke.sbatch",
+        "sha256": "2c5b024c50bb961c7458a94d3b357803605e7c5ebb38fc247a08bda87c6bba6f"
+      },
+      "output_dir": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/phylolm_smoke/llama_r8",
+      "input_pins": [
+        {
+          "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/llama32_1b_lora_qkv_r8_legacy_causal_2000_training_run_list_summary.json",
+          "sha256": "a5057868e7da98f7a682a839255f1d0ecade03cdf589a1437b8e97f4bd304825"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/LLAMA_R8_COMPLETION_BINDING.json",
+          "sha256": "bb71eac1fff67f960e24e5d6885cf4208d66fbc6a38c0ba51d6bcf0eeed3ec0d"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/.stage_provenance/STAGE_SHA256SUMS",
+          "sha256": "642912687e67d0a48162a8d5cc0a95164ad92350ea629cd396fcfdd7917cd5d1"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/PHYLOLM_GENOME.json",
+          "sha256": "6b0e60455c56d9e7803a0cdc0426bbed350376fd2113525668341360ffdc0e1b"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_001.manifest.jsonl",
+          "sha256": "49a8e44fc0756a613b5b3107c8f929ab5188e5934b968a1c8407d86448e319c7"
+        }
+      ]
+    },
+    {
+      "kind": "phylolm_smoke",
+      "name": "wt-ds-20260831-phylolm-llama-r64",
+      "config": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/examples/downstream/20260831/jobs/phylolm_llama_r64_smoke.json",
+        "sha256": "4e702ff539d61be63f15e5df943e518d6baf1753b3d7a3d181667fd6c6f60868"
+      },
+      "wrapper": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/scripts/slurm/downstream_phylolm_smoke.sbatch",
+        "sha256": "2c5b024c50bb961c7458a94d3b357803605e7c5ebb38fc247a08bda87c6bba6f"
+      },
+      "output_dir": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/phylolm_smoke/llama_r64",
+      "input_pins": [
+        {
+          "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/llama32_1b_lora_qkv_r64_legacy_causal_2000_training_run_list_summary.json",
+          "sha256": "5c85ff4d84b06cc67fe0bb2e68d7f9fa9d1d0822b6ecaae2711a53b4870168d4"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/LLAMA_R64_COMPLETION_BINDING.json",
+          "sha256": "a815458f5d5850340409e708b3c2a949867a9d22db6c5602c9cc912c1ff7c4c9"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/.stage_provenance/STAGE_SHA256SUMS",
+          "sha256": "642912687e67d0a48162a8d5cc0a95164ad92350ea629cd396fcfdd7917cd5d1"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/PHYLOLM_GENOME.json",
+          "sha256": "6b0e60455c56d9e7803a0cdc0426bbed350376fd2113525668341360ffdc0e1b"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_001.manifest.jsonl",
+          "sha256": "49a8e44fc0756a613b5b3107c8f929ab5188e5934b968a1c8407d86448e319c7"
+        }
+      ]
+    },
+    {
+      "kind": "phylolm_smoke",
+      "name": "wt-ds-20260831-phylolm-llama-full",
+      "config": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/examples/downstream/20260831/jobs/phylolm_llama_full_smoke.json",
+        "sha256": "70b7abd6c4a3c9ff0bb46df25e8e2a834abd035729b9999f86df09e22776970c"
+      },
+      "wrapper": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/scripts/slurm/downstream_phylolm_smoke.sbatch",
+        "sha256": "2c5b024c50bb961c7458a94d3b357803605e7c5ebb38fc247a08bda87c6bba6f"
+      },
+      "output_dir": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/phylolm_smoke/llama_full",
+      "input_pins": [
+        {
+          "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/llama32_1b_full_finetune_legacy_causal_2000_training_run_list_summary.json",
+          "sha256": "b8b9e9d06abcc1f69e9083b91248eb45eaa2481daadea957e61fa406d507acb0"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/LLAMA_FULL_COMPLETION_BINDING.json",
+          "sha256": "31628eca9fcc693f0aade432fc5774b0b3e7bb3ab7fb249b80c0e8eef998d5ba"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/.stage_provenance/STAGE_SHA256SUMS",
+          "sha256": "642912687e67d0a48162a8d5cc0a95164ad92350ea629cd396fcfdd7917cd5d1"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/PHYLOLM_GENOME.json",
+          "sha256": "6b0e60455c56d9e7803a0cdc0426bbed350376fd2113525668341360ffdc0e1b"
+        },
+        {
+          "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_001.manifest.jsonl",
+          "sha256": "49a8e44fc0756a613b5b3107c8f929ab5188e5934b968a1c8407d86448e319c7"
+        }
+      ]
+    }
+  ]
+}

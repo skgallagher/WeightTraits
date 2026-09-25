@@ -1,0 +1,88 @@
+{
+  "schema": "weighttraits.downstream_submission.v1",
+  "submission_id": "weighttraits-final-paper-direct-20260908",
+  "stage_root": "/home/export/sgallagh/WeightTraits-downstream-20260831-native",
+  "frozen_stage": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean",
+  "code_manifest": {
+    "root": "/home/export/sgallagh/WeightTraits-downstream-20260831-native",
+    "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/DEPLOYED_CODE_SHA256_SUBMISSION_20260831_V2",
+    "sha256": "11a95522b1e046731666d4f678a39d39103961bc0b83ae9fe75cfbd4f1a433cb"
+  },
+  "intent_path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/FINAL_PAPER_DIRECT_SUBMIT_INTENT_20260908.json",
+  "jobs_receipt_path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/FINAL_PAPER_DIRECT_SUBMIT_JOBS_20260908.json",
+  "log_dir": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/slurm_logs/final_paper_direct_20260908",
+  "jobs": [
+    {
+      "kind": "direct_runset_cpu",
+      "name": "wt-final-direct-flan-k",
+      "config": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/examples/downstream/20260908_direct/direct_flan_k.json",
+        "sha256": "fa5e6f2256c404f30370af2cf38717139831a59f5e4cead2bdc0db84346ba6b1"
+      },
+      "wrapper": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/scripts/slurm/downstream_direct_runset_cpu.sbatch",
+        "sha256": "ebb7727fa7f82770c8a0193bfb01adf7be5fdce93f75b227b26da7467d12fee8"
+      },
+      "output_dir": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/final_paper_20260908/direct/flan_k",
+      "input_pins": [
+        {"path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/flan_t5_lora_k_r8_legacy_seq2seq_2000_training_run_list_summary.json", "sha256": "64e6db829e722acb4c8e327040844944305d75712a2ccbb5fce789d92f21b531"},
+        {"path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/final_paper_20260908/completion/flan_t5_lora_k_r8_legacy_seq2seq_2000.binding.json", "sha256": "d8dc353278f86833a3cc7dba1ad23c210452bd81d90a0fabc5e3cdcd5654d399"},
+        {"path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/.stage_provenance/STAGE_SHA256SUMS", "sha256": "642912687e67d0a48162a8d5cc0a95164ad92350ea629cd396fcfdd7917cd5d1"}
+      ]
+    },
+    {
+      "kind": "direct_runset_cpu",
+      "name": "wt-final-direct-flan-qkv",
+      "config": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/examples/downstream/20260908_direct/direct_flan_qkv.json",
+        "sha256": "1d2dbf6eb26aa12d89820c29134d2ad753345b9ec662e693e55d5aabcfb5aabd"
+      },
+      "wrapper": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/scripts/slurm/downstream_direct_runset_cpu.sbatch",
+        "sha256": "ebb7727fa7f82770c8a0193bfb01adf7be5fdce93f75b227b26da7467d12fee8"
+      },
+      "output_dir": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/final_paper_20260908/direct/flan_qkv",
+      "input_pins": [
+        {"path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/flan_t5_lora_qkv_r8_legacy_seq2seq_2000_training_run_list_summary.json", "sha256": "315124d67c675f541f252c40c53eb6e3f18faea6db5e163e650bb2a2395dc7a6"},
+        {"path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/final_paper_20260908/completion/flan_t5_lora_qkv_r8_legacy_seq2seq_2000.binding.json", "sha256": "90beab82653c3d2309687099783ec818c50b077738099945188fe5424c23c863"},
+        {"path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/.stage_provenance/STAGE_SHA256SUMS", "sha256": "642912687e67d0a48162a8d5cc0a95164ad92350ea629cd396fcfdd7917cd5d1"}
+      ]
+    },
+    {
+      "kind": "direct_runset_cpu",
+      "name": "wt-final-direct-flan-qkvo",
+      "config": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/examples/downstream/20260908_direct/direct_flan_qkvo.json",
+        "sha256": "0c5b2aa7679e5cdd50aaed648af122f3fdd6e5f7b6923e0731788835d910f18a"
+      },
+      "wrapper": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/scripts/slurm/downstream_direct_runset_cpu.sbatch",
+        "sha256": "ebb7727fa7f82770c8a0193bfb01adf7be5fdce93f75b227b26da7467d12fee8"
+      },
+      "output_dir": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/final_paper_20260908/direct/flan_qkvo",
+      "input_pins": [
+        {"path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/flan_t5_lora_qkvo_r8_legacy_seq2seq_2000_training_run_list_summary.json", "sha256": "3f9c84e468d7b2b96ff004aafa76b7d6444710c914592200e598896514c1a4e6"},
+        {"path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/final_paper_20260908/completion/flan_t5_lora_qkvo_r8_legacy_seq2seq_2000.binding.json", "sha256": "e9747b9e6f5ec2ad8ae8a5193da8c41e7908c800158bd39deda481fcb9b627f2"},
+        {"path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/.stage_provenance/STAGE_SHA256SUMS", "sha256": "642912687e67d0a48162a8d5cc0a95164ad92350ea629cd396fcfdd7917cd5d1"}
+      ]
+    },
+    {
+      "kind": "direct_runset_cpu",
+      "name": "wt-final-direct-flan-legacyall",
+      "config": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/examples/downstream/20260908_direct/direct_flan_legacyall.json",
+        "sha256": "2c7f8a66dccc323aece072f7002b5a806831d7979b2e3e078ad76e34ea5b7fe5"
+      },
+      "wrapper": {
+        "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/scripts/slurm/downstream_direct_runset_cpu.sbatch",
+        "sha256": "ebb7727fa7f82770c8a0193bfb01adf7be5fdce93f75b227b26da7467d12fee8"
+      },
+      "output_dir": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/final_paper_20260908/direct/flan_legacyall",
+      "input_pins": [
+        {"path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/flan_t5_lora_full_ft_approx_actual_r8_legacy_seq2seq_2000_training_run_list_summary.json", "sha256": "e3463cd52b82cb71f76193e4f38009002563bed2f89db3ce1668787f9637a8c1"},
+        {"path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/final_paper_20260908/completion/flan_t5_lora_full_ft_approx_actual_r8_legacy_seq2seq_2000.binding.json", "sha256": "614c1c1892e8d2109bcbe7601f533f5234e9871b212b091e7f43489dc407a5b0"},
+        {"path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/.stage_provenance/STAGE_SHA256SUMS", "sha256": "642912687e67d0a48162a8d5cc0a95164ad92350ea629cd396fcfdd7917cd5d1"}
+      ]
+    }
+  ]
+}

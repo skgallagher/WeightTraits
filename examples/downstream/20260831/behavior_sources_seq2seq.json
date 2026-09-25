@@ -1,0 +1,63 @@
+{
+  "schema": "weighttraits.behavior.prompt_source_audit_input.v1",
+  "model_task": "seq2seq",
+  "registry": {
+    "path": "../../behavior/corrected_behavior_protocols_v1.json",
+    "sha256": "c13b025802b7fae7b5c1770626865e2bab7d45e5783137b85fd041e2b4689bab"
+  },
+  "protocols": {
+    "legacy_translation_200x1_greedy": {
+      "probes": {
+        "translation": {
+          "source_artifacts": [
+            {
+              "path": "/home/export/sgallagh/.cache/huggingface/datasets/wmt___wmt14/fr-en/0.0.0/b199e406369ec1b7634206d3ded5ba45de2fe696/wmt14-test.arrow",
+              "sha256": "1ee46d425360526fef947191c11eff5bc3a9407e97144e324656b2ccaa3c3d4a",
+              "format": "arrow"
+            }
+          ]
+        }
+      }
+    },
+    "modern_mc_100x3_sampled": {
+      "probes": {
+        "hellaswag": {
+          "source_artifacts": [
+            {
+              "path": "/home/export/sgallagh/.cache/huggingface/datasets/Rowan___hellaswag/default/0.0.0/218ec52e09a7e7462a5400043bb9a69a41d06b76/hellaswag-validation.arrow",
+              "sha256": "fdd100245fae28e387869527dd0b8af1a0a931f7cf364abaf6f3138de7f0d27b",
+              "format": "arrow"
+            }
+          ]
+        },
+        "arc_challenge": {
+          "source_artifacts": [
+            {
+              "path": "/home/export/sgallagh/.cache/huggingface/datasets/allenai___ai2_arc/ARC-Challenge/0.0.0/210d026faf9955653af8916fad021475a3f00453/ai2_arc-test.arrow",
+              "sha256": "e56914301ff03032cabc30b284e0e8d612cc56bac7b6a5ab4e7f35b31d6c3e32",
+              "format": "arrow"
+            }
+          ]
+        },
+        "mmlu": {
+          "source_artifacts": [
+            {
+              "path": "/home/export/sgallagh/.cache/huggingface/datasets/cais___mmlu/all/0.0.0/c30699e8356da336a370243923dbaf21066bb9fe/mmlu-test.arrow",
+              "sha256": "58769d67ced092719390e496f1d4bbf8b99c43b77bba39d054b9a09aecb63cab",
+              "format": "arrow"
+            }
+          ]
+        },
+        "truthfulqa": {
+          "source_artifacts": [
+            {
+              "path": "/home/export/sgallagh/.cache/huggingface/datasets/truthful_qa/generation/0.0.0/741b8276f2d1982aa3d5b832d3ee81ed3b896490/truthful_qa-validation.arrow",
+              "sha256": "022e52cd63e049fea016581f863421614553218edb6cd61f69ada9673d04626e",
+              "format": "arrow"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

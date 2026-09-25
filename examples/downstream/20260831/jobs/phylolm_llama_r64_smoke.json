@@ -1,0 +1,33 @@
+{
+  "schema": "weighttraits.downstream_job.phylolm_smoke.v1",
+  "kind": "phylolm_smoke",
+  "stage_root": "/home/export/sgallagh/WeightTraits-downstream-20260831-native",
+  "output_dir": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/phylolm_smoke/llama_r64",
+  "cohort_id": "llama32_1b_lora_qkv_r64_legacy_causal_2000",
+  "tree_id": "confirm_paper_tree_001",
+  "training_summary": {
+    "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/llama32_1b_lora_qkv_r64_legacy_causal_2000_training_run_list_summary.json",
+    "sha256": "5c85ff4d84b06cc67fe0bb2e68d7f9fa9d1d0822b6ecaae2711a53b4870168d4"
+  },
+  "completion_receipt": {
+    "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/LLAMA_R64_COMPLETION_BINDING.json",
+    "sha256": "a815458f5d5850340409e708b3c2a949867a9d22db6c5602c9cc912c1ff7c4c9"
+  },
+  "stage_manifest": {
+    "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/.stage_provenance/STAGE_SHA256SUMS",
+    "sha256": "642912687e67d0a48162a8d5cc0a95164ad92350ea629cd396fcfdd7917cd5d1"
+  },
+  "genome_receipt": {
+    "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/PHYLOLM_GENOME.json",
+    "sha256": "6b0e60455c56d9e7803a0cdc0426bbed350376fd2113525668341360ffdc0e1b"
+  },
+  "truth_manifest": {
+    "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_001.manifest.jsonl",
+    "sha256": "49a8e44fc0756a613b5b3107c8f929ab5188e5934b968a1c8407d86448e319c7"
+  },
+  "base_model_id": "meta-llama/Llama-3.2-1B",
+  "base_model_revision": "4e20de362430cd3b72f300e6b0f18e50e7166e08",
+  "path_base": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean",
+  "batch_size": 64,
+  "torch_dtype": "auto"
+}

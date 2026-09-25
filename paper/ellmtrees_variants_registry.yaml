@@ -71,3 +71,10 @@ variants:
     label: "Full fine-tuning"
     recovery_group: runs_llama1b_base_full_ft
     branch_source: ../ELLMTrees/results/aggregate/llama1b_base_full_ft_branch_structure.csv
+
+  - id: llama1b_full_ft_translation_held_out
+    section: "Decoder-only: Llama-3.2-1B"
+    model: Llama-3.2-1B
+    label: "Full fine-tuning, translation held out"
+    recovery_group: runs_llama1b_base_full_ft_notrans
+    branch_source: ../ELLMTrees/results/aggregate/llama1b_base_full_ft_notrans_branch_structure.csv

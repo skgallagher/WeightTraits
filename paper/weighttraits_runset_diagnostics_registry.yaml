@@ -11,39 +11,63 @@ conditions:
   - id: flan_lora_qv
     label: "LoRA q/v"
     section: "Encoder--decoder: Flan-T5-base"
-    summary: outputs/analysis_v20260713/lora_finetune_summary.json
-    artifact: adapter_chain
-    representation: lora_cumulative_delta
+    summary: outputs/analysis_flan_merged_weights_20260804/aggregate/lora_finetune_rollup.json
+    artifact: merged
+    representation: full_weight
     expected_trees: 50
 
   - id: flan_lora_k_only
     label: "LoRA k-only"
     section: "Encoder--decoder: Flan-T5-base"
-    summary: outputs/analysis_v20260713/lora_k_only_summary.json
-    artifact: adapter_chain
-    representation: lora_cumulative_delta
+    summary: outputs/analysis_flan_merged_weights_20260804/aggregate/lora_k_only_rollup.json
+    artifact: merged
+    representation: full_weight
     expected_trees: 50
 
   - id: flan_lora_qkv
     label: "LoRA q/k/v"
     section: "Encoder--decoder: Flan-T5-base"
-    summary: outputs/analysis_v20260713/lora_qkv_summary.json
-    artifact: adapter_chain
-    representation: lora_cumulative_delta
+    summary: outputs/analysis_flan_merged_weights_20260804/aggregate/lora_qkv_rollup.json
+    artifact: merged
+    representation: full_weight
     expected_trees: 50
 
   - id: flan_lora_full_attn
     label: "LoRA full attention"
     section: "Encoder--decoder: Flan-T5-base"
-    summary: outputs/analysis_v20260713/lora_full_attn_summary.json
-    artifact: adapter_chain
-    representation: lora_cumulative_delta
+    summary: outputs/analysis_flan_merged_weights_20260804/aggregate/lora_full_attn_rollup.json
+    artifact: merged
+    representation: full_weight
     expected_trees: 50
 
   - id: flan_full_finetune
     label: "Full fine-tuning"
     section: "Encoder--decoder: Flan-T5-base"
     summary: outputs/analysis_v20260713/full_finetune_summary.json
+    artifact: model
+    representation: full_weight
+    expected_trees: 50
+
+  - id: llama_lora_qkv_r8
+    label: "LoRA q/k/v (r=8)"
+    section: "Decoder-only: Llama-3.2-1B"
+    summary: outputs/analysis_llama32_merged_weights_20260804/aggregate/llama32_1b_lora_qkv_r8_rollup.json
+    artifact: merged
+    representation: full_weight
+    expected_trees: 50
+
+  - id: llama_lora_qkv_r64
+    label: "LoRA q/k/v (r=64)"
+    section: "Decoder-only: Llama-3.2-1B"
+    summary: outputs/analysis_llama32_merged_weights_20260804/aggregate/llama32_1b_lora_qkv_r64_rollup.json
+    artifact: merged
+    representation: full_weight
+    expected_trees: 50
+
+  - id: llama_full_finetune
+    label: "Full fine-tuning"
+    section: "Decoder-only: Llama-3.2-1B"
+    summary: outputs/analysis_llama32_full_ft_20260722/production_rollup.json
     artifact: model
     representation: full_weight
     expected_trees: 50

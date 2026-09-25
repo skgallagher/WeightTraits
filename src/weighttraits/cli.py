@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from typing import Mapping, Sequence
@@ -69,7 +70,11 @@ from weighttraits.phylo.audit import audit_manifest_topology
 from weighttraits.phylo.reconstruct import reconstruct_tree_from_cube
 from weighttraits.phylo.recovery import aggregate_recovery, score_split_recovery
 from weighttraits.phylo.splits import splits_from_manifest_path, splits_from_newick_text
-from weighttraits.taskdata.assignment import assign_task_data, load_manifest_rows, write_manifest_rows
+from weighttraits.taskdata.assignment import (
+    assign_task_data,
+    load_manifest_rows,
+    write_manifest_rows,
+)
 from weighttraits.trees.generate import (
     generate_tree_from_config,
     generate_tree_set,
@@ -82,6 +87,7 @@ from weighttraits.training.data_formats import (
     write_data_format_report,
 )
 from weighttraits.training.datasets import (
+    DatasetCacheRecipe,
     audit_dataset_registry,
     audit_training_sample_rendering,
     cache_training_datasets,
@@ -158,8 +164,12 @@ def _generate_tree_set(args: argparse.Namespace) -> int:
         if args.seed_start is not None
         else int(set_config.get("seed_start", tree_config.get("seed", 0)))
     )
-    min_leaves = _optional_int(args.min_leaves, set_config.get("min_leaves"), tree_config.get("min_leaves"))
-    min_depth = _optional_int(args.min_depth, set_config.get("min_depth"), tree_config.get("min_depth"))
+    min_leaves = _optional_int(
+        args.min_leaves, set_config.get("min_leaves"), tree_config.get("min_leaves")
+    )
+    min_depth = _optional_int(
+        args.min_depth, set_config.get("min_depth"), tree_config.get("min_depth")
+    )
     max_candidates = int(set_config.get("max_candidates", args.max_candidates))
     tree_id_prefix = str(set_config.get("tree_id_prefix", "tree"))
     manifest_suffix = str(set_config.get("manifest_suffix", ".manifest.jsonl"))
@@ -204,7 +214,12 @@ def _generate_tree_set(args: argparse.Namespace) -> int:
     }
     summary_out = args.summary_out or args.out_dir / "tree_set_summary.json"
     _emit_json(summary, summary_out)
-    print(json.dumps({key: summary[key] for key in ("out_dir", "n_trees", "leaf_counts", "depth_counts")}, indent=2))
+    print(
+        json.dumps(
+            {key: summary[key] for key in ("out_dir", "n_trees", "leaf_counts", "depth_counts")},
+            indent=2,
+        )
+    )
     return 0
 
 
@@ -252,7 +267,9 @@ def _assign_task_data_set(args: argparse.Namespace) -> int:
             row["tree_id"] = tree_id
         out_path = args.out_dir / f"{tree_id}.manifest.jsonl"
         write_manifest_rows(assigned, out_path)
-        dataset_ids = [str(row["dataset_id"]) for row in assigned if row.get("grow", "train") == "train"]
+        dataset_ids = [
+            str(row["dataset_id"]) for row in assigned if row.get("grow", "train") == "train"
+        ]
         assignments.append(
             {
                 "tree_id": tree_id,
@@ -262,7 +279,9 @@ def _assign_task_data_set(args: argparse.Namespace) -> int:
                 "n_rows": len(assigned),
                 "n_datasets": len(dataset_ids),
                 "n_unique_datasets": len(set(dataset_ids)),
-                "task_families": _count_values(row["task_family"] for row in assigned if "task_family" in row),
+                "task_families": _count_values(
+                    row["task_family"] for row in assigned if "task_family" in row
+                ),
             }
         )
     summary = {
@@ -529,7 +548,9 @@ def _build_distance_cube(args: argparse.Namespace) -> int:
             edge_readers.append(reader)
         readers.append(CumulativeLoraReader(edge_readers, model_id=label or paths[-1].stem))
     if not readers:
-        raise ValueError("at least one --checkpoint-manifest, --checkpoint, or --adapter-chain is required")
+        raise ValueError(
+            "at least one --checkpoint-manifest, --checkpoint, or --adapter-chain is required"
+        )
     cube = build_distance_cube(
         readers,
         metrics=args.metric,
@@ -817,7 +838,9 @@ def _audit_training_sample_set(args: argparse.Namespace) -> int:
         available_ids = {job.dataset_id for job in jobs if job.dataset_id is not None}
         missing_ids = sorted(set(args.dataset_id) - available_ids)
         if missing_ids:
-            raise ValueError(f"dataset ids not found in assignment summary: {', '.join(missing_ids)}")
+            raise ValueError(
+                f"dataset ids not found in assignment summary: {', '.join(missing_ids)}"
+            )
     selected_jobs = select_training_sample_jobs(
         jobs,
         dataset_ids=args.dataset_id,
@@ -857,6 +880,8 @@ def _audit_training_sample_set(args: argparse.Namespace) -> int:
 
 
 def _cache_training_dataset_set(args: argparse.Namespace) -> int:
+    if args.streaming and args.sample_strategy == "legacy_subsample":
+        raise ValueError("--sample-strategy legacy_subsample is incompatible with --streaming")
     registry = load_dataset_registry(args.registry)
     specs = load_dataset_format_specs(args.formats)
     report = cache_training_datasets(
@@ -926,7 +951,10 @@ def _make_training_run_list(args: argparse.Namespace) -> int:
     summary = report.to_dict()
     summary["manifest"] = str(args.manifest)
     summary["config"] = str(args.config)
+    summary["config_sha256"] = _path_sha256(args.config)
+    summary["manifest_sha256"] = _path_sha256(args.manifest)
     summary["out"] = str(args.out)
+    summary["run_list_sha256"] = _path_sha256(args.out)
     summary["report"] = str(args.report) if args.report else None
     summary["slurm_out"] = str(args.slurm_out) if args.slurm_out else None
     print(json.dumps(summary, indent=2, sort_keys=True))
@@ -972,17 +1000,27 @@ def _make_training_run_list_set(args: argparse.Namespace) -> int:
             {
                 "tree_id": tree_id,
                 "manifest": str(manifest),
+                "manifest_sha256": _path_sha256(manifest),
                 "run_list": str(run_list_path),
+                "run_list_sha256": _path_sha256(run_list_path),
                 "report": str(report_path),
+                "report_sha256": _path_sha256(report_path),
                 "ledger": str(ledger_path),
                 "output_root": str(per_tree_config["output_root"]),
+                "training_config_sha256": (jobs[0].training_config_sha256 if jobs else None),
                 **report.to_dict(),
             }
         )
 
     summary = {
         "assignment_summary": str(args.assignment_summary),
+        "assignment_summary_sha256": _path_sha256(args.assignment_summary),
         "config": str(args.config),
+        "config_sha256": _path_sha256(args.config),
+        "registry": str(args.registry) if args.registry else None,
+        "registry_sha256": _path_sha256(args.registry) if args.registry else None,
+        "formats": str(args.formats) if args.formats else None,
+        "formats_sha256": _path_sha256(args.formats) if args.formats else None,
         "out_dir": str(args.out_dir),
         "valid": all_valid,
         "n_trees": len(tree_reports),
@@ -1023,6 +1061,11 @@ def _audit_training_row_data(args: argparse.Namespace) -> int:
     registry_path = args.registry or _optional_path(options.get("registry_path"))
     formats_path = args.formats or _optional_path(options.get("formats_path"))
     data_cache_root = args.data_cache_root or _optional_path(options.get("data_cache_root"))
+    require_data_cache = args.require_data_cache or bool(options.get("require_data_cache"))
+    expected_cache_recipe = _resolve_expected_cache_recipe(
+        args,
+        options,
+    )
     if registry_path is None or formats_path is None:
         raise ValueError(
             "audit-training-row-data requires --registry and --formats unless the run row carries them"
@@ -1035,7 +1078,8 @@ def _audit_training_row_data(args: argparse.Namespace) -> int:
         specs,
         loader=_hf_dataset_loader(args.streaming),
         data_cache_root=data_cache_root,
-        require_data_cache=args.require_data_cache or bool(options.get("require_data_cache")),
+        require_data_cache=require_data_cache,
+        expected_cache_recipe=expected_cache_recipe,
         max_train_samples=args.max_train_samples
         if args.max_train_samples is not None
         else options.get("max_train_samples"),
@@ -1054,7 +1098,10 @@ def _audit_training_row_data(args: argparse.Namespace) -> int:
         "registry": str(registry_path),
         "formats": str(formats_path),
         "data_cache_root": str(data_cache_root) if data_cache_root is not None else None,
-        "require_data_cache": args.require_data_cache or bool(options.get("require_data_cache")),
+        "require_data_cache": require_data_cache,
+        "expected_cache_recipe": (
+            expected_cache_recipe.to_dict() if expected_cache_recipe is not None else None
+        ),
         "streaming": args.streaming,
         "data": data.summary(),
     }
@@ -1068,9 +1115,7 @@ def _run_training_row(args: argparse.Namespace) -> int:
     options = dict(run.runner.get("options", {}))
     trainer_overrides = _trainer_overrides_from_args(args)
     run = _run_with_trainer_overrides(run, trainer_overrides)
-    execution_overrides = (
-        {"trainer": trainer_overrides} if trainer_overrides else {}
-    )
+    execution_overrides = {"trainer": trainer_overrides} if trainer_overrides else {}
     if args.dry_run or options.get("dry_run"):
         print(
             json.dumps(
@@ -1086,6 +1131,11 @@ def _run_training_row(args: argparse.Namespace) -> int:
     registry_path = args.registry or _optional_path(options.get("registry_path"))
     formats_path = args.formats or _optional_path(options.get("formats_path"))
     data_cache_root = args.data_cache_root or _optional_path(options.get("data_cache_root"))
+    require_data_cache = args.require_data_cache or bool(options.get("require_data_cache"))
+    expected_cache_recipe = _resolve_expected_cache_recipe(
+        args,
+        options,
+    )
     if registry_path is None or formats_path is None:
         raise ValueError(
             "run-training-row requires --registry and --formats unless --dry-run is set"
@@ -1097,7 +1147,8 @@ def _run_training_row(args: argparse.Namespace) -> int:
         registry,
         specs,
         data_cache_root=data_cache_root,
-        require_data_cache=args.require_data_cache or bool(options.get("require_data_cache")),
+        require_data_cache=require_data_cache,
+        expected_cache_recipe=expected_cache_recipe,
         max_train_samples=args.max_train_samples
         if args.max_train_samples is not None
         else options.get("max_train_samples"),
@@ -1158,6 +1209,14 @@ def _emit_json(report: dict, out: Path | None) -> None:
 
 def _optional_path(value: object) -> Path | None:
     return None if value is None else Path(str(value))
+
+
+def _path_sha256(path: str | Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _optional_int(*values: object) -> int | None:
@@ -1244,11 +1303,18 @@ def _training_jobs_from_assignment_summary(
 def _training_runner_contract(args: argparse.Namespace) -> tuple[str, dict[str, object]]:
     if (args.registry is None) != (args.formats is None):
         raise ValueError("--registry and --formats must be provided together")
+    expected_cache_recipe = _resolve_expected_cache_recipe(
+        args,
+        {},
+    )
     runner_options = {
         "registry_path": str(args.registry) if args.registry else None,
         "formats_path": str(args.formats) if args.formats else None,
         "data_cache_root": str(args.data_cache_root) if args.data_cache_root else None,
         "require_data_cache": args.require_data_cache,
+        "expected_cache_recipe": (
+            expected_cache_recipe.to_dict() if expected_cache_recipe is not None else None
+        ),
         "max_train_samples": args.max_train_samples,
         "max_eval_samples": args.max_eval_samples,
         "allow_missing_eval": args.allow_missing_eval,
@@ -1265,6 +1331,67 @@ def _training_runner_contract(args: argparse.Namespace) -> tuple[str, dict[str, 
         else "pending_hf_peft_executor"
     )
     return runner_entrypoint, runner_options
+
+
+def _resolve_expected_cache_recipe(
+    args: argparse.Namespace,
+    options: Mapping[str, object],
+) -> DatasetCacheRecipe | None:
+    raw_options = options.get("expected_cache_recipe")
+    if raw_options is None:
+        values: dict[str, object] = {}
+    elif isinstance(raw_options, Mapping):
+        values = dict(raw_options)
+    else:
+        raise ValueError("runner expected_cache_recipe must be a mapping")
+
+    cli_fields = {
+        "sample_strategy": "expected_cache_strategy",
+        "sample_seed": "expected_cache_seed",
+        "train_limit": "expected_cache_train_limit",
+        "eval_limit": "expected_cache_eval_limit",
+    }
+    for recipe_field, arg_field in cli_fields.items():
+        value = getattr(args, arg_field, None)
+        if value is not None:
+            values[recipe_field] = value
+
+    if not values:
+        return None
+    missing = [
+        field for field in ("sample_strategy", "train_limit", "eval_limit") if field not in values
+    ]
+    if missing:
+        raise ValueError("expected cache recipe is incomplete: " + ", ".join(missing))
+    return DatasetCacheRecipe(
+        sample_strategy=str(values["sample_strategy"]),
+        sample_seed=values.get("sample_seed"),
+        train_limit=values["train_limit"],
+        eval_limit=values["eval_limit"],
+    )
+
+
+def _add_expected_cache_recipe_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--expected-cache-strategy",
+        choices=("first", "seeded_shuffle", "legacy_subsample"),
+        help="Sampling strategy required in cached split metadata",
+    )
+    parser.add_argument(
+        "--expected-cache-seed",
+        type=int,
+        help="Sampling seed required in cached split metadata",
+    )
+    parser.add_argument(
+        "--expected-cache-train-limit",
+        type=int,
+        help="Configured train split limit required in cached split metadata",
+    )
+    parser.add_argument(
+        "--expected-cache-eval-limit",
+        type=int,
+        help="Configured evaluation split limit required in cached split metadata",
+    )
 
 
 def _with_tree_output_root(training_config: dict[str, object], tree_id: str) -> dict[str, object]:
@@ -1304,7 +1431,9 @@ def build_parser() -> argparse.ArgumentParser:
     leaves.set_defaults(func=_manifest_leaves)
 
     generate = sub.add_parser("generate-tree", help="Generate a flexible topology manifest")
-    generate.add_argument("--config", type=Path, required=True, help="YAML file with a top-level tree section")
+    generate.add_argument(
+        "--config", type=Path, required=True, help="YAML file with a top-level tree section"
+    )
     generate.add_argument("--out", type=Path, help="Optional manifest JSONL output path")
     generate.set_defaults(func=_generate_tree)
 
@@ -1312,17 +1441,25 @@ def build_parser() -> argparse.ArgumentParser:
         "generate-tree-set",
         help="Generate multiple accepted topology manifests from one stochastic tree config",
     )
-    generate_set.add_argument("--config", type=Path, required=True, help="YAML file with tree/tree_set sections")
-    generate_set.add_argument("--out-dir", type=Path, required=True, help="Directory for generated manifests")
+    generate_set.add_argument(
+        "--config", type=Path, required=True, help="YAML file with tree/tree_set sections"
+    )
+    generate_set.add_argument(
+        "--out-dir", type=Path, required=True, help="Directory for generated manifests"
+    )
     generate_set.add_argument("--summary-out", type=Path, help="Optional summary JSON path")
     generate_set.add_argument("--n-trees", type=int, help="Override tree_set.n_trees")
     generate_set.add_argument("--seed-start", type=int, help="Override tree_set.seed_start")
-    generate_set.add_argument("--min-leaves", type=int, help="Override acceptance minimum leaf count")
+    generate_set.add_argument(
+        "--min-leaves", type=int, help="Override acceptance minimum leaf count"
+    )
     generate_set.add_argument("--min-depth", type=int, help="Override acceptance minimum max depth")
     generate_set.add_argument("--max-candidates", type=int, default=10_000)
     generate_set.set_defaults(func=_generate_tree_set)
 
-    assign = sub.add_parser("assign-task-data", help="Enrich a topology manifest with task/data choices")
+    assign = sub.add_parser(
+        "assign-task-data", help="Enrich a topology manifest with task/data choices"
+    )
     assign.add_argument("--manifest", type=Path, required=True, help="Topology manifest JSONL")
     assign.add_argument("--config", type=Path, required=True, help="Task/data candidate YAML")
     assign.add_argument("--out", type=Path, required=True, help="Enriched manifest JSONL")
@@ -1345,7 +1482,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     assign_set.add_argument("--tree-set", type=Path, required=True, help="tree_set_summary.json")
     assign_set.add_argument("--config", type=Path, required=True, help="Task/data candidate YAML")
-    assign_set.add_argument("--out-dir", type=Path, required=True, help="Directory for enriched manifests")
+    assign_set.add_argument(
+        "--out-dir", type=Path, required=True, help="Directory for enriched manifests"
+    )
     assign_set.add_argument("--summary-out", type=Path, help="Optional assignment summary JSON")
     assign_set.add_argument("--seed-start", type=int, default=1)
     assign_set.add_argument(
@@ -1360,7 +1499,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     assign_set.set_defaults(func=_assign_task_data_set)
 
-    audit_topology = sub.add_parser("topology-audit", help="Audit topology size, depth, leaves, and polytomies")
+    audit_topology = sub.add_parser(
+        "topology-audit", help="Audit topology size, depth, leaves, and polytomies"
+    )
     audit_topology.add_argument("--manifest", type=Path, required=True)
     audit_topology.add_argument("--out", type=Path)
     audit_topology.set_defaults(func=_topology_audit)
@@ -1373,7 +1514,9 @@ def build_parser() -> argparse.ArgumentParser:
     score.add_argument("--out", type=Path)
     score.set_defaults(func=_score_tree)
 
-    aggregate = sub.add_parser("aggregate-recovery", help="Aggregate recovery JSON/JSONL records with SEs")
+    aggregate = sub.add_parser(
+        "aggregate-recovery", help="Aggregate recovery JSON/JSONL records with SEs"
+    )
     aggregate.add_argument("--scores", type=Path, nargs="+", required=True)
     aggregate.add_argument("--out", type=Path)
     aggregate.set_defaults(func=_aggregate_recovery)
@@ -1420,7 +1563,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Base directory used to resolve relative run-set summary paths",
     )
     weighttraits_variants_table.add_argument("--out", type=Path, help="Optional JSON table output")
-    weighttraits_variants_table.add_argument("--csv-out", type=Path, help="Optional CSV table output")
+    weighttraits_variants_table.add_argument(
+        "--csv-out", type=Path, help="Optional CSV table output"
+    )
     weighttraits_variants_table.set_defaults(func=_make_weighttraits_variants_table)
 
     weighttraits_variants_plot = sub.add_parser(
@@ -1584,7 +1729,9 @@ def build_parser() -> argparse.ArgumentParser:
         action="append",
         help="Column compared numerically with --atol/--rtol",
     )
-    table_compare.add_argument("--ignore-column", action="append", help="Column ignored during comparison")
+    table_compare.add_argument(
+        "--ignore-column", action="append", help="Column ignored during comparison"
+    )
     table_compare.add_argument("--atol", type=float, default=1e-9)
     table_compare.add_argument("--rtol", type=float, default=1e-9)
     table_compare.add_argument("--out", type=Path)
@@ -1921,8 +2068,12 @@ def build_parser() -> argparse.ArgumentParser:
     reconstruct.add_argument("--audit-out", type=Path, help="Optional JSON audit output path")
     reconstruct.set_defaults(func=_reconstruct_tree)
 
-    train = sub.add_parser("plan-training", help="Validate training config and write job plan JSONL")
-    train.add_argument("--manifest", type=Path, required=True, help="Enriched training manifest JSONL")
+    train = sub.add_parser(
+        "plan-training", help="Validate training config and write job plan JSONL"
+    )
+    train.add_argument(
+        "--manifest", type=Path, required=True, help="Enriched training manifest JSONL"
+    )
     train.add_argument("--config", type=Path, required=True, help="Training YAML config")
     train.add_argument("--out", type=Path, help="Optional training job plan JSONL")
     train.set_defaults(func=_plan_training)
@@ -2131,15 +2282,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     cache_data.add_argument(
         "--sample-strategy",
-        choices=("first", "seeded_shuffle"),
+        choices=("first", "seeded_shuffle", "legacy_subsample"),
         default="first",
-        help="Select accepted rows in source order or after a deterministic shuffle",
+        help=(
+            "Select rows in source order, after a deterministic shuffle, or with the exact "
+            "legacy sized-split subsampling rule"
+        ),
     )
     cache_data.add_argument(
         "--sample-seed",
         type=int,
         default=42,
-        help="Random seed used by --sample-strategy seeded_shuffle",
+        help="Random seed used by seeded_shuffle or legacy_subsample",
     )
     cache_data.add_argument(
         "--shuffle-buffer-size",
@@ -2183,6 +2337,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_list.add_argument("--max-eval-samples", type=int)
     run_list.add_argument("--data-cache-root", type=Path)
     run_list.add_argument("--require-data-cache", action="store_true")
+    _add_expected_cache_recipe_args(run_list)
     run_list.add_argument("--allow-missing-eval", action="store_true")
     run_list.add_argument("--runner-dry-run", action="store_true")
     run_list.add_argument("--allow-existing-artifacts", action="store_true")
@@ -2203,7 +2358,9 @@ def build_parser() -> argparse.ArgumentParser:
     run_list_set.add_argument("--config", type=Path, required=True)
     run_list_set.add_argument("--out-dir", type=Path, required=True)
     run_list_set.add_argument("--summary-out", type=Path, help="Optional set summary JSON")
-    run_list_set.add_argument("--profile", type=Path, help="Local or cluster execution profile YAML")
+    run_list_set.add_argument(
+        "--profile", type=Path, help="Local or cluster execution profile YAML"
+    )
     run_list_set.add_argument(
         "--registry",
         type=Path,
@@ -2218,6 +2375,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_list_set.add_argument("--max-eval-samples", type=int)
     run_list_set.add_argument("--data-cache-root", type=Path)
     run_list_set.add_argument("--require-data-cache", action="store_true")
+    _add_expected_cache_recipe_args(run_list_set)
     run_list_set.add_argument("--allow-missing-eval", action="store_true")
     run_list_set.add_argument("--runner-dry-run", action="store_true")
     run_list_set.add_argument("--allow-existing-artifacts", action="store_true")
@@ -2249,6 +2407,7 @@ def build_parser() -> argparse.ArgumentParser:
     audit_row_data.add_argument("--max-eval-samples", type=int)
     audit_row_data.add_argument("--data-cache-root", type=Path)
     audit_row_data.add_argument("--require-data-cache", action="store_true")
+    _add_expected_cache_recipe_args(audit_row_data)
     audit_row_data.add_argument("--allow-missing-eval", action="store_true")
     audit_row_data.add_argument(
         "--streaming",
@@ -2272,6 +2431,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_row.add_argument("--max-eval-samples", type=int)
     run_row.add_argument("--data-cache-root", type=Path)
     run_row.add_argument("--require-data-cache", action="store_true")
+    _add_expected_cache_recipe_args(run_row)
     run_row.add_argument("--allow-missing-eval", action="store_true")
     run_row.add_argument(
         "--override-max-steps",

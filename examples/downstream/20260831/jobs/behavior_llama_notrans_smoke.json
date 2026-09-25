@@ -1,0 +1,41 @@
+{
+  "schema": "weighttraits.downstream_job.behavior_smoke.v1",
+  "kind": "behavior_smoke",
+  "stage_root": "/home/export/sgallagh/WeightTraits-downstream-20260831-native",
+  "output_dir": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/behavior_smoke/llama_notrans",
+  "cohort_id": "llama32_1b_full_finetune_legacy_causal_2000",
+  "tree_id": "confirm_paper_tree_001",
+  "model_task": "causal_lm",
+  "path_base": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean",
+  "registry": {
+    "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/examples/behavior/corrected_behavior_protocols_v1.json",
+    "sha256": "c13b025802b7fae7b5c1770626865e2bab7d45e5783137b85fd041e2b4689bab"
+  },
+  "training_summary": {
+    "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/translation_holdout_20260803/matched_legacy_causal_2000_training_run_list_summary.json",
+    "sha256": "494cdf2726b38e41811eadc35a50d366b417718269cd77602dd7570e9b8d13ff"
+  },
+  "completion_receipt": {
+    "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/LLAMA_NOTRANS_COMPLETION_BINDING.json",
+    "sha256": "51449fc0e62d1681b0a3073401efc555178def762ef848609e8bd4ebd7ef5e59"
+  },
+  "prompt_artifacts": {
+    "legacy_translation_200x1_greedy": {
+      "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/prompts/causal_lm/legacy_translation_200x1_greedy.causal_lm.prompts.jsonl",
+      "sha256": "b752ed42f75d7470bd13333a52e7e48c7caf184d7f001ed51881c6bca2244520"
+    }
+  },
+  "expected_leaf_ids": [
+    "n3",
+    "n7",
+    "n8",
+    "n9",
+    "n10",
+    "n11",
+    "n12",
+    "n13"
+  ],
+  "leaf_id": "n3",
+  "device": "cuda",
+  "torch_dtype": "auto"
+}

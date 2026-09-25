@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import hashlib
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 import yaml
 
@@ -40,6 +41,8 @@ class TrainingJob:
     trainer: dict[str, Any]
     stopping: dict[str, Any]
     lora: dict[str, Any] | None
+    protocol_id: str | None = None
+    training_config_sha256: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         out = asdict(self)
@@ -48,10 +51,52 @@ class TrainingJob:
 
 
 def load_training_config(path: str | Path) -> dict[str, Any]:
-    config = yaml.safe_load(Path(path).read_text())
+    """Load one effective training config, resolving an optional relative parent.
+
+    A config may declare ``extends: path/to/base.yaml`` at the document root.
+    Nested mappings are merged recursively while scalars and lists in the child
+    replace the parent.  This keeps shared paper protocols in one immutable file
+    while allowing cohort-specific output roots and identifiers.
+    """
+
+    return _load_training_config(Path(path), stack=())
+
+
+def _load_training_config(path: Path, *, stack: tuple[Path, ...]) -> dict[str, Any]:
+    resolved = path.resolve()
+    if resolved in stack:
+        cycle = " -> ".join(str(item) for item in (*stack, resolved))
+        raise ValueError(f"training config extends cycle: {cycle}")
+    config = yaml.safe_load(resolved.read_text())
     if not isinstance(config, dict):
         raise ValueError(f"training config must be a mapping: {path}")
-    return config.get("training", config)
+    current = config.get("training", config)
+    if not isinstance(current, dict):
+        raise ValueError(f"training config body must be a mapping: {path}")
+    parent_path = config.get("extends")
+    if parent_path is None:
+        return dict(current)
+    if not isinstance(parent_path, str) or not parent_path.strip():
+        raise ValueError(f"training config extends must be a non-empty path: {path}")
+    parent = Path(parent_path)
+    if not parent.is_absolute():
+        parent = resolved.parent / parent
+    base = _load_training_config(parent, stack=(*stack, resolved))
+    return _deep_merge_mappings(base, current)
+
+
+def _deep_merge_mappings(
+    base: Mapping[str, Any],
+    override: Mapping[str, Any],
+) -> dict[str, Any]:
+    merged = dict(base)
+    for key, value in override.items():
+        existing = merged.get(key)
+        if isinstance(existing, Mapping) and isinstance(value, Mapping):
+            merged[key] = _deep_merge_mappings(existing, value)
+        else:
+            merged[key] = value
+    return merged
 
 
 def build_training_jobs(
@@ -68,13 +113,17 @@ def build_training_jobs(
         raise ValueError(f"unsupported training method: {method}")
 
     output_root = Path(_required_str(training_config, "output_root"))
+    protocol_id = _optional_str(training_config.get("protocol_id"))
+    training_config_sha256 = _training_config_fingerprint(training_config)
     trainer = dict(training_config.get("trainer", {}))
     if "max_steps" in training_config and "max_steps" not in trainer:
         trainer["max_steps"] = training_config["max_steps"]
     stopping = _stopping_config(training_config)
     lora = _lora_config(training_config, method)
 
-    rows_by_id = {str(row["node_id"]): row for row in manifest_rows if row.get("grow", "train") == "train"}
+    rows_by_id = {
+        str(row["node_id"]): row for row in manifest_rows if row.get("grow", "train") == "train"
+    }
     jobs: list[TrainingJob] = []
     for row in manifest_rows:
         if row.get("grow", "train") != "train":
@@ -95,6 +144,8 @@ def build_training_jobs(
                 base_model_revision=base_model_revision,
                 model_family=model_family,
                 method=method,
+                protocol_id=protocol_id,
+                training_config_sha256=training_config_sha256,
                 task_family=_optional_str(row.get("task_family")),
                 dataset_id=_optional_str(row.get("dataset_id")),
                 prompt_template=prompt.template,
@@ -177,10 +228,23 @@ def resolve_prompt_template(
 
 def _stopping_config(training_config: dict[str, Any]) -> dict[str, Any]:
     stopping = dict(training_config.get("stopping", {}))
+    if stopping.get("enabled") is False:
+        return {
+            "enabled": False,
+            "metric": str(stopping.get("metric", "eval_loss")),
+            "mode": str(stopping.get("mode", "min")),
+            "min_delta": 0.0,
+            "patience": None,
+            "plateau_window": None,
+            "plateau_min_delta": 0.0,
+            "loss_increase_relative": None,
+            "loss_increase_patience": 1,
+        }
     early = dict(stopping.get("early_stopping", {}))
     plateau = dict(stopping.get("plateau", {}))
     warnings = dict(stopping.get("warnings", {}))
     return {
+        "enabled": True,
         "metric": str(stopping.get("metric", early.get("metric", "eval_loss"))),
         "mode": str(stopping.get("mode", early.get("mode", "min"))),
         "min_delta": float(early.get("min_delta", stopping.get("min_delta", 0.0))),
@@ -190,6 +254,16 @@ def _stopping_config(training_config: dict[str, Any]) -> dict[str, Any]:
         "loss_increase_relative": warnings.get("loss_increase_relative"),
         "loss_increase_patience": int(warnings.get("loss_increase_patience", 1)),
     }
+
+
+def _training_config_fingerprint(training_config: Mapping[str, Any]) -> str:
+    payload = json.dumps(
+        training_config,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
 
 
 def _lora_config(training_config: dict[str, Any], method: str) -> dict[str, Any] | None:

@@ -5,8 +5,13 @@ from pathlib import Path
 import pytest
 
 from weighttraits.cli import build_parser
-from weighttraits.training.data_formats import DatasetFormatSpec
-from weighttraits.training.datasets import DatasetRegistryEntry, dataset_cache_split_path
+from weighttraits.training.data_formats import DatasetFormatSpec, load_dataset_format_specs
+from weighttraits.training.datasets import (
+    DatasetCacheRecipe,
+    DatasetRegistryEntry,
+    cache_training_datasets,
+    load_dataset_registry,
+)
 from weighttraits.training.executor import (
     BackendTrainResult,
     _CausalDataCollator,
@@ -17,6 +22,7 @@ from weighttraits.training.executor import (
     _resolve_lora_target_modules,
     _set_training_seed,
     _tokenize_causal_batch,
+    _training_runtime_versions,
     _training_arguments,
     _trainer_tokenizer_kwargs,
     dry_run_training_row,
@@ -27,6 +33,20 @@ from weighttraits.training.ledger import load_ledger_events
 from weighttraits.training.monitor import TrainingEvent
 from weighttraits.training.planner import build_training_jobs
 from weighttraits.training.runlist import build_training_run_list
+
+
+def test_training_runtime_versions_capture_numerical_environment():
+    versions = _training_runtime_versions()
+
+    assert set(versions) == {
+        "python",
+        "torch",
+        "transformers",
+        "datasets",
+        "accelerate",
+        "tokenizers",
+    }
+    assert all(isinstance(value, str) and value for value in versions.values())
 
 
 class FakeBackend:
@@ -258,13 +278,19 @@ def test_prepare_training_data_filters_before_sample_cap(tmp_path):
 
 def test_prepare_training_data_can_require_cached_rows(tmp_path):
     cache_root = tmp_path / "cache"
-    train_path = dataset_cache_split_path(cache_root, "boolq", "train")
-    validation_path = dataset_cache_split_path(cache_root, "boolq", "validation")
-    train_path.parent.mkdir(parents=True)
-    train_path.write_text('{"answer": "yes", "context": "P cache", "question": "Q cache"}\n')
-    validation_path.write_text(
-        '{"answer": "yes", "context": "PV cache", "question": "QV cache"}\n'
+    cache_report = cache_training_datasets(
+        _registry(),
+        _formats(),
+        out_dir=cache_root,
+        train_limit=1,
+        eval_limit=1,
+        min_train_rows=1,
+        loader=lambda *args: {
+            "train": [{"answer": "yes", "passage": "P cache", "question": "Q cache"}],
+            "validation": [{"answer": "yes", "passage": "PV cache", "question": "QV cache"}],
+        },
     )
+    assert cache_report.valid
 
     def forbidden_loader(*args):
         raise AssertionError("loader should not be called when cache is required")
@@ -276,12 +302,25 @@ def test_prepare_training_data_can_require_cached_rows(tmp_path):
         loader=forbidden_loader,
         data_cache_root=cache_root,
         require_data_cache=True,
+        expected_cache_recipe=DatasetCacheRecipe("first", None, 1, 1),
         max_train_samples=1,
     )
 
     assert data.valid
     assert data.train_records[0].text == "Question: Q cache\nContext: P cache"
     assert data.eval_records[0].text == "Question: QV cache\nContext: PV cache"
+
+    with pytest.raises(ValueError, match="sample_strategy"):
+        prepare_training_data(
+            _run(tmp_path),
+            _registry(),
+            _formats(),
+            loader=forbidden_loader,
+            data_cache_root=cache_root,
+            require_data_cache=True,
+            expected_cache_recipe=DatasetCacheRecipe("legacy_subsample", 42, 1, 1),
+            max_train_samples=1,
+        )
 
 
 def test_run_training_run_writes_monitor_and_stopped_early_ledger(tmp_path):
@@ -302,7 +341,10 @@ def test_run_training_run_writes_monitor_and_stopped_early_ledger(tmp_path):
         max_train_samples=2,
     )
     events = load_ledger_events(run.ledger_path)
-    training_log = [json.loads(line) for line in Path(run.expected_artifacts["training_log"]).read_text().splitlines()]
+    training_log = [
+        json.loads(line)
+        for line in Path(run.expected_artifacts["training_log"]).read_text().splitlines()
+    ]
 
     assert result.status == "stopped_early"
     assert result.step == 2
@@ -360,7 +402,10 @@ def test_run_training_run_records_execution_overrides(tmp_path):
         },
     )
     events = load_ledger_events(run.ledger_path)
-    training_log = [json.loads(line) for line in Path(run.expected_artifacts["training_log"]).read_text().splitlines()]
+    training_log = [
+        json.loads(line)
+        for line in Path(run.expected_artifacts["training_log"]).read_text().splitlines()
+    ]
 
     overrides = {
         "trainer": {
@@ -422,7 +467,10 @@ def test_run_training_run_writes_failed_ledger_on_bad_data(tmp_path):
 
     events = load_ledger_events(run.ledger_path)
     assert events[-1].status == "failed"
-    training_log = [json.loads(line) for line in Path(run.expected_artifacts["training_log"]).read_text().splitlines()]
+    training_log = [
+        json.loads(line)
+        for line in Path(run.expected_artifacts["training_log"]).read_text().splitlines()
+    ]
     assert training_log[-1]["status"] == "failed"
 
 
@@ -451,6 +499,14 @@ def test_run_training_row_parser_accepts_real_and_dry_run_modes():
             "--data-cache-root",
             "/tmp/cache",
             "--require-data-cache",
+            "--expected-cache-strategy",
+            "legacy_subsample",
+            "--expected-cache-seed",
+            "42",
+            "--expected-cache-train-limit",
+            "10000",
+            "--expected-cache-eval-limit",
+            "1000",
             "--allow-missing-eval",
             "--override-max-steps",
             "2",
@@ -470,6 +526,10 @@ def test_run_training_row_parser_accepts_real_and_dry_run_modes():
     assert args.max_train_samples == 8
     assert args.data_cache_root == Path("/tmp/cache")
     assert args.require_data_cache
+    assert args.expected_cache_strategy == "legacy_subsample"
+    assert args.expected_cache_seed == 42
+    assert args.expected_cache_train_limit == 10000
+    assert args.expected_cache_eval_limit == 1000
     assert args.allow_missing_eval
     assert args.override_max_steps == 2
     assert args.report_to == ["wandb,tensorboard"]
@@ -533,13 +593,6 @@ def test_run_training_row_report_to_none_disables_runtime_tracking(tmp_path, cap
 
 def test_audit_training_row_data_loads_required_cached_rows(tmp_path, capsys):
     cache_root = tmp_path / "cache"
-    train_path = dataset_cache_split_path(cache_root, "boolq", "train")
-    validation_path = dataset_cache_split_path(cache_root, "boolq", "validation")
-    train_path.parent.mkdir(parents=True)
-    train_path.write_text('{"answer": "yes", "context": "P cache", "question": "Q cache"}\n')
-    validation_path.write_text(
-        '{"answer": "yes", "context": "PV cache", "question": "QV cache"}\n'
-    )
     registry_path = tmp_path / "registry.yaml"
     registry_path.write_text(
         """
@@ -564,6 +617,19 @@ datasets:
       answer: answer
 """
     )
+    cache_report = cache_training_datasets(
+        load_dataset_registry(registry_path),
+        load_dataset_format_specs(formats_path),
+        out_dir=cache_root,
+        train_limit=1,
+        eval_limit=1,
+        min_train_rows=1,
+        loader=lambda *args: {
+            "train": [{"answer": "yes", "context": "P cache", "question": "Q cache"}],
+            "validation": [{"answer": "yes", "context": "PV cache", "question": "QV cache"}],
+        },
+    )
+    assert cache_report.valid
     run_row = _run(tmp_path).to_dict()
     run_row["runner"] = {
         "entrypoint": "weighttraits.cli run-training-row",
@@ -574,6 +640,7 @@ datasets:
             "formats_path": str(formats_path),
             "data_cache_root": str(cache_root),
             "require_data_cache": True,
+            "expected_cache_recipe": DatasetCacheRecipe("first", None, 1, 1).to_dict(),
             "allow_missing_eval": True,
         },
     }
@@ -598,10 +665,27 @@ datasets:
     output = json.loads(capsys.readouterr().out)
     assert output["valid"]
     assert output["require_data_cache"]
+    assert output["expected_cache_recipe"] == {
+        "sample_strategy": "first",
+        "sample_seed": None,
+        "train_limit": 1,
+        "eval_limit": 1,
+    }
     assert output["streaming"] is False
     assert output["data"]["n_train_records"] == 1
     assert output["data"]["n_eval_records"] == 1
     assert output["data"]["issues"] == []
+
+    del run_row["runner"]["options"]["expected_cache_recipe"]
+    (cache_root / "boolq/train.metadata.json").unlink()
+    (cache_root / "boolq/validation.metadata.json").unlink()
+    run_list_path.write_text(json.dumps(run_row) + "\n")
+
+    assert args.func(args) == 0
+    legacy_output = json.loads(capsys.readouterr().out)
+    assert legacy_output["valid"]
+    assert legacy_output["require_data_cache"]
+    assert legacy_output["expected_cache_recipe"] is None
 
 
 def test_audit_training_row_data_parser_accepts_overrides():
@@ -623,6 +707,14 @@ def test_audit_training_row_data_parser_accepts_overrides():
             "--data-cache-root",
             "/tmp/cache",
             "--require-data-cache",
+            "--expected-cache-strategy",
+            "legacy_subsample",
+            "--expected-cache-seed",
+            "42",
+            "--expected-cache-train-limit",
+            "10000",
+            "--expected-cache-eval-limit",
+            "1000",
             "--allow-missing-eval",
             "--streaming",
             "--allow-issues",
@@ -636,6 +728,10 @@ def test_audit_training_row_data_parser_accepts_overrides():
     assert args.max_eval_samples == 1
     assert args.data_cache_root == Path("/tmp/cache")
     assert args.require_data_cache
+    assert args.expected_cache_strategy == "legacy_subsample"
+    assert args.expected_cache_seed == 42
+    assert args.expected_cache_train_limit == 10000
+    assert args.expected_cache_eval_limit == 1000
     assert args.allow_missing_eval
     assert args.streaming
     assert args.allow_issues
@@ -807,10 +903,16 @@ class _FakeCausalTokenizer:
         width = max(len(feature["input_ids"]) for feature in features)
         return {
             "input_ids": torch.tensor(
-                [feature["input_ids"] + [0] * (width - len(feature["input_ids"])) for feature in features]
+                [
+                    feature["input_ids"] + [0] * (width - len(feature["input_ids"]))
+                    for feature in features
+                ]
             ),
             "attention_mask": torch.tensor(
-                [feature["attention_mask"] + [0] * (width - len(feature["attention_mask"])) for feature in features]
+                [
+                    feature["attention_mask"] + [0] * (width - len(feature["attention_mask"]))
+                    for feature in features
+                ]
             ),
         }
 

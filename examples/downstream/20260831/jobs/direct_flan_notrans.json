@@ -1,0 +1,31 @@
+{
+  "schema": "weighttraits.downstream_job.direct_runset_cpu.v1",
+  "kind": "direct_runset_cpu",
+  "stage_root": "/home/export/sgallagh/WeightTraits-downstream-20260831-native",
+  "output_dir": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/direct/flan_notrans",
+  "cohort_id": "flan_t5_full_finetune_legacy_seq2seq_2000",
+  "training_summary": {
+    "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/translation_holdout_20260803/matched_legacy_seq2seq_2000_training_run_list_summary.json",
+    "sha256": "f6d58e94b109bf35b8fa503d2901d96c3f8b884140dcb89b6a8349ea6d862eb9"
+  },
+  "completion_receipt": {
+    "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/FLAN_NOTRANS_COMPLETION_BINDING.json",
+    "sha256": "fc850dd7b8838bb36350a1834dfc5563df3945d2c1c037f7fef712b7a62ace38"
+  },
+  "stage_manifest": {
+    "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/.stage_provenance/STAGE_SHA256SUMS",
+    "sha256": "642912687e67d0a48162a8d5cc0a95164ad92350ea629cd396fcfdd7917cd5d1"
+  },
+  "path_base": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean",
+  "artifact_kind": "model",
+  "metrics": [
+    "l2",
+    "cosine",
+    "correlation"
+  ],
+  "chunk_size": 1000000,
+  "eps": 0.001,
+  "aggregate": "mean",
+  "expected_n_trees": 50,
+  "expected_n_rows": 150
+}

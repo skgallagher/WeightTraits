@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "model_pins": {
+    "causal_lm": {
+      "model_id": "meta-llama/Llama-3.2-1B",
+      "revision": "4e20de362430cd3b72f300e6b0f18e50e7166e08"
+    },
+    "seq2seq": {
+      "model_id": "google/flan-t5-base",
+      "revision": "7bcac572ce56db69c1ea7c8af255c5d7c9672fc2"
+    }
+  },
+  "embedding_pin": {
+    "model_id": "sentence-transformers/all-MiniLM-L6-v2",
+    "revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41"
+  },
+  "fixtures": {
+    "legacy_translation_wmt14_fr_en_seed42_n200": {
+      "path": "fixtures/legacy_translation_wmt14_fr_en_seed42_n200.json",
+      "sha256": "d143e88e9d290e019e9ff1850c8a585a1df37c6daf76c933473e905cce40dffe"
+    },
+    "modern_mc_four_probe_seed42_n100_each": {
+      "path": "fixtures/modern_mc_four_probe_seed42_n100_each.json",
+      "sha256": "896d21217e5920d3ad41affaa018e391f8bb98b9aa3eb6bad6b830d823defade"
+    },
+    "dolly_open_ended_seed42_n30": {
+      "path": "fixtures/dolly_open_ended_seed42_n30.json",
+      "sha256": "3ed1ee9fd92121758934ef0bb31eeacd451305f734ea3dbff076f12207e9caa5"
+    }
+  },
+  "protocols": {
+    "legacy_translation_200x1_greedy": {
+      "fixture_id": "legacy_translation_wmt14_fr_en_seed42_n200",
+      "probe_ids": ["translation"],
+      "prompt_counts": {"translation": 200},
+      "samples_per_prompt": 1,
+      "base_seed": 42,
+      "draw_seeds": [42],
+      "generation_batch_size": 16,
+      "seed_scope": "probe_draw",
+      "do_sample": false,
+      "temperature": null,
+      "top_p": null,
+      "min_new_tokens": 0,
+      "empty_policy": "preserve",
+      "analysis": {
+        "primary_empty_policy": "preserve",
+        "sensitivity_empty_policy": "exclude_exact_empty",
+        "natural_language_only": false
+      },
+      "architectures": {
+        "causal_lm": {
+          "max_new_tokens": 64,
+          "prompt_templates": {
+            "translation": "Translate the following English text to French.\nEnglish: {en}\nFrench:"
+          }
+        },
+        "seq2seq": {
+          "max_new_tokens": 128,
+          "prompt_templates": {
+            "translation": "translate English to French: {en}"
+          }
+        }
+      }
+    },
+    "modern_mc_100x3_sampled": {
+      "fixture_id": "modern_mc_four_probe_seed42_n100_each",
+      "probe_ids": ["hellaswag", "arc_challenge", "mmlu", "truthfulqa"],
+      "prompt_counts": {
+        "hellaswag": 100,
+        "arc_challenge": 100,
+        "mmlu": 100,
+        "truthfulqa": 100
+      },
+      "samples_per_prompt": 3,
+      "base_seed": 42,
+      "draw_seeds": [42, 43, 44],
+      "generation_batch_size": 32,
+      "seed_scope": "probe_draw",
+      "do_sample": true,
+      "temperature": 1.0,
+      "top_p": 1.0,
+      "min_new_tokens": 0,
+      "empty_policy": "preserve",
+      "analysis": {
+        "primary_empty_policy": "preserve",
+        "sensitivity_empty_policy": "exclude_exact_empty",
+        "natural_language_only": false
+      },
+      "architectures": {
+        "causal_lm": {
+          "max_new_tokens": 64,
+          "prompt_templates": {
+            "hellaswag": "Complete the following sentence.\n\n{activity}: {context}",
+            "arc_challenge": "Answer the following multiple-choice question in your own words.\n\nQuestion: {question}\n{choices_block}\n\nAnswer:\n",
+            "mmlu": "Answer the following multiple-choice question in your own words.\n\nQuestion: {question}\n{choices_block}\n\nAnswer:\n",
+            "truthfulqa": "Answer the following question truthfully and concisely.\n\nQuestion: {question}\n\nAnswer:\n"
+          }
+        },
+        "seq2seq": {
+          "max_new_tokens": 64,
+          "prompt_templates": {
+            "hellaswag": "complete: {activity}: {context}",
+            "arc_challenge": "answer: {question}\n{choices_block}",
+            "mmlu": "answer: {question}\n{choices_block}",
+            "truthfulqa": "answer truthfully: {question}"
+          }
+        }
+      }
+    },
+    "dolly_open_ended_30x3_sampled": {
+      "fixture_id": "dolly_open_ended_seed42_n30",
+      "probe_ids": ["dolly_open_ended"],
+      "prompt_counts": {"dolly_open_ended": 30},
+      "samples_per_prompt": 3,
+      "base_seed": 42,
+      "draw_seeds": [42, 43, 44],
+      "generation_batch_size": 32,
+      "seed_scope": "probe_draw",
+      "do_sample": true,
+      "temperature": 1.0,
+      "top_p": 1.0,
+      "min_new_tokens": 0,
+      "empty_policy": "preserve",
+      "analysis": {
+        "primary_empty_policy": "preserve",
+        "sensitivity_empty_policy": "exclude_exact_empty",
+        "natural_language_only": false
+      },
+      "architectures": {
+        "causal_lm": {
+          "max_new_tokens": 96,
+          "prompt_templates": {
+            "dolly_open_ended": "Respond naturally to the following request. Use complete sentences when appropriate.\n\nRequest: {instruction}{context_block}\n\nResponse:\n"
+          }
+        },
+        "seq2seq": {
+          "max_new_tokens": 96,
+          "prompt_templates": {
+            "dolly_open_ended": "respond naturally: {instruction}{context_block}"
+          }
+        }
+      }
+    }
+  }
+}
