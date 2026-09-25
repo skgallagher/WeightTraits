@@ -1,0 +1,49 @@
+{
+  "schema": "weighttraits.downstream_job.behavior_smoke.v1",
+  "kind": "behavior_smoke",
+  "stage_root": "/home/export/sgallagh/WeightTraits-downstream-20260831-native",
+  "output_dir": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/behavior_smoke/llama_full",
+  "cohort_id": "llama32_1b_full_finetune_legacy_causal_2000",
+  "tree_id": "confirm_paper_tree_001",
+  "model_task": "causal_lm",
+  "path_base": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean",
+  "registry": {
+    "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/examples/behavior/corrected_behavior_protocols_v1.json",
+    "sha256": "c13b025802b7fae7b5c1770626865e2bab7d45e5783137b85fd041e2b4689bab"
+  },
+  "training_summary": {
+    "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/llama32_1b_full_finetune_legacy_causal_2000_training_run_list_summary.json",
+    "sha256": "b8b9e9d06abcc1f69e9083b91248eb45eaa2481daadea957e61fa406d507acb0"
+  },
+  "completion_receipt": {
+    "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/LLAMA_FULL_COMPLETION_BINDING.json",
+    "sha256": "31628eca9fcc693f0aade432fc5774b0b3e7bb3ab7fb249b80c0e8eef998d5ba"
+  },
+  "prompt_artifacts": {
+    "dolly_open_ended_30x3_sampled": {
+      "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/prompts/causal_lm/dolly_open_ended_30x3_sampled.causal_lm.prompts.jsonl",
+      "sha256": "081c850c0f636c03ee2e1c512e7cbb2c8d1dd0871a51f46c388cbfbb091096e3"
+    },
+    "legacy_translation_200x1_greedy": {
+      "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/prompts/causal_lm/legacy_translation_200x1_greedy.causal_lm.prompts.jsonl",
+      "sha256": "b752ed42f75d7470bd13333a52e7e48c7caf184d7f001ed51881c6bca2244520"
+    },
+    "modern_mc_100x3_sampled": {
+      "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/prompts/causal_lm/modern_mc_100x3_sampled.causal_lm.prompts.jsonl",
+      "sha256": "7d89a05453cd885950d7168dace7e95b6c4005f94d632a10da5262bd830408d2"
+    }
+  },
+  "expected_leaf_ids": [
+    "n3",
+    "n7",
+    "n8",
+    "n9",
+    "n10",
+    "n11",
+    "n12",
+    "n13"
+  ],
+  "leaf_id": "n3",
+  "device": "cuda",
+  "torch_dtype": "auto"
+}

@@ -61,6 +61,30 @@ const previewDir = resolveFrom(
 );
 const outputDir = path.dirname(outputPath);
 const status = JSON.parse(await fs.readFile(statusPath, "utf8"));
+const trainingCompletion = status.training_completion;
+if (!trainingCompletion?.cohorts?.length) {
+  throw new Error("status file is missing training_completion.cohorts");
+}
+const completionByCohort = new Map(
+  trainingCompletion.cohorts.map((cohort) => [cohort.cohort_id, cohort]),
+);
+
+function jobSpan(jobIds) {
+  if (!jobIds?.length) return "none";
+  return jobIds.length === 1 ? jobIds[0] : `${jobIds[0]}–${jobIds.at(-1)}`;
+}
+
+function strictAuditSummary(completion) {
+  return `strict audit ${completion.n_ready}/${completion.n_trees} trees ready; ${completion.n_ok_nodes}/${completion.n_total_runs} nodes OK; 0 failures/errors/warnings`;
+}
+
+function completionReceipt(cohort) {
+  const completion = completionByCohort.get(cohort.cohort_id);
+  if (!completion) {
+    return cohort.job_id ? `Wright ${cohort.job_id}; ${cohort.output_root}` : cohort.next_action;
+  }
+  return `${strictAuditSummary(completion)}; original array ${completion.baseline_job} (partial/superseded); recovery ${jobSpan(completion.recovery_jobs)}; ${cohort.output_root}`;
+}
 
 if (path.extname(inputPath).toLowerCase() !== ".xlsx" || path.extname(outputPath).toLowerCase() !== ".xlsx") {
   throw new Error("--input and --output must both be .xlsx files");
@@ -185,9 +209,9 @@ function clearContents(sheet, range) {
     "H",
   );
   sheet.getRange("A4:B11").values = [
-    ["Paper comparison", `ELLMTrees-paper main ${status.paper_comparison.remote_commit} (read-only comparison target)`],
+    ["Paper comparison", `Pinned August 10 ELLMTrees-paper commit ${status.paper_comparison.remote_commit} (read-only comparison target; current manuscript worktree excluded)`],
     ["Source precedence", "Per-run artifacts + locked manifests → checked-in rollups → paper consumers → workbook cells"],
-    ["Live outcome status", "Fresh WeightTraits outcomes invalidated; two corrected Llama cohorts are running"],
+    ["Live outcome status", "Corrected ordinary and matched no-translation Llama training is complete and strict-audited; corrected weight/behavior analyses remain pending"],
     ["Training contract", `${status.training_contract.max_steps} steps; seed ${status.training_contract.seed}; ${status.training_contract.sample_strategy}; 10k/1k train/eval caps`],
     ["Sequence budget", `${status.training_contract.max_seq_length} tokens total prompt + target for every task family; not a completion target`],
     ["Table 3 method", "Prompt-paired semantic similarity from dist_semantic_paired.npy; cohorts analyzed independently; no ROUGE, tree matching, or held-out-tree split"],
@@ -203,8 +227,8 @@ function clearContents(sheet, range) {
     ["Input workbook", `Preserved byte-for-byte (${inputHash})`],
     ["Dataset cache", `${status.training_contract.cache_result}; job ${status.training_contract.cache_job}`],
     ["Trainer smoke", `${status.training_contract.smoke_result}; job ${status.training_contract.smoke_job}`],
-    ["Ordinary Llama full FT", "RUNNING — Wright array 167745"],
-    ["Matched no-translation", "RUNNING — Wright array 167746"],
+    ["Ordinary Llama full FT", "TRAINING COMPLETE — strict audit valid; 50/50 trees and 641/641 nodes ready; corrected analyses pending"],
+    ["Matched no-translation", "TRAINING COMPLETE — strict audit valid; 50/50 trees and 641/641 nodes ready; corrected analyses pending"],
     ["Other affected cohorts", "INVALIDATED / PENDING protocol-specific corrected relaunch"],
   ];
   section(sheet.getRange("A14:A19"));
@@ -228,7 +252,7 @@ function clearContents(sheet, range) {
   mergeRange(sheet.getRange("A28:H28"));
   mergeRange(sheet.getRange("A29:H29"));
   sheet.getRange("A28").values = [["Fresh numeric results in the August 3 workbook are retained only as invalidated provenance; they are not accepted outcomes."]];
-  sheet.getRange("A29").values = [["Historical paired-semantic Table 3 is audited separately; corrected Table 2 and Table 3 slots stay blank until corrected weights and probes are audited."]];
+  sheet.getRange("A29").values = [["Historical invalidated paired-semantic Table 3 values are audited separately; corrected Table 2 and Table 3 slots stay blank until corrected weights and probes are audited."]];
   sheet.getRange("A28:H29").format = {
     fill: colors.paleGold,
     font: { italic: true, color: "#7F6000" },
@@ -251,10 +275,10 @@ function clearContents(sheet, range) {
     [status.as_of, "Input", "Live workbook edited in place", "Byte-identical source preserved; rebuilt copy exported separately", "complete", inputHash],
     [status.as_of, "Training", "Fresh outcomes treated as accepted", "Eleven affected WeightTraits cohorts invalidated", "complete", "Cohort Status"],
     [status.as_of, "Cache", "Mutable/implicit dataset loads", "35 historical sources offline + revision-pinned TREC; 72/72 split receipts", "complete", `Wright job ${status.training_contract.cache_job}`],
-    [status.as_of, "Llama full FT", "Early-stopped/changed-prompt weights", "Corrected exact-2,000-step ordinary array", "running", "Wright job 167745"],
-    [status.as_of, "No translation", "Independent or mismatched cohort could be substituted", "Matched 479-preserved/162-replaced array", "running", "Wright job 167746"],
+    [status.as_of, "Llama full FT", "Early-stopped/changed-prompt weights", "Corrected exact-2,000-step ordinary training passed strict 50-tree/641-node audit", "training complete; analysis pending", "Original 167745 partial/superseded; recovery 167933–167939"],
+    [status.as_of, "No translation", "Independent or mismatched cohort could be substituted", "Matched 479-preserved/162-replaced training passed strict 50-tree/641-node audit", "training complete; analysis pending", "Original 167746 partial/superseded; recovery 167940–167956"],
     [status.as_of, "Table 2", "Generated n=50 used as topology n", "Generated n=50, topology n=46, exclusions 015/020/037/047, ordering n=26", "structure fixed", "T2 Shared Samples"],
-    [status.as_of, "Table 3", "Prompt pairing conflated with paired cohorts", "Historical dist_semantic_paired.npy audit rebuilt; corrected rows pending", "historical complete", "Paired Semantic Audit; Reconciliation WB005"],
+    [status.as_of, "Table 3", "Prompt pairing conflated with paired cohorts", "Historical dist_semantic_paired.npy audit rebuilt; corrected rows pending", "historical invalidated reference", "Paired Semantic Audit; Reconciliation WB005"],
     [status.as_of, "Historical sheets", "Historical and invalidated values appeared live", "Explicit archive/invalid status banners and index", "complete", "Archive Index"],
     [status.as_of, "Paper", "Workbook workflow could trigger text edits", "Comparison-only; discrepancies logged without manuscript changes", "complete", status.paper_comparison.remote_commit],
   ];
@@ -263,7 +287,7 @@ function clearContents(sheet, range) {
   sheet.getRange(`A5:F${4 + rows.length}`).values = rows;
   body(sheet.getRange(`A5:F${4 + rows.length}`));
   sheet.getRange(`A5:F${4 + rows.length}`).format.rowHeight = 38;
-  setWidths(sheet, { A: 14, B: 22, C: 48, D: 68, E: 20, F: 56 });
+  setWidths(sheet, { A: 14, B: 22, C: 48, D: 68, E: 24, F: 68 });
 }
 
 // Claim/source routing.
@@ -278,8 +302,8 @@ function clearContents(sheet, range) {
   );
   const rows = [
     ["Rebuild control", "Cohort and launch status", "live", "Cohort Status", "All eleven affected WeightTraits cohorts"],
-    ["Table 2", "Fresh controlled topology", "pending corrected runs", "T2 Shared Samples", "Metrics blank; exact 46 topology / 26 ordering eligibility encoded"],
-    ["Table 3", "Weight-to-behavior bridge", "historical paired reference rebuilt; corrected pending", "Paired Semantic Audit", "dist_semantic_paired.npy; corrected probes after training"],
+    ["Table 2", "Fresh controlled topology", "Llama training complete; weight analysis pending", "T2 Shared Samples", "Metrics blank; exact 46 topology / 26 ordering eligibility encoded"],
+    ["Table 3", "Weight-to-behavior bridge", "historical invalidated reference retained; corrected analysis pending", "Paired Semantic Audit", "Corrected weight distances, probes, and dist_semantic_paired.npy do not exist yet"],
     ["Table 4", "Layer subsets", "invalidated pending Flan rerun", "T4 Layers", "Prior 46-tree rescore retained only as provenance"],
     ["Table 5", "LoRA parameterization", "architecture constants", "T5 LoRA", "Counts/fractions independent of trained outcomes"],
     ["Table 6", "Behavior regressions", "historical reference", "T6 Regression", "Explicitly excluded from live fresh conclusions"],
@@ -314,8 +338,8 @@ function clearContents(sheet, range) {
   }
   title(
     sheet,
-    "PENDING — Corrected Shared-Tree Lineage and Recovery",
-    "Live metrics remain blank until corrected per-tree artifacts pass source, representation, and eligibility audits.",
+    "ANALYSIS PENDING — Corrected Shared-Tree Lineage and Recovery",
+    "Corrected Llama model artifacts passed strict training audits; live metrics remain blank until per-tree weight-analysis artifacts pass source, representation, and eligibility audits.",
     "V",
     colors.gold,
   );
@@ -356,16 +380,21 @@ function clearContents(sheet, range) {
       null,
       null,
       null,
-      cohort.job_id ? `Wright ${cohort.job_id}; ${cohort.output_root}` : cohort.next_action,
+      completionReceipt(cohort),
     ];
   });
   sheet.getRange(`A5:V${4 + rows.length}`).values = rows;
   body(sheet.getRange(`A5:V${4 + rows.length}`));
+  sheet.getRange(`A5:V${4 + rows.length}`).format.rowHeight = 48;
   sheet.getRange("F5:G15").format.numberFormat = "0";
   sheet.getRange("I5:I15").format.numberFormat = "0";
   sheet.getRange("C5:C12").conditionalFormats.deleteAll();
   sheet.getRange("C5:C12").conditionalFormats.add("containsText", {
     text: "running",
+    format: { fill: colors.paleGreen, font: { color: colors.green, bold: true } },
+  });
+  sheet.getRange("C5:C12").conditionalFormats.add("containsText", {
+    text: "complete",
     format: { fill: colors.paleGreen, font: { color: colors.green, bold: true } },
   });
   sheet.getRange("C5:C12").conditionalFormats.add("containsText", {
@@ -397,9 +426,10 @@ function clearContents(sheet, range) {
     null,
     null,
     null,
-    `Wright ${noTranslation.job_id}; ${noTranslation.output_root}`,
+    completionReceipt(noTranslation),
   ]];
   body(sheet.getRange("A15:V15"));
+  sheet.getRange("A15:V15").format.rowHeight = 48;
   sheet.getRange("A17").values = [["Blank metric cells are intentional. Never copy values from the invalidated August 3 snapshots into this live block."]];
   sheet.getRange("A17:V17").format = {
     fill: colors.paleRed,
@@ -422,9 +452,11 @@ const bannerSpecs = [
   ["Bridge DL Calc", "Q", "MIXED SNAPSHOT — Bridge Calculations", "Use historical rows only through Paired Semantic Audit; rebuild fresh rows from corrected paired-semantic probes.", colors.red],
   ["T4 Layers", "E", "INVALIDATED SNAPSHOT — LayerTrace Subsets", "Prior fresh Flan values came from an affected training cohort; rerun after corrected Flan full FT.", colors.red],
   ["T6 Regression", "I", "HISTORICAL REFERENCE — Behavioral Regression Coefficients", "ELLMTrees historical reference; excluded from fresh corrected conclusions.", colors.gray],
+  ["T6 Coefficient Raw", "M", "HISTORICAL REFERENCE — Behavioral Regression Raw Inputs", "Raw input for the historical regression reference only.", colors.gray],
   ["T7 Heterogeneity", "G", "INVALIDATED SNAPSHOT — Bridge Heterogeneity", "Depends on the invalidated Bridge Summary and must be regenerated.", colors.red],
   ["T8 Examples", "G", "HISTORICAL REFERENCE — Translation Probe Examples", "Qualitative ELLMTrees no-translation archive.", colors.gray],
   ["T9 Within Task", "K", "HISTORICAL REFERENCE — Within-Task Recovery", "ELLMTrees controlled reference, kept separate from fresh WeightTraits reruns.", colors.gray],
+  ["T9 Raw", "G", "HISTORICAL REFERENCE — Within-Task Recovery Raw Inputs", "Raw input for the historical controlled reference only.", colors.gray],
   ["T10 PhyloLM", "P", "ARCHIVE — Historical Five-Condition PhyloLM Comparison", "Deleted from the live paper; fresh r8/r64/full-FT common-46 comparison is pending.", colors.gray],
   ["T10 Behavior Raw", "L", "ARCHIVE — Historical PhyloLM Behavior Raw", "Input to the archived five-condition comparison only.", colors.gray],
   ["T10 Weight Raw", "H", "ARCHIVE — Historical PhyloLM Weight Raw", "Input to the archived five-condition comparison only.", colors.gray],
@@ -444,8 +476,8 @@ for (const [name, lastColumn, heading, subtitle, fill] of bannerSpecs) {
   clearContents(sheet, "A1:K24");
   title(
     sheet,
-    "Historical Table 3 Translation Check — Paired Semantic",
-    "Exact paper endpoint from dist_semantic_paired.npy; corrected 2,000-step cohort outcomes remain pending.",
+    "Historical (Invalidated) Table 3 Translation Check — Paired Semantic",
+    "Legacy reference only: the exact paper endpoint is shown for auditability, but no corrected 2,000-step behavioral result exists yet.",
     "K",
     colors.blue,
   );
@@ -456,11 +488,11 @@ for (const [name, lastColumn, heading, subtitle, fill] of bannerSpecs) {
     throw new Error("paired semantic audit is missing an ordinary or no-translation Translation row");
   }
   sheet.getRange("A3").values = [[
-    `Apples-to-apples paired result: ordinary DL r ${ordinaryTranslation.dl_r.toFixed(3)} versus no-translation DL r ${noTranslationTranslation.dl_r.toFixed(3)} (delta ${paired.translation_dl_r_delta_no_translation_minus_ordinary.toFixed(3)}). The centroid matrix is not the Table 3 endpoint.`,
+    `INVALIDATED HISTORICAL REFERENCE — ordinary DL r ${ordinaryTranslation.dl_r.toFixed(3)} versus no-translation DL r ${noTranslationTranslation.dl_r.toFixed(3)} (delta ${paired.translation_dl_r_delta_no_translation_minus_ordinary.toFixed(3)}). Do not report these as corrected-cohort results.`,
   ]];
   sheet.getRange("A3:K3").format = {
-    fill: colors.paleGreen,
-    font: { bold: true, color: colors.green },
+    fill: colors.paleGold,
+    font: { bold: true, color: "#7F6000" },
     wrapText: true,
   };
   mergeRange(sheet.getRange("A3:K3"));
@@ -473,7 +505,7 @@ for (const [name, lastColumn, heading, subtitle, fill] of bannerSpecs) {
   const rows = paired.rows.map((row) => [
     row.cohort,
     row.probe,
-    row.status,
+    row.status === "available" ? "historical only" : row.status,
     row.runs,
     row.total_pairs,
     row.dl_r,
@@ -516,6 +548,82 @@ for (const [name, lastColumn, heading, subtitle, fill] of bannerSpecs) {
   sheet.freezePanes.freezeRows(5);
   setWidths(sheet, { A: 24, B: 18, C: 18, D: 10, E: 18, F: 12, G: 12, H: 12, I: 14, J: 30, K: 72 });
 }
+// Corrected Llama training completion receipts. This is deliberately separate from scientific outcomes.
+{
+  const sheet = getOrAddSheet("Training Completion");
+  clearContents(sheet, "A1:N20");
+  title(
+    sheet,
+    "Corrected Llama Training Completion",
+    "Strict frozen-stage audits passed for both 50-tree cohorts; corrected weight and behavioral analyses have not been run.",
+    "N",
+    colors.green,
+  );
+  mergeRange(sheet.getRange("A3:N3"));
+  sheet.getRange("A3").values = [[
+    "Training completion is not a Table 3 result. Corrected result cells remain blank until weight distances, locked probes, prompt-paired semantic distances, and independent meta-analyses are complete.",
+  ]];
+  sheet.getRange("A3:N3").format = {
+    fill: colors.paleGold,
+    font: { bold: true, color: "#7F6000" },
+    wrapText: true,
+  };
+  sheet.getRange("A3:N3").format.rowHeight = 42;
+  const headers = [
+    "Cohort", "Training status", "Completed ET", "Original array", "Retained baseline tasks", "Recovery jobs",
+    "Audit valid", "Trees ready", "Nodes OK", "Artifacts", "Failed / missing", "Errors", "Warnings", "Corrected analyses",
+  ];
+  sheet.getRange("A5:N5").values = [headers];
+  header(sheet.getRange("A5:N5"));
+  const rows = trainingCompletion.cohorts.map((completion) => [
+    completion.label,
+    "complete",
+    completion.completed_at_et,
+    `${completion.baseline_job} (partial/superseded)`,
+    completion.retained_baseline_tasks.join(", "),
+    jobSpan(completion.recovery_jobs),
+    completion.valid,
+    `${completion.n_ready}/${completion.n_trees}`,
+    `${completion.n_ok_nodes}/${completion.n_total_runs}`,
+    `${completion.n_existing_artifacts}/${completion.n_expected_artifacts}`,
+    `${completion.n_failed_nodes} / ${completion.n_missing_nodes}`,
+    completion.n_errors,
+    completion.n_warnings,
+    "NOT RUN — corrected values unavailable",
+  ]);
+  sheet.getRange(`A6:N${5 + rows.length}`).values = rows;
+  body(sheet.getRange(`A6:N${5 + rows.length}`));
+  sheet.getRange(`B6:B${5 + rows.length}`).format = {
+    fill: colors.paleGreen,
+    font: { bold: true, color: colors.green },
+  };
+  sheet.getRange(`N6:N${5 + rows.length}`).format = {
+    fill: colors.paleGold,
+    font: { bold: true, color: "#7F6000" },
+    wrapText: true,
+  };
+  sheet.getRange("A9").values = [["Strict audit basis"]];
+  section(sheet.getRange("A9:N9"));
+  const auditNotes = [
+    `Verified ${trainingCompletion.verified_at} from frozen stage ${status.training_contract.wright_stage}; artifact and parent-order checks enabled; no allow/skip flags.`,
+    `Ordinary summary input: ${trainingCompletion.cohorts[0].summary}`,
+    `Matched no-translation summary input: ${trainingCompletion.cohorts[1].summary}`,
+    trainingCompletion.downstream_analysis.artifact_audit,
+  ];
+  for (let index = 0; index < auditNotes.length; index += 1) {
+    const row = 10 + index;
+    mergeRange(sheet.getRange(`A${row}:N${row}`));
+    sheet.getRange(`A${row}`).values = [[auditNotes[index]]];
+    body(sheet.getRange(`A${row}:N${row}`));
+    sheet.getRange(`A${row}:N${row}`).format.rowHeight = index === 3 ? 42 : 34;
+  }
+  sheet.freezePanes.freezeRows(5);
+  setWidths(sheet, {
+    A: 38, B: 18, C: 22, D: 26, E: 48, F: 20, G: 12, H: 14, I: 14, J: 14,
+    K: 18, L: 10, M: 10, N: 42,
+  });
+}
+
 // Cohort Status.
 {
   const sheet = getOrAddSheet("Cohort Status");
@@ -523,7 +631,7 @@ for (const [name, lastColumn, heading, subtitle, fill] of bannerSpecs) {
   title(
     sheet,
     "Affected Cohort Status",
-    "Separates invalidated WeightTraits artifacts from corrected launches and legacy references.",
+    "Separates strict-audited corrected training from pending downstream analyses, invalidated artifacts, and legacy references.",
     "L",
   );
   const headers = [
@@ -537,7 +645,9 @@ for (const [name, lastColumn, heading, subtitle, fill] of bannerSpecs) {
     cohort.method,
     cohort.scope,
     cohort.status,
-    cohort.job_id,
+    completionByCohort.has(cohort.cohort_id)
+      ? `${cohort.job_id}; recovery ${jobSpan(completionByCohort.get(cohort.cohort_id).recovery_jobs)}`
+      : cohort.job_id,
     cohort.protocol,
     cohort.trees,
     cohort.nodes,
@@ -547,6 +657,7 @@ for (const [name, lastColumn, heading, subtitle, fill] of bannerSpecs) {
   ]);
   sheet.getRange(`A5:L${4 + rows.length}`).values = rows;
   body(sheet.getRange(`A5:L${4 + rows.length}`));
+  sheet.getRange(`A5:L${4 + rows.length}`).format.rowHeight = 44;
   const statusRange = sheet.getRange(`E5:E${4 + rows.length}`);
   statusRange.conditionalFormats.deleteAll();
   statusRange.conditionalFormats.add("containsText", {
@@ -554,11 +665,15 @@ for (const [name, lastColumn, heading, subtitle, fill] of bannerSpecs) {
     format: { fill: colors.paleGreen, font: { color: colors.green, bold: true } },
   });
   statusRange.conditionalFormats.add("containsText", {
+    text: "complete",
+    format: { fill: colors.paleGreen, font: { color: colors.green, bold: true } },
+  });
+  statusRange.conditionalFormats.add("containsText", {
     text: "pending",
     format: { fill: colors.paleGold, font: { color: "#7F6000", bold: true } },
   });
   sheet.freezePanes.freezeRows(4);
-  setWidths(sheet, { A: 38, B: 20, C: 30, D: 34, E: 34, F: 12, G: 48, H: 10, I: 10, J: 10, K: 64, L: 58 });
+  setWidths(sheet, { A: 38, B: 20, C: 30, D: 34, E: 34, F: 28, G: 48, H: 10, I: 10, J: 12, K: 64, L: 58 });
 }
 
 // Run Provenance.
@@ -568,11 +683,13 @@ for (const [name, lastColumn, heading, subtitle, fill] of bannerSpecs) {
   title(
     sheet,
     "Corrected Run Provenance",
-    "Frozen launch and cache contract for the active Llama ordinary and matched no-translation reruns.",
+    "Frozen launch, cache, recovery, and strict completion receipts for the corrected Llama cohorts.",
     "D",
   );
+  const ordinaryCompletion = completionByCohort.get("llama_full_finetune");
+  const noTranslationCompletion = completionByCohort.get("llama_full_finetune_no_translation");
   const rows = [
-    ["Paper comparison commit", status.paper_comparison.remote_commit, "comparison only", "GitHub main via authenticated API"],
+    ["Paper comparison commit", status.paper_comparison.remote_commit, "pinned comparison only", "Pinned August 10 comparison commit; manuscript worktree is not an input to this rebuild"],
     ["Input workbook SHA-256", inputHash, "preserved source", status.input_workbook.path],
     ["Wright staging tree", status.training_contract.wright_stage, "immutable launch snapshot", "341 tests passed; checksum matched local snapshot"],
     ["Protocol ID", status.training_contract.protocol_id, "training contract", "ordinary and matched no-translation"],
@@ -582,13 +699,19 @@ for (const [name, lastColumn, heading, subtitle, fill] of bannerSpecs) {
     ["Sampling", `${status.training_contract.sample_strategy}; seed ${status.training_contract.seed}`, "data selection", `train ${status.training_contract.train_limit}; eval ${status.training_contract.eval_limit}`],
     ["Cache job", status.training_contract.cache_job, "completed", status.training_contract.cache_result],
     ["Trainer smoke", status.training_contract.smoke_job, "completed", status.training_contract.smoke_result],
-    ["Ordinary production array", "167745", "running", "50 trees / 641 nodes; exact 2,000 steps"],
-    ["Matched no-translation array", "167746", "running", "50 trees / 641 nodes; 479 assignments preserved / 162 replaced"],
+    ["Ordinary original array", ordinaryCompletion.baseline_job, "partial / superseded", `Final receipt retains ${ordinaryCompletion.retained_baseline_tasks.join(", ")}`],
+    ["Ordinary recovery jobs", jobSpan(ordinaryCompletion.recovery_jobs), "completed", `${ordinaryCompletion.recovery_jobs.length} scoped jobs; ${ordinaryCompletion.recovery_window_et}; all exit 0:0`],
+    ["Ordinary strict audit", strictAuditSummary(ordinaryCompletion), "completed", `${ordinaryCompletion.n_existing_artifacts}/${ordinaryCompletion.n_expected_artifacts} artifacts; ${ordinaryCompletion.summary}`],
+    ["Matched original array", noTranslationCompletion.baseline_job, "partial / superseded", `Final receipt retains ${noTranslationCompletion.retained_baseline_tasks.join(", ")}`],
+    ["Matched recovery jobs", jobSpan(noTranslationCompletion.recovery_jobs), "completed", `${noTranslationCompletion.recovery_jobs.length} scoped jobs; ${noTranslationCompletion.recovery_window_et}; all exit 0:0`],
+    ["Matched strict audit", strictAuditSummary(noTranslationCompletion), "completed", `${noTranslationCompletion.n_existing_artifacts}/${noTranslationCompletion.n_expected_artifacts} artifacts; ${noTranslationCompletion.summary}`],
+    ["Corrected scientific analysis", trainingCompletion.downstream_analysis.status, "pending", trainingCompletion.downstream_analysis.artifact_audit],
   ];
   sheet.getRange("A4:D4").values = [["Field", "Value", "Role / status", "Evidence / note"]];
   header(sheet.getRange("A4:D4"));
   sheet.getRange(`A5:D${4 + rows.length}`).values = rows;
   body(sheet.getRange(`A5:D${4 + rows.length}`));
+  sheet.getRange(`A5:D${4 + rows.length}`).format.rowHeight = 44;
   setWidths(sheet, { A: 30, B: 76, C: 24, D: 84 });
 }
 
@@ -623,13 +746,14 @@ for (const [name, lastColumn, heading, subtitle, fill] of bannerSpecs) {
   header(sheet.getRange("A4:G4"));
   sheet.getRange(`A5:G${4 + status.reconciliation.length}`).values = status.reconciliation;
   body(sheet.getRange(`A5:G${4 + status.reconciliation.length}`));
+  sheet.getRange(`A5:G${4 + status.reconciliation.length}`).format.rowHeight = 42;
   sheet.freezePanes.freezeRows(4);
-  setWidths(sheet, { A: 12, B: 32, C: 68, D: 76, E: 26, F: 70, G: 34 });
+  setWidths(sheet, { A: 12, B: 32, C: 68, D: 76, E: 36, F: 70, G: 34 });
 }
 
 // Replace the stale source manifest with active, hashed inputs and remote receipts.
 const sourceSpecs = [
-  ["Workbook rebuild builder", path.relative(workspaceRoot, scriptPath), "checked-in workbook authoring"],
+  ["Workbook rebuild builder", path.relative(workspaceRoot, scriptPath), "local workbook authoring source"],
   ["Workbook rebuild status", path.relative(workspaceRoot, statusPath), "cohort/source/reconciliation contract"],
   ...status.source_files,
 ];
@@ -662,8 +786,32 @@ sourceRows.push([
   null,
   `${status.training_contract.cache_result}; job ${status.training_contract.cache_job}`,
 ]);
-sourceRows.push(["Ordinary production array", "Wright Slurm job 167745", null, null, null, "running corrected Llama full FT"]);
-sourceRows.push(["Matched production array", "Wright Slurm job 167746", null, null, null, "running corrected no-translation Llama full FT"]);
+for (const completion of trainingCompletion.cohorts) {
+  sourceRows.push([
+    `${completion.label} original array`,
+    `Wright Slurm job ${completion.baseline_job}`,
+    null,
+    null,
+    null,
+    `partial/superseded; final receipt retains ${completion.retained_baseline_tasks.join(", ")}`,
+  ]);
+  sourceRows.push([
+    `${completion.label} recovery jobs`,
+    `Wright Slurm jobs ${jobSpan(completion.recovery_jobs)}`,
+    null,
+    null,
+    null,
+    `${completion.recovery_jobs.length} scoped jobs completed 0:0; ${completion.recovery_window_et}`,
+  ]);
+  sourceRows.push([
+    `${completion.label} strict audit`,
+    `Wright frozen-stage stdout audit verified ${trainingCompletion.verified_at}`,
+    null,
+    null,
+    null,
+    `${strictAuditSummary(completion)}; ${completion.n_existing_artifacts}/${completion.n_expected_artifacts} artifacts`,
+  ]);
+}
 
 {
   const sheet = workbook.worksheets.getItem("Source Manifest");
@@ -678,6 +826,7 @@ sourceRows.push(["Matched production array", "Wright Slurm job 167746", null, nu
   header(sheet.getRange("A4:F4"));
   sheet.getRange(`A5:F${4 + sourceRows.length}`).values = sourceRows;
   body(sheet.getRange(`A5:F${4 + sourceRows.length}`));
+  sheet.getRange(`A5:F${4 + sourceRows.length}`).format.rowHeight = 42;
   sheet.getRange(`D5:D${4 + sourceRows.length}`).format.numberFormat = "#,##0";
   sheet.getRange(`E5:E${4 + sourceRows.length}`).format.numberFormat = "yyyy-mm-dd hh:mm";
   sheet.freezePanes.freezeRows(4);
@@ -691,17 +840,18 @@ sourceRows.push(["Matched production array", "Wright Slurm job 167746", null, nu
   title(
     sheet,
     "Reproduction Commands",
-    "Checked-in entry points for the corrected workbook and legacy semantic analysis. No command edits the manuscript.",
+    "Local source-driven entry points for the corrected workbook and legacy semantic analysis. No command edits the manuscript.",
     "C",
   );
   const rows = [
-    ["Rebuild workbook", "node WeightTraits/scripts/paper/rebuild_reproducibility_workbook.mjs --input ELLMTrees-paper/WeightTraits_all_results_reproducibility.xlsx --status WeightTraits/examples/paper/workbook_rebuild_status_20260810.json --workspace-root . --output outputs/weighttraits-workbook-20260810/WeightTraits_all_results_reproducibility_rebuild.xlsx", "Imports the preserved workbook, invalidates stale cells, refreshes source/status sheets, scans errors, and renders all sheets"],
-    ["Validate WeightTraits code", "cd WeightTraits && PYTHONPATH=src pytest", "Current verified result: 341 passed"],
+    ["Rebuild workbook", "bash WeightTraits/scripts/paper/run_rebuild_reproducibility_workbook.sh --input ELLMTrees-paper/WeightTraits_all_results_reproducibility.xlsx --status WeightTraits/examples/paper/workbook_rebuild_status_20260810.json --workspace-root . --output outputs/019febc7-5411-7e50-ab7c-fb558215dcd3/WeightTraits_all_results_reproducibility_20260814.xlsx", "Imports the preserved workbook, invalidates stale cells, refreshes source/status sheets, scans errors, and renders all sheets through the bundled workbook runtime"],
+    ["Validate WeightTraits code", "cd WeightTraits && PYTHONPATH=src pytest", "Frozen launch receipt: 341 tests passed"],
     ["Validate matched design", "python WeightTraits/examples/training/translation_holdout_20260803/audit_matched_translation_runlists.py --ordinary-runlists <ordinary> --holdout-runlists <matched> --out <audit.json>", "Requires 479 preserved, 162 replaced, zero issues"],
-    ["Paired semantic audit", "PYTHONPATH=WeightTraits/src python WeightTraits/scripts/paper/audit_prompt_pairing_sensitivity.py --group <results-root> --probe-subdir <behavioral-subdir> --embedding-model sentence-transformers/all-MiniLM-L6-v2 --embedding-revision 1110a243fdf4706b3f48f1d95db1a4f5529b4d41 --expected-sentence-transformers-version 5.4.1 --out <audit.json>", "Re-embeds exact saved outputs, validates dist_semantic_paired.npy at absolute tolerance 1e-6, then reports prompt/run sensitivity"],
+    ["Strict training completion", "cd /home/export/sgallagh/WeightTraits-legacy-causal-20260810-clean && PYTHONPATH=src /home/export/sgallagh/.conda/envs/ellmtrees/bin/python -m weighttraits.cli audit-training-run-set --summary <ordinary-or-matched-summary.json> --path-base .", "Keep artifact and parent-order checks enabled; do not pass allow/skip flags; both cohorts currently pass 50/50 trees and 641/641 nodes"],
+    ["Paired semantic distances", "python ELLMTrees/scripts/build_paired_semantic.py --group <results-root> --probe_subdir <behavioral-subdir> --st_model all-MiniLM-L6-v2", "Writes dist_semantic_paired.npy by comparing same-prompt outputs and then averaging; use pinned model revision from Run Provenance"],
     ["Paper Table 3", "python ELLMTrees/scripts/regression_distance_vs_behavior.py --results <results-root> --manifests <manifest-root> --probe <probe> --probe_prefix <behavioral|behavioral_llama> --dv semantic --semantic_file dist_semantic_paired.npy --train_frac 1.0 --min-leaves 2 --practical --meta --out <per-pair.csv>", "Prompt-paired semantic endpoint; ordinary and no-translation cohorts analyzed independently; no tree matching or held-out-tree split"],
     ["Topology eligibility", "Join by canonical topology ID; exclude 015,020,037,047 from unrooted topology metrics; assert ordering IDs separately (n=26)", "Never infer eligibility from generated row count"],
-    ["Corrected probes", "Run the same locked probe suite against corrected node artifacts, then regenerate per-run semantic distances and Table 3 rollups", "Old outcomes cannot be combined with corrected weights"],
+    ["Corrected downstream bridge", "First implement and validate the missing adapter from WeightTraits model/manifests to the legacy run_*/weight and behavioral_* layout; then run the locked free-generation probes, paired semantic builder, and regressions", "Old outcomes cannot be combined with corrected weights; do not launch legacy wrappers directly against the new layout"],
     ["Paper handling", "No command", "Main text is read-only; record any discrepancy in Reconciliation Ledger for user review"],
   ];
   sheet.getRange("A4:C4").values = [["Result family", "Command / rule", "Calculation / guard"]];
@@ -714,11 +864,12 @@ sourceRows.push(["Matched production array", "Wright Slurm job 167746", null, nu
 
 const checks = [
   ["README", "A1:H29"],
+  ["Training Completion", "A1:N13"],
   ["Cohort Status", "A1:L20"],
   ["T2 Shared Samples", "A1:V17"],
   ["Paired Semantic Audit", "A1:K24"],
-  ["Run Provenance", "A1:D20"],
-  ["Reconciliation Ledger", "A1:G20"],
+  ["Run Provenance", "A1:D24"],
+  ["Reconciliation Ledger", "A1:G24"],
   ["Source Manifest", `A1:F${4 + sourceRows.length}`],
 ];
 const inspection = [];
@@ -753,14 +904,15 @@ const focusRanges = {
   "T10 Behavior Raw": "A1:L25",
   "T10 Weight Raw": "A1:H25",
   "Depth Per Leaf": "A1:I25",
-  "Source Manifest": `A1:F${Math.min(25, 4 + sourceRows.length)}`,
+  "Source Manifest": `A1:F${4 + sourceRows.length}`,
+  "Training Completion": "A1:N13",
 };
 const sheetNames = [
   "README", "Paper Update", "Claim Index", "T2 Recovery", "T2 Recovery Raw", "T2 Ordering Raw",
   "Bridge Summary", "Bridge DL Calc", "T4 Layers", "T5 LoRA", "T6 Regression", "T6 Coefficient Raw",
   "T7 Heterogeneity", "T9 Within Task", "T8 Examples", "T9 Raw", "T10 PhyloLM", "T10 Behavior Raw",
   "T10 Weight Raw", "Empty Sensitivity", "Depth Summary", "Depth Per Leaf", "Source Manifest",
-  "Reproduction Commands", "T2 Shared Samples", "T10 Shared PhyloLM", "Cohort Status", "Run Provenance",
+  "Reproduction Commands", "T2 Shared Samples", "T10 Shared PhyloLM", "Training Completion", "Cohort Status", "Run Provenance",
   "Archive Index", "Reconciliation Ledger", "Paired Semantic Audit",
 ];
 for (let index = 0; index < sheetNames.length; index += 1) {

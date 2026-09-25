@@ -14,11 +14,11 @@ Current registries:
 - `ellmtrees_variants_registry.yaml`: row mapping for the old ELLMTrees `tab:variants` reference
   table.
 - `weighttraits_variants_registry.yaml`: row mapping from the versioned WeightTraits run-set
-  rollups to the five rebuilt Flan-T5 rows in `tab:variants`.
+  rollups to the rebuilt Flan-T5 and Llama-3.2-1B rows in `tab:variants`.
 - `weighttraits_completed_conditions_registry.yaml`: the five currently complete fresh conditions
   (four LoRA scopes plus full fine-tuning), independent of the unfinished legacy-scope row.
 - `weighttraits_runset_diagnostics_registry.yaml`: native three-metric recovery, four-point, and
-  Atteson diagnostics for those same five completed conditions.
+  Atteson diagnostics for the merged-weight Flan and Llama conditions plus full fine-tuning.
 - `weighttraits_paired_comparisons_registry.yaml`: deterministic same-topology paired effects and
   bootstrap intervals across metrics and training scopes.
 - `recovery_registry.yaml`: verified whitebox recovery summary artifacts.

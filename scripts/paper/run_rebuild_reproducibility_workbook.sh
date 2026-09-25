@@ -39,10 +39,10 @@ runtime_contract="$("${node_bin}" -e '
 IFS=$'\t' read -r bundle_version node_version runtime_artifact_version package_artifact_version package_private \
   <<< "${runtime_contract}"
 
-if [[ "${bundle_version}" != "26.805.11740" \
-  || "${node_version}" != "v24.14.0" \
-  || "${runtime_artifact_version}" != "2.8.39" \
-  || "${package_artifact_version}" != "2.8.39" \
+if [[ "${bundle_version}" != "26.905.11957" \
+  || "${node_version}" != "v24.19.0" \
+  || "${runtime_artifact_version}" != "2.8.59" \
+  || "${package_artifact_version}" != "2.8.59" \
   || "${package_private}" != "true" ]]
 then
   printf 'Codex workbook runtime contract mismatch: %s\n' "${runtime_contract}" >&2

@@ -9,7 +9,7 @@ hierarchical bootstrap samples entire runs/trees and never individual pairs.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping, Sequence
+from typing import Sequence
 
 import numpy as np
 
@@ -25,44 +25,6 @@ class PromptPairingRun:
     tree_id: str
     weight_distance: np.ndarray
     prompt_similarity: np.ndarray
-
-
-def flatten_prompt_outputs(
-    predictions: Mapping[str, Sequence[str]],
-    leaves: Sequence[str],
-) -> list[str]:
-    """Return exact leaf-major, prompt-minor output text without normalization."""
-
-    flat: list[str] = []
-    for leaf in leaves:
-        if leaf not in predictions:
-            raise ValueError(f"predictions are missing leaf {leaf!r}")
-        outputs = predictions[leaf]
-        if not all(isinstance(text, str) for text in outputs):
-            raise ValueError(f"{leaf}: every prompt output must be a string")
-        flat.extend(outputs)
-    return flat
-
-
-def validate_saved_matrix_rebuild_error(
-    errors: Sequence[float],
-    *,
-    max_abs_error: float,
-) -> float:
-    """Return the maximum rebuild error or fail closed above the tolerance."""
-
-    values = np.asarray(errors, dtype=np.float64)
-    if values.ndim != 1 or values.size == 0 or not np.isfinite(values).all():
-        raise ValueError("saved-matrix rebuild errors must be one non-empty finite vector")
-    if not np.isfinite(max_abs_error) or max_abs_error < 0:
-        raise ValueError("saved-matrix rebuild tolerance must be finite and non-negative")
-    observed = float(np.max(values))
-    if observed > max_abs_error:
-        raise RuntimeError(
-            "saved dist_semantic_paired.npy does not match the exact prompt-paired rebuild: "
-            f"max absolute error {observed:.12g} exceeds {max_abs_error:.12g}"
-        )
-    return observed
 
 
 def validate_prompt_pairing_runs(runs: Sequence[PromptPairingRun]) -> tuple[int, np.ndarray]:
