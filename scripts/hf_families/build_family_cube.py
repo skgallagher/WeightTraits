@@ -3,8 +3,9 @@
 
 The models of a family were released independently, so they need not hold exactly the same
 tensors. The cube uses every tensor name the models share, with equal shapes, and skips tensors
-with more than ``--max-elements`` entries (50,000,000, as in the paper). That skips the token
-embedding and the output head of the 7B models.
+with more than ``--max-elements`` entries. The paper's limit differed by family
+(``PAPER_MAX_ELEMENTS``): 50,000,000 for Llama-2, which skips the token embedding and output head;
+60,000,000 for Mistral, which keeps its 58.7M-element MLP matrices.
 
 Distances come from ``weighttraits.analysis.direct``. The paper's cube stored each per-tensor
 matrix as float32 before averaging, so the default rounds them the same way;
@@ -33,6 +34,8 @@ from weighttraits.analysis.direct import _direct_distance_layers  # noqa: E402
 from weighttraits.distances.readers import reader_from_path  # noqa: E402
 
 METRICS = ("cosine", "l2", "correlation")
+# Size limits recorded in the paper's original distance metadata (distance_metadata.json).
+PAPER_MAX_ELEMENTS = {"mistral_7b": 60_000_000, "llama2_7b": 50_000_000}
 
 
 def _shard_of(reader, key: str) -> str:
@@ -86,12 +89,13 @@ def main() -> None:
     parser.add_argument("--manifest", type=Path, required=True, help="download_manifest.json")
     parser.add_argument("--family", required=True, choices=["mistral_7b", "llama2_7b"])
     parser.add_argument("--out", type=Path, required=True)
-    parser.add_argument("--max-elements", type=int, default=50_000_000)
+    parser.add_argument("--max-elements", type=int, help="default: the paper's limit for the family")
     parser.add_argument("--float64", action="store_true", help="keep per-layer matrices in float64")
     args = parser.parse_args()
     family = json.loads(args.manifest.read_text())["families"][args.family]
     paths = {repo.replace("/", "__"): Path(record["path"]) for repo, record in family.items()}
-    meta = build_cube(paths, args.out, max_elements=args.max_elements, float32=not args.float64)
+    max_elements = args.max_elements or PAPER_MAX_ELEMENTS[args.family]
+    meta = build_cube(paths, args.out, max_elements=max_elements, float32=not args.float64)
     print(f"{args.family}: {len(meta['layer_names'])} layers of {meta['n_key_intersection']} shared "
           f"tensors ({meta['n_skipped_size']} over the size limit, "
           f"{meta['n_skipped_shape_mismatch']} with differing shapes) -> {args.out}")

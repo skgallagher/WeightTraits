@@ -25,8 +25,11 @@ need a Hugging Face token with access.
 
 ## Settings that reproduce the paper
 
-* **Tensors.** All tensors shared by the family with equal shapes, except those over 50,000,000
-  elements (the token embedding and output head). That leaves 289 layers for Llama-2.
+* **Tensors.** All tensors shared by the family with equal shapes, up to a size limit set per
+  family in the original run (`PAPER_MAX_ELEMENTS`):
+  * Llama-2: 50,000,000 elements, which drops the token embedding and output head (289 layers);
+  * Mistral: 60,000,000 elements, which keeps the 58.7M-element MLP matrices (289 layers).
+    OpenChat's larger vocabulary makes the embedding shapes differ, so those are dropped anyway.
 * **Cube storage.** Each per-tensor cosine matrix is stored in float32 before averaging, as the
   original streaming script did. `--float64` keeps full precision.
 * **Weight tree.** The BHV Fréchet mean of per-layer NJ trees (five-decimal Newick, negative
