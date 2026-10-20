@@ -125,7 +125,6 @@ def generate_alleles(model_path: str,
     is reset immediately before generation so repeated runs are reproducible and
     every compared model uses the same random stream.
     """
-    import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline, set_seed
 
     if adapter_path is not None and adapter_paths is not None:
