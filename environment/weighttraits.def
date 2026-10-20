@@ -1,6 +1,6 @@
 Bootstrap: docker
-# python:3.11.15-slim-bookworm, pinned by digest
-From: python:3.11.15-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3
+# python:3.11.15-slim-bookworm, pinned by digest (Apptainer rejects tag+digest references)
+From: python@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3
 
 %files
     environment/requirements-lock.txt /opt/weighttraits/requirements-lock.txt
@@ -8,7 +8,7 @@ From: python:3.11.15-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b2
 
 %post
     python -m pip install --no-cache-dir "pip==26.1.1"
-    python -m pip install --no-cache-dir -r /opt/weighttraits/requirements-lock.txt
+    python -m pip install --no-cache-dir --no-deps -r /opt/weighttraits/requirements-lock.txt
     python /opt/weighttraits/check_environment.py
 
 %environment
@@ -18,7 +18,7 @@ From: python:3.11.15-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b2
     exec python "$@"
 
 %labels
-    org.weighttraits.lock-sha256 24a759d55db5a657287bbc42048b6840a661bcfe3a51b01c811d1f8d408a6343
+    org.weighttraits.lock-sha256 2bc2703b8edf7d6ae413f1095e314d070a6e7761aa403e3a98d7adf0a5a6503b
 
 %help
     The paper's Python environment (see environment/README.md). The image carries the

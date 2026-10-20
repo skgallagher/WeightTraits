@@ -19,12 +19,12 @@ There are three ways to get this environment. All of them run WeightTraits from 
 ```bash
 python3.11 -m venv .venv            # Python 3.11.15
 . .venv/bin/activate
-python -m pip install -r environment/requirements-lock.txt
+python -m pip install --no-deps -r environment/requirements-lock.txt
 python environment/check_environment.py
 ```
 
 With [uv](https://docs.astral.sh/uv/), `uv venv --python 3.11.15` provides the exact interpreter.
-Follow it with `uv pip install -r environment/requirements-lock.txt`.
+Follow it with `uv pip install --no-deps -r environment/requirements-lock.txt`.
 
 ## 2. Apptainer (clusters)
 
@@ -51,6 +51,9 @@ is `training-code-august-20260817`.
 
 ## Notes
 
+* Install with `--no-deps`. The environment as it ran has one metadata conflict: `datasets 4.8.5`
+  declares `fsspec<=2026.2.0`, but `fsspec 2026.4.0` is installed, and `pip check` reports it.
+  pip's resolver therefore refuses the exact set, while `--no-deps` reproduces it.
 * The lock also pins some CUDA 13 `nvidia-*` wheels that the env happened to contain. torch
   2.5.1+cu121 doesn't use them. They are kept so the lock describes the env exactly.
 * Library versions do change results. Biopython 1.88 changed its default Newick branch-length

@@ -3,6 +3,9 @@
 # (.stage_provenance/PIP_FREEZE.txt), apart from pip/setuptools/wheel, and was listed again on
 # 20 Oct 2026 with `pip list --format=freeze`. Python 3.11.15. torch is the CUDA 12.1 build.
 # Check an environment against this file with: python environment/check_environment.py
+# Install with --no-deps: the env as it ran has one metadata conflict (datasets 4.8.5 declares
+# fsspec<=2026.2.0 but fsspec 2026.4.0 is installed; `pip check` reports it), so pip's resolver
+# refuses the exact set. --no-deps reproduces the env exactly, conflict included.
 --extra-index-url https://download.pytorch.org/whl/cu121
 absl-py==2.4.0
 accelerate==1.13.0
