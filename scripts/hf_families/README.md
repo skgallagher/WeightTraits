@@ -50,4 +50,13 @@ need a Hugging Face token with access.
 * the chat clade in 275 of 289 per-layer trees (95.2%);
 * a BHV tree with the same splits as the original.
 
-Results of the full Wright redo are recorded in `docs/PAPER_RESULTS.md`.
+Full redo on Wright (20 Oct 2026), from fresh downloads at the pinned revisions:
+
+| Family | Layers kept | Agreement with the original cube | Weight clades | A (paper) | Weight BHV tree vs paper |
+| --- | --- | --- | --- | --- | --- |
+| Llama-2-7B | 289 of 291 shared | per layer within 4.7e-10 (float32 storage); mean matrix within 1.6e-12 | 1/1 | 0.817 (0.82) | identical splits |
+| Mistral-7B | 289 of 291 shared | mean matrix within 4.4e-11 | 3/3 | 0.858 (0.86) | identical splits |
+
+The Llama-2 chat clade appears in 275 of 289 per-layer trees (95.2%), as in the paper. The new
+Mistral cube orders its layers differently from the original; scored in either order, it gives the
+same tree and scores. PhyloLM for both families runs separately (`phylolm_stream.py`).
