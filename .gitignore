@@ -117,3 +117,7 @@ paper/*.toc
 node_modules/
 *.swp
 *.swo
+
+# Upstream PhyloLM gene pool (not redistributed; see scripts/phylolm/README.md)
+scripts/phylolm/genes_math.json
+blackbox/data/

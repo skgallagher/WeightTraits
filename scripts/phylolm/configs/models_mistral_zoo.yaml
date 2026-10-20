@@ -1,0 +1,145 @@
+# Local Mistral-7B HF-zoo registry for blackbox-vs-whitebox validation.
+#
+# IDs intentionally match outputs/hf_zoo/d_mistral_7b_resolved/tree.newick leaf
+# names exactly, so codex/score_hf_zoo_recovery.py needs no renaming glue.
+
+models:
+  - id: HuggingFaceH4__zephyr-7b-beta
+    display_name: "zephyr-7b-beta"
+    company: HuggingFaceH4
+    family: Mistral-7B
+    architecture: decoder
+    tuning: rlhf
+    year: 2023
+    parameters: "7B"
+    provider: local
+    hf_model_id: HuggingFaceH4/zephyr-7b-beta
+    model_path: /scratch/sgallagh/hf_zoo_checkpoints/hf_zoo_d_mistral_7b/HuggingFaceH4__zephyr-7b-beta
+    chat_template: auto
+    cost_per_1m: {input: 0, output: 0}
+
+  - id: Nexusflow__Starling-LM-7B-beta
+    display_name: "Starling-LM-7B-beta"
+    company: Nexusflow
+    family: Mistral-7B
+    architecture: decoder
+    tuning: rlhf
+    year: 2024
+    parameters: "7B"
+    provider: local
+    hf_model_id: Nexusflow/Starling-LM-7B-beta
+    model_path: /scratch/sgallagh/hf_zoo_checkpoints/hf_zoo_d_mistral_7b/Nexusflow__Starling-LM-7B-beta
+    chat_template: auto
+    cost_per_1m: {input: 0, output: 0}
+
+  - id: alignment-handbook__zephyr-7b-sft-full
+    display_name: "zephyr-7b-sft-full"
+    company: alignment-handbook
+    family: Mistral-7B
+    architecture: decoder
+    tuning: instruction
+    year: 2023
+    parameters: "7B"
+    provider: local
+    hf_model_id: alignment-handbook/zephyr-7b-sft-full
+    model_path: /scratch/sgallagh/hf_zoo_checkpoints/hf_zoo_d_mistral_7b/alignment-handbook__zephyr-7b-sft-full
+    chat_template: auto
+    cost_per_1m: {input: 0, output: 0}
+
+  - id: berkeley-nest__Starling-LM-7B-alpha
+    display_name: "Starling-LM-7B-alpha"
+    company: berkeley-nest
+    family: Mistral-7B
+    architecture: decoder
+    tuning: rlhf
+    year: 2023
+    parameters: "7B"
+    provider: local
+    hf_model_id: berkeley-nest/Starling-LM-7B-alpha
+    model_path: /scratch/sgallagh/hf_zoo_checkpoints/hf_zoo_d_mistral_7b/berkeley-nest__Starling-LM-7B-alpha
+    chat_template: auto
+    cost_per_1m: {input: 0, output: 0}
+
+  - id: mistralai__Mistral-7B-Instruct-v0.1
+    display_name: "Mistral-7B-Instruct-v0.1"
+    company: mistralai
+    family: Mistral-7B
+    architecture: decoder
+    tuning: instruction
+    year: 2023
+    parameters: "7B"
+    provider: local
+    hf_model_id: mistralai/Mistral-7B-Instruct-v0.1
+    model_path: /scratch/sgallagh/hf_zoo_checkpoints/hf_zoo_d_mistral_7b/mistralai__Mistral-7B-Instruct-v0.1
+    chat_template: auto
+    cost_per_1m: {input: 0, output: 0}
+
+  - id: mistralai__Mistral-7B-v0.1
+    display_name: "Mistral-7B-v0.1"
+    company: mistralai
+    family: Mistral-7B
+    architecture: decoder
+    tuning: base
+    year: 2023
+    parameters: "7B"
+    provider: local
+    hf_model_id: mistralai/Mistral-7B-v0.1
+    model_path: /scratch/sgallagh/hf_zoo_checkpoints/hf_zoo_d_mistral_7b/mistralai__Mistral-7B-v0.1
+    chat_template: none
+    cost_per_1m: {input: 0, output: 0}
+
+  - id: openchat__openchat-3.5-0106
+    display_name: "openchat-3.5-0106"
+    company: openchat
+    family: Mistral-7B
+    architecture: decoder
+    tuning: instruction
+    year: 2024
+    parameters: "7B"
+    provider: local
+    hf_model_id: openchat/openchat-3.5-0106
+    model_path: /scratch/sgallagh/hf_zoo_checkpoints/hf_zoo_d_mistral_7b/openchat__openchat-3.5-0106
+    chat_template: auto
+    cost_per_1m: {input: 0, output: 0}
+
+  - id: openchat__openchat_3.5
+    display_name: "openchat_3.5"
+    company: openchat
+    family: Mistral-7B
+    architecture: decoder
+    tuning: instruction
+    year: 2023
+    parameters: "7B"
+    provider: local
+    hf_model_id: openchat/openchat_3.5
+    model_path: /scratch/sgallagh/hf_zoo_checkpoints/hf_zoo_d_mistral_7b/openchat__openchat_3.5
+    chat_template: auto
+    cost_per_1m: {input: 0, output: 0}
+
+  - id: teknium__OpenHermes-2-Mistral-7B
+    display_name: "OpenHermes-2-Mistral-7B"
+    company: teknium
+    family: Mistral-7B
+    architecture: decoder
+    tuning: instruction
+    year: 2023
+    parameters: "7B"
+    provider: local
+    hf_model_id: teknium/OpenHermes-2-Mistral-7B
+    model_path: /scratch/sgallagh/hf_zoo_checkpoints/hf_zoo_d_mistral_7b/teknium__OpenHermes-2-Mistral-7B
+    chat_template: auto
+    cost_per_1m: {input: 0, output: 0}
+
+  - id: teknium__OpenHermes-2.5-Mistral-7B
+    display_name: "OpenHermes-2.5-Mistral-7B"
+    company: teknium
+    family: Mistral-7B
+    architecture: decoder
+    tuning: instruction
+    year: 2023
+    parameters: "7B"
+    provider: local
+    hf_model_id: teknium/OpenHermes-2.5-Mistral-7B
+    model_path: /scratch/sgallagh/hf_zoo_checkpoints/hf_zoo_d_mistral_7b/teknium__OpenHermes-2.5-Mistral-7B
+    chat_template: auto
+    cost_per_1m: {input: 0, output: 0}

@@ -22,3 +22,11 @@ experimental reproducibility without silently relicensing the upstream artifact.
 The WeightTraits implementation is a clean re-expression of the documented population-frequency,
 Nei-similarity, distance, sampling, and inference contracts. It does not copy the upstream notebook
 source into this repository.
+
+## Scripts (October 2026)
+
+`scripts/phylolm/` holds the generation, distance, and scoring scripts behind the paper's PhyloLM
+results. Their core calls `weighttraits.behavior.phylolm` for allele frequencies and Nei
+similarity, replacing an earlier core that carried three functions copied from the upstream
+notebook. The gene pool is located through `PHYLOLM_GENE_POOL` or the git-ignored
+`scripts/phylolm/genes_math.json`, and checked against the hash above.
