@@ -24,7 +24,7 @@ if SPEC is None or SPEC.loader is None:
 base = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(base)
 
-from weighttraits.analysis.direct import truth_newick_from_manifest
+from weighttraits.analysis.direct import truth_newick_from_manifest  # noqa: E402
 
 
 FINAL_SOURCES = (

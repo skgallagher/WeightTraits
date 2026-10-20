@@ -16,7 +16,6 @@ from pathlib import Path
 import re
 import stat
 import subprocess
-import tempfile
 from typing import Any, Callable, Mapping
 
 

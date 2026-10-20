@@ -24,12 +24,9 @@ from weighttraits.paper.analysis_contracts import (
     ALL_TREE_IDS,
     TOPOLOGY_EXCLUDED_TREE_IDS,
     TOPOLOGY_TREE_IDS,
-    truth_hashes_sha256,
 )
 from weighttraits.paper.phylolm_table import (
     DIRECT_TREE_ANALYSIS_SCHEMA,
-    PHYLOLM_PROTOCOL_CONTRACT,
-    PHYLOLM_RECEIPT_SCHEMA,
     PHYLOLM_TABLE_SCHEMA,
     SUITE_CONTRACTS,
     build_phylolm_table,
@@ -278,9 +275,6 @@ def _make_case(tmp_path: Path) -> Path:
         _write_truth(path, tree_id)
         truth_specs[tree_id] = _pinned(path)
     truth_map = {tree_id: spec["sha256"] for tree_id, spec in truth_specs.items()}
-    truth_digest = truth_hashes_sha256(
-        {tree_id: {"sha256": digest} for tree_id, digest in truth_map.items()}
-    )
     gene_pool = tmp_path / "genes.json"
     _write_json(gene_pool, [f"gene-{index}" for index in range(256)])
     genome_path = tmp_path / "genome.json"
