@@ -69,3 +69,19 @@ def test_distance_cube_builder_matches_closed_form_cosines(tmp_path):
     expected = {"w": np.array([[0, 1, d], [1, 0, d], [d, d, 0]]), "m": np.zeros((3, 3))}
     for index, name in enumerate(layers):
         assert np.abs(cube[index] - expected[name]).max() < 1e-12
+
+
+def test_full_precision_newick_keeps_edges_below_five_decimals():
+    pytest.importorskip("Bio")
+    from weighttraits.phylo import bhv
+
+    labels = list("abcd")
+    distances = np.array(
+        [[0, 2e-6, 5e-6, 5e-6], [2e-6, 0, 5e-6, 5e-6], [5e-6, 5e-6, 0, 2e-6], [5e-6, 5e-6, 2e-6, 0]]
+    )
+    default = bhv.from_newick(neighbor_joining_newick(labels, distances))
+    full = bhv.from_newick(
+        neighbor_joining_newick(labels, distances, branch_length_format="%.17g")
+    )
+    assert default.internal == {}  # the 2e-6 internal edge is written as 0.00000 and dropped
+    assert list(full.internal.values()) == pytest.approx([3e-6])

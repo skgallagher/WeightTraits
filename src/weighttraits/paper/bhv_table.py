@@ -107,16 +107,27 @@ def scaled_matrix(matrix: np.ndarray, mode: str) -> tuple[np.ndarray, float]:
 
 
 def layer_trees(
-    cube: np.ndarray, labels: list[str], indices: list[int], *, mode: str
+    cube: np.ndarray,
+    labels: list[str],
+    indices: list[int],
+    *,
+    mode: str,
+    branch_length_format: str | None = None,
 ) -> tuple[list[bhv.BHVTree], int, list[float]]:
-    """One NJ tree per active layer; negative pendant edges from NJ are clipped to zero."""
+    """One NJ tree per active layer; negative pendant edges from NJ are clipped to zero.
+
+    ``branch_length_format=None`` reproduces the paper (five-decimal Newick, which zeroes edges
+    shorter than 5e-6); ``"%.17g"`` keeps full precision.
+    """
 
     trees: list[bhv.BHVTree] = []
     clipped_pendant_edges = 0
     scales: list[float] = []
     for index in indices:
         matrix, scale = scaled_matrix(cube[index], mode)
-        tree = bhv.from_newick(neighbor_joining_newick(labels, matrix))
+        tree = bhv.from_newick(
+            neighbor_joining_newick(labels, matrix, branch_length_format=branch_length_format)
+        )
         clipped_pendant_edges += sum(length < 0.0 for length in tree.pendant.values())
         tree.pendant = {label: max(0.0, float(length)) for label, length in tree.pendant.items()}
         trees.append(tree)
@@ -179,6 +190,7 @@ def run_bhv_table(
     zero_tolerance: float = 1e-12,
     tree_ids: Sequence[str] = TOPOLOGY_TREE_IDS,
     expected_active: Mapping[str, int] | None = None,
+    branch_length_format: str | None = None,
     log=print,
 ) -> dict[str, Any]:
     """Compute BHV all-weight estimates for each suite and write JSON + summary CSV."""
@@ -240,7 +252,9 @@ def run_bhv_table(
             log(f"  {position:02d}/{len(tree_ids)} {tree_id}: {len(indices)}/{len(layer_names)} active")
 
             for mode in scale_modes:
-                trees, n_clipped, scales = layer_trees(cube, labels, indices, mode=mode)
+                trees, n_clipped, scales = layer_trees(
+                    cube, labels, indices, mode=mode, branch_length_format=branch_length_format
+                )
                 seed_splits: list[tuple[tuple[str, ...], ...]] = []
                 seed_truth: list[tuple[int, int]] = []
                 for seed in seeds:
@@ -331,6 +345,7 @@ def run_bhv_table(
             "epochs": epochs,
             "seeds": list(seeds),
             "zero_tolerance": zero_tolerance,
+            "branch_length_format": branch_length_format or "biopython default (%1.5f)",
             "tree_ids": list(tree_ids),
         },
         "suite_audits": suite_audits,
