@@ -27,7 +27,7 @@ root has more than one child.
 | Figure 2 points | `scripts/build_merged_weight_figure2.py` | `--weighttraits-root MIRROR --phylolm-metrics per_run_metrics.csv --phylolm-cohort fixed2000 --out ... --csv-out ... --records-out ...` | run-set rollups, per-layer cubes, PhyloLM per-run metrics |
 | Figure 2 fits, odds ratios, panels | `R/figure2.R`; Python port `weighttraits.stats.fractional_logit` | `Rscript R/figure2.R SUMMARY_CSV RECORDS_CSV BOOTSTRAP_OUT FIGURE_STEM` (2,000 paired-tree replicates, seed 20260805) | Figure 2 summary and records CSVs |
 | Figure 2 tree-level odds ratios | `R/odds_ratio_tree_level.R` | `Rscript R/odds_ratio_tree_level.R RECORDS_CSV OUT_CSV` | Figure 2 records CSV |
-| Table 3 (behavior, held-out tasks) | Wright deployment `deployments/allnode_v1*` (`weighttraits_allnode`); not yet in git | see [behavior](#behavior) | all-node inference, semantic matrices, direct cosine |
+| Table 3 (behavior, held-out tasks) | `weighttraits.behavior.allnode` (`semantic_analysis`, `replay`) | `python -m weighttraits.behavior.allnode.replay --config <semantic job config>` (on Wright); see [behavior](#behavior) | all-node responses, semantic matrices, direct cosine |
 
 Submitted values:
 
@@ -73,9 +73,9 @@ Table 2 ordering output: `table2.json` `55a9c2cb…`.
 | App. C PhyloLM details | see [PhyloLM](#phylolm) | locked configuration: G 128, N 32, T 4, sampling seed 20260803, `genes_math.json` |
 | App. D Hugging Face families: scores | `weighttraits.paper.hf_families` (`score_family`, `per_layer_clade_support`) | Mistral 3/3 clades, A 0.86 (weights) vs 0.68 (PhyloLM); Llama-2 1/1, A 0.82 vs 0.64; chat clade in 275/289 per-layer trees with positive length (95.2%) |
 | App. D tree figures | `weighttraits.paper.hf_family_figures`, `R/hf_family_trees.R` | `Rscript R/hf_family_trees.R DATA_DIR FIGURE_DIR`; cubes live on Ghidorah (`/home/sgallagh/ELLMTrees/results/hf_zoo/`) |
-| App. E heterogeneity table | Wright deployment (`weighttraits_allnode`) | see [behavior](#behavior) |
+| App. E heterogeneity table | `weighttraits.behavior.allnode.semantic_analysis` | the same run sets as Table 3; see [behavior](#behavior) |
 | App. E Flan output audit | `weighttraits.behavior.output_audit.audit_cohort(inference_root)` | unrelated training labels: ARC-C 20.4%, MMLU 22.9%, HellaSwag 21.3%, TruthfulQA 30.3%, translation 14.7% trained / 22.6% held out |
-| App. F empty-response sensitivity and depth | `scripts/build_behavior_eos_depth.py`; the Llama blank-pair bridge was a Wright-only script on `weighttraits_allnode` | see [BEHAVIOR_EOS_DEPTH.md](BEHAVIOR_EOS_DEPTH.md) |
+| App. F empty-response sensitivity and depth | `weighttraits.behavior.allnode.eos_excluded` (empty excluded) and `.empty_rates` (rates by depth) | see [BEHAVIOR_ALLNODE.md](BEHAVIOR_ALLNODE.md) |
 
 ## PhyloLM
 
@@ -93,11 +93,17 @@ rerun, the column used an earlier early-stopped training of the same trees.
 
 ## Behavior
 
-Table 3, the App. E heterogeneity table, and App. F come from the all-node behavior deployment on
-Wright: `deployments/allnode_v1` plus continuation deployments through `v1c7` in the downstream
-root. Terminal and run-set receipts are mirrored under `sources/wright/behavior/<cohort>/`. That
-code is not in this repository yet. The behavior modules here (`weighttraits.behavior`) implement
-the same stages, but they have not been shown to reproduce these numbers.
+Table 3, the App. E heterogeneity table, and App. F come from the all-node behavior study.
+
+* **Origin.** It first ran on Wright as the `weighttraits_allnode` deployment
+  (`deployments/allnode_v1`, plus continuations through `v1c5`, under the downstream root).
+* **Now.** That package is `weighttraits.behavior.allnode`, byte-identical apart from the package
+  name; see [BEHAVIOR_ALLNODE.md](BEHAVIOR_ALLNODE.md).
+* **Verified on Wright (20 Oct 2026).**
+  * Replaying all 13 run sets from the saved responses and matrices reproduces every tree analysis
+    and run-set hash.
+  * Both App. F post-processors reproduce their saved outputs byte for byte.
+* **Not rerun.** GPU response generation.
 
 ## Training
 
