@@ -58,3 +58,10 @@ is `training-code-august-20260817`.
   2.5.1+cu121 doesn't use them. They are kept so the lock describes the env exactly.
 * Library versions do change results. Biopython 1.88 changed its default Newick branch-length
   format, so WeightTraits pins `%1.5f` itself (see `NEWICK_BRANCH_LENGTH_FORMAT`).
+
+## Verified (20 Oct 2026, Wright n03)
+
+* **venv.** A fresh venv built from the lock with `--no-deps` installs in about 5 minutes and
+  matches all 155 pins, including Python. The full test suite passes in it.
+* **Apptainer.** `apptainer build --fakeroot` builds the image in about 6 minutes (a 4.7 GB SIF).
+  The full test suite passes inside it.
