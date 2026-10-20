@@ -4,6 +4,14 @@ Start with the main [README](../README.md) for installation and a five-minute to
 The guides below are grouped by what a user is trying to accomplish. Some older files are retained
 as dated project records; they are useful for provenance but are not the best onboarding path.
 
+## Reproduce the paper
+
+- [Paper Results](PAPER_RESULTS.md) — every number in the ICLR 2027 submission mapped to its code,
+  command, and inputs, with known differences found after submission.
+- [Final-Result Runbook](FINAL_RESULTS_REPRODUCTION_2026-09-14.md) — September execution record
+  on Wright (sealed roots, receipts, behavior pipeline).
+- [Direct-Weight Table 2](DIRECT_WEIGHT_TABLE2.md) — the fail-closed Table 2 contract.
+
 ## Understand the workflow
 
 - [Pipeline Flow](PIPELINE_FLOW.md) — separation between topology, task/data assignment, training,

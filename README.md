@@ -105,8 +105,10 @@ scheduler configuration, model access, and API credentials remain environment-sp
 - [Recovery scoring](docs/RECOVERY_SCORING.md): exact definitions for RF, FP/FN, clade recovery,
   and polytomy-aware exact recovery.
 - [Distance metrics](docs/DISTANCE_METRICS.md): cosine, correlation, L2, CKA, and registry semantics.
-- [Reproducible result artifacts](docs/PAPER_REPRODUCTION.md): provenance gates and registered
-  tables and figures.
+- [Paper results](docs/PAPER_RESULTS.md): each number in the ICLR 2027 submission mapped to its
+  code, command, and inputs.
+- [Result registries](docs/PAPER_REPRODUCTION.md): provenance gates and registered tables and
+  figures.
 
 ## Repository layout
 

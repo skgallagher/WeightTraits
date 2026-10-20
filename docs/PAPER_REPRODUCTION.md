@@ -1,5 +1,9 @@
 # Paper Reproduction Plan
 
+> **Dated record (July 2026 registry plan).** It targets the v2 draft and the early-stopped
+> cohorts. For the submitted paper, start from [PAPER_RESULTS.md](PAPER_RESULTS.md). The registry
+> commands below still work for the artifacts they name.
+
 The ICLR results should eventually be rebuilt as a consequence of registered artifacts, not as a manual copy of old figures and tables.
 
 Frozen target: `../ELLMTrees-paper/iclr_draft_v2.tex`, pinned in `paper/reference_registry.yaml` at
