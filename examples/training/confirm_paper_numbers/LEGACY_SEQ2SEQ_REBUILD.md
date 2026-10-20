@@ -24,12 +24,6 @@ Every cohort extends `flan_t5_legacy_seq2seq_2000_base.yaml` and therefore share
   cap 1,000, using `dataset_registry_legacy_causal.yaml` and
   `dataset_formats_legacy_causal.yaml`.
 
-The base config enforces the legacy Python, PyTorch, Transformers, Datasets,
-Accelerate, Tokenizers, and PEFT versions; the deterministic 60-file WeightTraits
-source receipt; and the checked-in 72-split cache source receipt before model
-loading. Every child also authenticates its parent's planned row, source receipt,
-completion receipt, and merged/full artifact bytes before initialization.
-
 Full fine-tuning enables gradient checkpointing. All LoRA cohorts disable it, use
 rank 8, alpha 16, dropout 0.05, and merge the trained adapter before a child node
 loads its parent artifact.

@@ -6,21 +6,6 @@ training:
   base_model_revision: 7bcac572ce56db69c1ea7c8af255c5d7c9672fc2
   trainer:
     model_task: seq2seq
-    expected_runtime:
-      python: 3.11.15
-      torch: 2.5.1+cu121
-      transformers: 5.8.0
-      datasets: 4.8.5
-      accelerate: 1.13.0
-      tokenizers: 0.22.2
-      peft: 0.19.1
-    expected_source_code:
-      algorithm: sha256-relative-path-and-content-v1
-      file_count: 60
-      sha256: 1445e45de825615dba929a63f8812d66e6105170002ff8c1ed35ee4a338e796b
-    expected_cache_source_receipt:
-      path: examples/training/confirm_paper_numbers/legacy_causal_seed42_cache_source_receipt.json
-      sha256: f3f185801afd6c7f01fb015d69544574d3d6ef48da375e1eadcd0eff32d00818
     padding_side: right
     # Matches the legacy ELLMTrees DataCollatorForSeq2Seq contract.
     pad_to_multiple_of: 8

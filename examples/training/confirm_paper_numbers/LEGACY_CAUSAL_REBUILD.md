@@ -65,21 +65,11 @@ than the newer default WeightTraits environment:
 | Transformers | `5.8.0` |
 | Datasets | `4.8.5` |
 | Accelerate | `1.13.0` |
-| Tokenizers | `0.22.2` |
-| PEFT | `0.19.1` |
 
 The existing cache job defaults to
 `/home/export/sgallagh/.conda/envs/ellmtrees/bin/python` and prints these versions
-before loading data. The frozen config also enforces Python `3.11.15` and every
-version in the table before it loads a model; a mismatch is a failed preflight,
-not an innocuous warning.
-
-The config also pins the deterministic SHA-256 receipt for all 60 Python files
-under `src/weighttraits`. Root nodes fail if the executing source tree differs;
-children additionally require the parent's recorded source receipt to equal the
-current one. This prevents mixing a parent from an older staged checkout with a
-child launched after a code change even when their run-list and data contracts
-are otherwise identical.
+before loading data. Treat a version mismatch as a failed preflight, not as an
+innocuous warning.
 
 On Wright it also defaults `HF_DATASETS_CACHE` to the 273 GB historical
 `~/.cache/huggingface/datasets` cache used by ELLMTrees. All 35 shared source
@@ -178,21 +168,7 @@ split in a known incorrect cache. The cache summary must be valid, identify
 `legacy_subsample` and seed 42, and have no dropped or filtered rows. Each split's
 metadata records registry/format fingerprints, source split fingerprint and row
 count, and cached JSONL row count and SHA-256; preserve those metadata files with
-the cache. The checked-in
-`legacy_causal_seed42_cache_source_receipt.json` freezes all 72 metadata records
-from cache job `167743`. Every training row verifies that receipt's SHA-256, the
-current registry and format fingerprints, each source fingerprint and row count,
-and the cached JSONL bytes before training. A cache rebuilt from a different
-mutable source revision therefore fails even if it uses the same seed and caps.
-
-Each node writes immutable `provenance.json` before model training and a terminal
-`completion.json` only after the required model or merged artifact is durable.
-Before loading a non-root parent, the executor verifies the planned parent row,
-effective data and trainer overrides, runtime, completion receipt, and a recursive
-SHA-256 of the parent artifact. The provenance also anchors the complete
-WeightTraits Python source receipt. It refuses unreceipted, partial, completed,
-wrong-source, or wrong-protocol output directories before appending any
-output-local log event.
+the cache.
 
 ### 3. Regenerate both executable run-list sets
 
@@ -278,9 +254,7 @@ As of 2026-08-10, protocol readiness is split by model family:
 - The ordinary and matched no-translation Llama full-FT cohorts have validated
   run lists and passed the shared cache and isolated row smoke. Their clean Wright
   launch receipts are cache job `167743`, smoke job `167744`, ordinary array
-  `167745`, and matched no-translation array `167746`; exact staged hashes and the
-  immutable resubmission rule are recorded in
-  `wright_legacy_causal_launch_receipt_20260810.json`.
+  `167745`, and matched no-translation array `167746`.
 - All seven Flan cohorts now have method-specific legacy seq2seq overlays,
   50-tree/641-row run-list sets, and zero validation errors or warnings. Their
   exact contracts, adapter scopes, regeneration commands, and remaining smoke

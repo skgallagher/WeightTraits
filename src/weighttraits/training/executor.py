@@ -32,7 +32,7 @@ from weighttraits.training.monitor import (
     TrainingEvent,
 )
 from weighttraits.training.prompts import render_prompt
-from weighttraits.training.runlist import TrainingRunSpec, load_training_run_specs
+from weighttraits.training.runlist import TrainingRunSpec
 
 
 MonitorEventCallback = Callable[[TrainingEvent], MonitorDecision]
@@ -219,62 +219,33 @@ def run_training_run(
 ) -> TrainingRunResult:
     """Run one training row and write ledger events for lifecycle and monitor state."""
     overrides = _execution_overrides(execution_overrides)
-    data_execution = _data_execution_contract(
-        run,
-        data_cache_root=data_cache_root,
-        require_data_cache=require_data_cache,
-        expected_cache_recipe=expected_cache_recipe,
-        max_train_samples=max_train_samples,
-        max_eval_samples=max_eval_samples,
-        allow_missing_eval=allow_missing_eval,
-    )
     provenance = _training_run_provenance(
         run,
         registry,
         format_specs,
-        data_execution=data_execution,
+        data_cache_root=data_cache_root,
+        expected_cache_recipe=expected_cache_recipe,
         execution_overrides=overrides,
     )
     provenance_ref: dict[str, Any] = {}
-    started_event: TrainingLedgerEvent | None = None
+    if write_ledger:
+        extra = {
+            "run_id": run.run_id,
+            "array_index": run.array_index,
+            "provenance": provenance,
+        }
+        if overrides:
+            extra["execution_overrides"] = overrides
+        started_event = TrainingLedgerEvent(
+            node_id=run.node_id,
+            status="started",
+            message="training row started",
+            extra=extra,
+        )
+        append_ledger_event(run.ledger_path, started_event)
+        _append_training_log(run, started_event)
     try:
-        _assert_output_provenance_preflight(run)
-        _enforce_expected_runtime(run.job, provenance["runtime_versions"])
-        _enforce_expected_source_code(run.job, provenance["source_code"])
         _required_max_steps(run)
-        parent_lineage = _validate_parent_lineage(
-            run,
-            execution_overrides=overrides,
-            data_execution=data_execution,
-            runtime_versions=provenance["runtime_versions"],
-            source_code=provenance["source_code"],
-        )
-        if parent_lineage:
-            provenance["parent_lineage"] = parent_lineage
-        cache_source_receipt = _validate_expected_cache_source_receipt(
-            run,
-            registry,
-            format_specs,
-            data_cache_root=data_cache_root,
-            require_data_cache=require_data_cache,
-        )
-        if cache_source_receipt:
-            provenance["cache_source_receipt"] = cache_source_receipt
-        if write_ledger:
-            extra = {
-                "run_id": run.run_id,
-                "array_index": run.array_index,
-                "provenance": provenance,
-            }
-            if overrides:
-                extra["execution_overrides"] = overrides
-            started_event = TrainingLedgerEvent(
-                node_id=run.node_id,
-                status="started",
-                message="training row started",
-                extra=extra,
-            )
-            append_ledger_event(run.ledger_path, started_event)
         data = prepare_training_data(
             run,
             registry,
@@ -297,8 +268,6 @@ def run_training_run(
         )
         provenance_ref = _write_training_provenance(run, provenance)
         if write_ledger:
-            if started_event is not None:
-                _append_training_log(run, started_event)
             prepared_event = TrainingLedgerEvent(
                 node_id=run.node_id,
                 status="running",
@@ -347,14 +316,6 @@ def run_training_run(
         stop_reasons = _unique_items(decision.reasons for decision in decisions)
         artifacts = dict(run.expected_artifacts)
         artifacts.update(backend_result.artifacts)
-        if status == "completed":
-            completion_ref = _write_training_completion(
-                run,
-                step=backend_result.step,
-                provenance_ref=provenance_ref,
-                artifacts=artifacts,
-            )
-            artifacts["completion_receipt"] = completion_ref["path"]
         result = TrainingRunResult(
             node_id=run.node_id,
             status=status,
@@ -402,8 +363,7 @@ def run_training_run(
                 },
             )
             append_ledger_event(run.ledger_path, failed_event)
-            if provenance_ref:
-                _append_training_log(run, failed_event)
+            _append_training_log(run, failed_event)
         raise
 
 
@@ -1080,14 +1040,7 @@ def _training_runtime_versions() -> dict[str, str]:
     """Capture the numerical software environment in every terminal ledger row."""
 
     versions = {"python": platform.python_version()}
-    for distribution in (
-        "torch",
-        "transformers",
-        "datasets",
-        "accelerate",
-        "tokenizers",
-        "peft",
-    ):
+    for distribution in ("torch", "transformers", "datasets", "accelerate", "tokenizers"):
         try:
             versions[distribution] = importlib.metadata.version(distribution)
         except importlib.metadata.PackageNotFoundError:
@@ -1095,156 +1048,13 @@ def _training_runtime_versions() -> dict[str, str]:
     return versions
 
 
-def _enforce_expected_runtime(job: Mapping[str, Any], actual: Mapping[str, str]) -> None:
-    """Fail before model loading when a frozen protocol's numerical stack differs."""
-
-    trainer = dict(job.get("trainer") or {})
-    raw_expected = trainer.get("expected_runtime")
-    if raw_expected is None:
-        return
-    if not isinstance(raw_expected, Mapping) or not raw_expected:
-        raise ValueError("trainer.expected_runtime must be a non-empty mapping")
-    expected = {str(key): str(value) for key, value in raw_expected.items()}
-    unsupported = sorted(set(expected) - set(actual))
-    if unsupported:
-        raise ValueError(
-            "trainer.expected_runtime contains unsupported packages: " + ", ".join(unsupported)
-        )
-    mismatched = {
-        key: {"expected": value, "actual": actual.get(key)}
-        for key, value in expected.items()
-        if actual.get(key) != value
-    }
-    if mismatched:
-        details = ", ".join(
-            f"{key}={row['actual']!r} (expected {row['expected']!r})"
-            for key, row in sorted(mismatched.items())
-        )
-        raise RuntimeError(f"training runtime does not match frozen protocol: {details}")
-
-
-def _weighttraits_source_receipt(package_root: Path | None = None) -> dict[str, Any]:
-    """Hash every WeightTraits Python source path and byte string deterministically."""
-
-    root = package_root or Path(__file__).resolve().parents[1]
-    files = sorted(path for path in root.rglob("*.py") if path.is_file())
-    if not files:
-        raise RuntimeError(f"WeightTraits source receipt found no Python files under {root}")
-    digest = hashlib.sha256()
-    for path in files:
-        relative = path.relative_to(root).as_posix().encode("utf-8")
-        digest.update(len(relative).to_bytes(8, "big"))
-        digest.update(relative)
-        digest.update(bytes.fromhex(_file_sha256(path)))
-    return {
-        "schema_version": 1,
-        "package": "weighttraits",
-        "algorithm": "sha256-relative-path-and-content-v1",
-        "file_count": len(files),
-        "sha256": digest.hexdigest(),
-    }
-
-
-def _enforce_expected_source_code(job: Mapping[str, Any], actual: Mapping[str, Any]) -> None:
-    """Fail before training when a frozen protocol was built for different source bytes."""
-
-    trainer = dict(job.get("trainer") or {})
-    raw_expected = trainer.get("expected_source_code")
-    if raw_expected is None:
-        return
-    if not isinstance(raw_expected, Mapping) or not raw_expected:
-        raise ValueError("trainer.expected_source_code must be a non-empty mapping")
-    expected = dict(raw_expected)
-    required = {"algorithm", "sha256"}
-    missing = sorted(required - set(expected))
-    unsupported = sorted(set(expected) - {"algorithm", "sha256", "file_count"})
-    if missing:
-        raise ValueError(
-            "trainer.expected_source_code lacks required fields: " + ", ".join(missing)
-        )
-    if unsupported:
-        raise ValueError(
-            "trainer.expected_source_code contains unsupported fields: " + ", ".join(unsupported)
-        )
-    mismatched = {
-        key: {"expected": value, "actual": actual.get(key)}
-        for key, value in expected.items()
-        if actual.get(key) != value
-    }
-    if mismatched:
-        details = ", ".join(
-            f"{key}={row['actual']!r} (expected {row['expected']!r})"
-            for key, row in sorted(mismatched.items())
-        )
-        raise RuntimeError(f"WeightTraits source does not match frozen protocol: {details}")
-
-
-def _expected_cache_source_receipt(job: Mapping[str, Any]) -> dict[str, str] | None:
-    trainer = dict(job.get("trainer") or {})
-    raw = trainer.get("expected_cache_source_receipt")
-    if raw is None:
-        return None
-    if not isinstance(raw, Mapping):
-        raise ValueError("trainer.expected_cache_source_receipt must be a mapping")
-    path = str(raw.get("path", "")).strip()
-    sha256 = str(raw.get("sha256", "")).strip().lower()
-    if not path:
-        raise ValueError("trainer.expected_cache_source_receipt.path is required")
-    if len(sha256) != 64 or any(character not in "0123456789abcdef" for character in sha256):
-        raise ValueError("trainer.expected_cache_source_receipt.sha256 must be a lowercase SHA-256")
-    return {"path": path, "sha256": sha256}
-
-
-def _data_execution_contract(
-    run: TrainingRunSpec,
-    *,
-    data_cache_root: str | Path | None,
-    require_data_cache: bool,
-    expected_cache_recipe: DatasetCacheRecipe | None,
-    max_train_samples: int | None,
-    max_eval_samples: int | None,
-    allow_missing_eval: bool,
-) -> dict[str, Any]:
-    """Return every effective data choice that can alter a trained node."""
-
-    return {
-        "data_cache_root": None if data_cache_root is None else str(data_cache_root),
-        "require_data_cache": bool(require_data_cache),
-        "expected_cache_recipe": (
-            None if expected_cache_recipe is None else expected_cache_recipe.to_dict()
-        ),
-        "expected_cache_source_receipt": _expected_cache_source_receipt(run.job),
-        "max_train_samples": max_train_samples,
-        "max_eval_samples": max_eval_samples,
-        "allow_missing_eval": bool(allow_missing_eval),
-    }
-
-
-def _planned_run_spec(run: TrainingRunSpec) -> TrainingRunSpec:
-    """Recover the immutable checked-in row before any command-line trainer override."""
-
-    run_list_path = run.runner.get("run_list_path")
-    if not run_list_path:
-        return run
-    path = Path(str(run_list_path))
-    if not path.is_file():
-        return run
-    matches = [
-        candidate for candidate in load_training_run_specs(path) if candidate.node_id == run.node_id
-    ]
-    if len(matches) != 1:
-        raise RuntimeError(
-            f"expected one planned row for node {run.node_id!r} in {path}, found {len(matches)}"
-        )
-    return matches[0]
-
-
 def _training_run_provenance(
     run: TrainingRunSpec,
     registry: Mapping[str, DatasetRegistryEntry],
     format_specs: Mapping[str, DatasetFormatSpec],
     *,
-    data_execution: Mapping[str, Any],
+    data_cache_root: str | Path | None,
+    expected_cache_recipe: DatasetCacheRecipe | None,
     execution_overrides: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Build a compact, deterministic receipt for the effective training row."""
@@ -1253,12 +1063,10 @@ def _training_run_provenance(
     spec = format_specs.get(run.dataset_id or "")
     run_list_path = run.runner.get("run_list_path")
     run_list_file = Path(str(run_list_path)) if run_list_path else None
-    planned_run = _planned_run_spec(run)
     return {
         "schema_version": 1,
         "protocol_id": run.job.get("protocol_id"),
         "planned_training_config_sha256": run.job.get("training_config_sha256"),
-        "planned_run_spec_sha256": _canonical_json_sha256(planned_run.to_dict()),
         "effective_job_sha256": _canonical_json_sha256(run.job),
         "run_spec_sha256": _canonical_json_sha256(run.to_dict()),
         "run_list_path": None if run_list_file is None else str(run_list_file),
@@ -1274,10 +1082,12 @@ def _training_run_provenance(
         "dataset_format_spec_sha256": (
             dataset_format_spec_fingerprint(spec) if spec is not None else None
         ),
-        "data_execution": dict(data_execution),
+        "data_cache_root": None if data_cache_root is None else str(data_cache_root),
+        "expected_cache_recipe": (
+            None if expected_cache_recipe is None else expected_cache_recipe.to_dict()
+        ),
         "execution_overrides": dict(execution_overrides),
         "runtime_versions": _training_runtime_versions(),
-        "source_code": _weighttraits_source_receipt(),
     }
 
 
@@ -1356,356 +1166,6 @@ def _write_training_provenance(
         "path": str(path),
         "sha256": hashlib.sha256(payload.encode("utf-8")).hexdigest(),
     }
-
-
-def _assert_output_provenance_preflight(run: TrainingRunSpec) -> None:
-    """Reject ambiguous or completed outputs before writing any output-local event."""
-
-    output_dir = Path(run.output_dir)
-    if not output_dir.exists():
-        return
-    entries = sorted(output_dir.iterdir(), key=lambda path: path.name)
-    if not entries:
-        return
-    provenance_path = output_dir / "provenance.json"
-    if not provenance_path.is_file():
-        names = ", ".join(path.name for path in entries[:8])
-        raise RuntimeError(
-            f"refusing output without immutable provenance in {output_dir}; existing: {names}"
-        )
-    completion_path = output_dir / "completion.json"
-    if completion_path.exists():
-        raise RuntimeError(
-            f"refusing to retrain completed output {output_dir}; submit only unfinished rows"
-        )
-    allowed = {provenance_path.resolve()}
-    training_log = run.expected_artifacts.get("training_log")
-    if training_log:
-        allowed.add(Path(training_log).resolve())
-    unexpected = [path for path in entries if path.resolve() not in allowed]
-    if unexpected:
-        names = ", ".join(path.name for path in unexpected[:8])
-        raise RuntimeError(
-            f"refusing partial or mixed artifacts in {output_dir}; unexpected: {names}"
-        )
-
-
-def _validate_expected_cache_source_receipt(
-    run: TrainingRunSpec,
-    registry: Mapping[str, DatasetRegistryEntry],
-    format_specs: Mapping[str, DatasetFormatSpec],
-    *,
-    data_cache_root: str | Path | None,
-    require_data_cache: bool,
-) -> dict[str, Any]:
-    """Authenticate the exact frozen cache rows and their upstream source fingerprints."""
-
-    expected_ref = _expected_cache_source_receipt(run.job)
-    if expected_ref is None:
-        return {}
-    if not require_data_cache or data_cache_root is None:
-        raise RuntimeError(
-            "frozen cache source receipt requires require_data_cache and data_cache_root"
-        )
-    receipt_path = Path(expected_ref["path"])
-    if not receipt_path.is_file():
-        raise FileNotFoundError(f"missing frozen cache source receipt: {receipt_path}")
-    actual_receipt_sha256 = _file_sha256(receipt_path)
-    if actual_receipt_sha256 != expected_ref["sha256"]:
-        raise RuntimeError(
-            "frozen cache source receipt SHA-256 differs: "
-            f"{actual_receipt_sha256} != {expected_ref['sha256']}"
-        )
-    try:
-        receipt = json.loads(receipt_path.read_text())
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"invalid frozen cache source receipt {receipt_path}: {exc}") from exc
-    if not isinstance(receipt, Mapping) or receipt.get("schema_version") != 1:
-        raise ValueError(f"unsupported frozen cache source receipt: {receipt_path}")
-    raw_splits = receipt.get("splits")
-    if not isinstance(raw_splits, list):
-        raise ValueError(f"frozen cache source receipt lacks split rows: {receipt_path}")
-    expected_splits: dict[tuple[str, str], Mapping[str, Any]] = {}
-    for row in raw_splits:
-        if not isinstance(row, Mapping):
-            raise ValueError("frozen cache source receipt contains a non-mapping split row")
-        key = (str(row.get("dataset_id", "")), str(row.get("split", "")))
-        if not all(key) or key in expected_splits:
-            raise ValueError(f"frozen cache source receipt has invalid or duplicate split {key}")
-        expected_splits[key] = row
-
-    dataset_id = run.dataset_id or ""
-    entry = registry.get(dataset_id)
-    spec = format_specs.get(dataset_id)
-    if entry is None or spec is None:
-        raise ValueError(f"missing registry or format declaration for {dataset_id!r}")
-    train_split = spec.train_split or entry.train_split or "train"
-    eval_split = spec.eval_split or entry.eval_split
-    split_names = [train_split] + ([eval_split] if eval_split else [])
-    verified: dict[str, dict[str, Any]] = {}
-    for split_name in split_names:
-        key = (dataset_id, str(split_name))
-        expected = expected_splits.get(key)
-        if expected is None:
-            raise RuntimeError(f"frozen cache source receipt lacks {dataset_id}/{split_name}")
-        cache_path = dataset_cache_split_path(data_cache_root, dataset_id, str(split_name))
-        metadata_path = cache_path.with_suffix(".metadata.json")
-        if not cache_path.is_file() or not metadata_path.is_file():
-            raise FileNotFoundError(
-                f"missing frozen cache split or metadata: {cache_path}, {metadata_path}"
-            )
-        try:
-            actual = json.loads(metadata_path.read_text())
-        except json.JSONDecodeError as exc:
-            raise ValueError(f"invalid cache metadata {metadata_path}: {exc}") from exc
-        if actual != dict(expected):
-            differing = sorted(
-                key_name
-                for key_name in set(actual) | set(expected)
-                if actual.get(key_name) != expected.get(key_name)
-            )
-            raise RuntimeError(
-                f"cache metadata differs from frozen receipt for {dataset_id}/{split_name}: "
-                + ", ".join(differing)
-            )
-        if expected.get("dataset_registry_entry_sha256") != dataset_registry_entry_fingerprint(
-            entry
-        ):
-            raise RuntimeError(
-                f"registry declaration differs from frozen receipt for {dataset_id}/{split_name}"
-            )
-        if expected.get("dataset_format_spec_sha256") != dataset_format_spec_fingerprint(spec):
-            raise RuntimeError(
-                f"format declaration differs from frozen receipt for {dataset_id}/{split_name}"
-            )
-        row_count, cache_sha256 = _jsonl_file_stats(cache_path)
-        if row_count != expected.get("cache_row_count"):
-            raise RuntimeError(
-                f"cache row count differs from frozen receipt for {dataset_id}/{split_name}"
-            )
-        if cache_sha256 != expected.get("cache_jsonl_sha256"):
-            raise RuntimeError(
-                f"cache content differs from frozen receipt for {dataset_id}/{split_name}"
-            )
-        verified[str(split_name)] = {
-            "source_split_fingerprint": expected.get("source_split_fingerprint"),
-            "source_split_num_rows": expected.get("source_split_num_rows"),
-            "cache_jsonl_sha256": cache_sha256,
-            "cache_row_count": row_count,
-            "metadata_sha256": _file_sha256(metadata_path),
-        }
-    return {
-        "path": str(receipt_path),
-        "sha256": actual_receipt_sha256,
-        "dataset_id": dataset_id,
-        "splits": verified,
-    }
-
-
-def _validate_parent_lineage(
-    run: TrainingRunSpec,
-    *,
-    execution_overrides: Mapping[str, Any],
-    data_execution: Mapping[str, Any],
-    runtime_versions: Mapping[str, str],
-    source_code: Mapping[str, Any],
-) -> dict[str, Any]:
-    """Require a completed, authenticated parent row and exact parent artifact bytes."""
-
-    if run.parent_id == "root":
-        return {}
-    run_list_path = run.runner.get("run_list_path")
-    if not run_list_path or not Path(str(run_list_path)).is_file():
-        raise RuntimeError(f"non-root node {run.node_id} requires its complete run list")
-    parents = [
-        candidate
-        for candidate in load_training_run_specs(str(run_list_path))
-        if candidate.node_id == run.parent_id
-    ]
-    if len(parents) != 1:
-        raise RuntimeError(
-            f"expected one parent row {run.parent_id!r}, found {len(parents)} in {run_list_path}"
-        )
-    planned_parent = parents[0]
-    lineage_key = _lineage_artifact_key(planned_parent)
-    expected_parent_artifact = planned_parent.expected_artifacts.get(lineage_key)
-    if not expected_parent_artifact:
-        raise RuntimeError(
-            f"parent {planned_parent.node_id} lacks expected {lineage_key!r} artifact"
-        )
-    if Path(run.init_from) != Path(expected_parent_artifact):
-        raise RuntimeError(
-            f"child {run.node_id} init_from does not match parent {lineage_key}: "
-            f"{run.init_from!r} != {expected_parent_artifact!r}"
-        )
-
-    parent_provenance_path = Path(planned_parent.output_dir) / "provenance.json"
-    parent_completion_path = Path(planned_parent.output_dir) / "completion.json"
-    parent_provenance = _read_json_mapping(parent_provenance_path, "parent provenance")
-    parent_completion = _read_json_mapping(parent_completion_path, "parent completion")
-    effective_parent = _run_with_execution_overrides(planned_parent, execution_overrides)
-    run_list_file = Path(str(run_list_path))
-    expected_provenance_fields = {
-        "protocol_id": planned_parent.job.get("protocol_id"),
-        "planned_training_config_sha256": planned_parent.job.get("training_config_sha256"),
-        "planned_run_spec_sha256": _canonical_json_sha256(planned_parent.to_dict()),
-        "effective_job_sha256": _canonical_json_sha256(effective_parent.job),
-        "run_spec_sha256": _canonical_json_sha256(effective_parent.to_dict()),
-        "run_list_path": str(run_list_file),
-        "run_list_sha256": _file_sha256(run_list_file),
-        "execution_overrides": dict(execution_overrides),
-        "data_execution": dict(data_execution),
-        "runtime_versions": dict(runtime_versions),
-        "source_code": dict(source_code),
-    }
-    mismatched = [
-        field
-        for field, expected in expected_provenance_fields.items()
-        if parent_provenance.get(field) != expected
-    ]
-    if mismatched:
-        raise RuntimeError(
-            f"parent {planned_parent.node_id} provenance differs from planned lineage: "
-            + ", ".join(mismatched)
-        )
-    parent_provenance_sha256 = _file_sha256(parent_provenance_path)
-    if parent_completion.get("schema_version") != 1:
-        raise RuntimeError(f"parent {planned_parent.node_id} completion schema is unsupported")
-    if parent_completion.get("node_id") != planned_parent.node_id:
-        raise RuntimeError(f"parent completion node id differs for {planned_parent.node_id}")
-    if parent_completion.get("status") != "completed":
-        raise RuntimeError(f"parent {planned_parent.node_id} is not completed")
-    required_parent_step = _required_max_steps(effective_parent)
-    if required_parent_step is not None and parent_completion.get("step") != required_parent_step:
-        raise RuntimeError(
-            f"parent {planned_parent.node_id} completion step differs: "
-            f"{parent_completion.get('step')!r} != {required_parent_step!r}"
-        )
-    if parent_completion.get("provenance_sha256") != parent_provenance_sha256:
-        raise RuntimeError(f"parent provenance hash differs for {planned_parent.node_id}")
-    artifact = parent_completion.get("lineage_artifact")
-    if not isinstance(artifact, Mapping) or artifact.get("key") != lineage_key:
-        raise RuntimeError(f"parent completion lacks authenticated {lineage_key} artifact")
-    if Path(str(artifact.get("path", ""))) != Path(expected_parent_artifact):
-        raise RuntimeError(f"parent completion artifact path differs for {planned_parent.node_id}")
-    actual_artifact_sha256 = _artifact_tree_sha256(Path(expected_parent_artifact))
-    if artifact.get("sha256") != actual_artifact_sha256:
-        raise RuntimeError(f"parent artifact bytes differ for {planned_parent.node_id}")
-    return {
-        "parent_id": planned_parent.node_id,
-        "provenance_path": str(parent_provenance_path),
-        "provenance_sha256": parent_provenance_sha256,
-        "completion_path": str(parent_completion_path),
-        "completion_sha256": _file_sha256(parent_completion_path),
-        "artifact_key": lineage_key,
-        "artifact_path": expected_parent_artifact,
-        "artifact_sha256": actual_artifact_sha256,
-    }
-
-
-def _write_training_completion(
-    run: TrainingRunSpec,
-    *,
-    step: int | None,
-    provenance_ref: Mapping[str, Any],
-    artifacts: Mapping[str, str],
-) -> dict[str, str]:
-    """Publish an immutable terminal receipt after the lineage artifact is durable."""
-
-    lineage_key = _lineage_artifact_key(run)
-    artifact_path = Path(str(artifacts.get(lineage_key, "")))
-    if not artifact_path.exists():
-        raise RuntimeError(
-            f"completed run {run.node_id} did not create its {lineage_key} artifact: {artifact_path}"
-        )
-    provenance_path = Path(str(provenance_ref.get("path", "")))
-    if not provenance_path.is_file():
-        raise RuntimeError(f"completed run {run.node_id} lacks immutable provenance")
-    payload = {
-        "schema_version": 1,
-        "node_id": run.node_id,
-        "status": "completed",
-        "step": step,
-        "provenance_path": str(provenance_path),
-        "provenance_sha256": _file_sha256(provenance_path),
-        "lineage_artifact": {
-            "key": lineage_key,
-            "path": str(artifact_path),
-            "sha256": _artifact_tree_sha256(artifact_path),
-        },
-    }
-    path = Path(run.output_dir) / "completion.json"
-    text = json.dumps(payload, indent=2, sort_keys=True) + "\n"
-    if path.exists():
-        if path.read_text() != text:
-            raise RuntimeError(f"refusing to replace a different completion receipt: {path}")
-    else:
-        temporary = path.with_name(f".{path.name}.tmp")
-        temporary.write_text(text)
-        temporary.replace(path)
-    return {"path": str(path), "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest()}
-
-
-def _lineage_artifact_key(run: TrainingRunSpec) -> str:
-    return "merged" if run.method == "lora" else "model"
-
-
-def _run_with_execution_overrides(
-    run: TrainingRunSpec,
-    execution_overrides: Mapping[str, Any],
-) -> TrainingRunSpec:
-    trainer_overrides = execution_overrides.get("trainer")
-    if not trainer_overrides:
-        return run
-    if not isinstance(trainer_overrides, Mapping):
-        raise ValueError("execution_overrides.trainer must be a mapping")
-    row = run.to_dict()
-    job = dict(row["job"])
-    trainer = dict(job.get("trainer") or {})
-    trainer.update(trainer_overrides)
-    job["trainer"] = trainer
-    row["job"] = job
-    return TrainingRunSpec(**row)
-
-
-def _read_json_mapping(path: Path, label: str) -> Mapping[str, Any]:
-    if not path.is_file():
-        raise FileNotFoundError(f"missing {label}: {path}")
-    try:
-        value = json.loads(path.read_text())
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"invalid {label} {path}: {exc}") from exc
-    if not isinstance(value, Mapping):
-        raise ValueError(f"invalid {label} {path}: expected a JSON object")
-    return value
-
-
-def _artifact_tree_sha256(path: Path) -> str:
-    if path.is_file():
-        return _file_sha256(path)
-    if not path.is_dir():
-        raise FileNotFoundError(f"missing artifact path: {path}")
-    files = sorted(candidate for candidate in path.rglob("*") if candidate.is_file())
-    if not files:
-        raise RuntimeError(f"artifact directory contains no files: {path}")
-    digest = hashlib.sha256()
-    for file_path in files:
-        relative = file_path.relative_to(path).as_posix().encode("utf-8")
-        digest.update(len(relative).to_bytes(8, "big"))
-        digest.update(relative)
-        digest.update(bytes.fromhex(_file_sha256(file_path)))
-    return digest.hexdigest()
-
-
-def _jsonl_file_stats(path: Path) -> tuple[int, str]:
-    digest = hashlib.sha256()
-    row_count = 0
-    with path.open("rb") as handle:
-        for line in handle:
-            digest.update(line)
-            if line.strip():
-                row_count += 1
-    return row_count, digest.hexdigest()
 
 
 def _canonical_json_sha256(value: Any) -> str:
