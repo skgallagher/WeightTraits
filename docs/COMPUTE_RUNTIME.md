@@ -44,7 +44,22 @@ about five GPUs at once, so its 315 GPU-hours took 62 hours of wall time.
 ## Other runs
 
 * The July early-stopped cohorts are a training-depth sensitivity analysis, not the primary
-  result. Seven Flan-T5 conditions used 1,427.8 GPU-hours, recorded on branch
-  `docs/compute-runtime`.
+  result. See the next section.
 * For the October task-replacement sensitivity experiment, see
   [TASK_REPLACEMENT_SENSITIVITY.md](TASK_REPLACEMENT_SENSITIVITY.md) on its branch.
+
+## July early-stopped Flan-T5 cohorts (accounting of 3 Aug 2026)
+
+These cohorts used early stopping and one L40, 4 CPU cores, and 64 GB RAM per tree, on the `all`
+partition. Their calendar windows overlap, so the windows do not add.
+
+| Condition | Trees | Mean per tree | Longest tree | Total GPU-hours | Submission-to-completion window | Slurm jobs |
+|---|---:|---:|---:|---:|---:|---|
+| Full fine-tuning | 50 | 3.07 h | 3.76 h | 153.26 | 3 d 7 h 11 m | `153745`, `153752` |
+| LoRA q/v | 50 | 3.63 h | 4.46 h | 181.47 | 4 d 5 h 59 m | `153785` |
+| LoRA k | 50 | 3.28 h | 3.89 h | 164.17 | 2 d 2 h 3 m | `153909` |
+| LoRA q/k/v | 50 | 4.15 h | 5.02 h | 207.49 | 2 d 13 h 13 m | `153910` |
+| LoRA q/k/v/o | 50 | 4.62 h | 5.53 h | 230.88 | 3 d 9 h 6 m | `153911` |
+| LoRA legacy full-FT approximation | 50 | 4.92 h | 5.89 h | 246.24 | 3 d 20 h 18 m | `153912` |
+| LoRA all projections, corrected | 50 | 4.89 h | 6.43 h | 244.31 | 3 d 3 h 43 m | `154446` plus recoveries |
+| **Total** | **350** | — | — | **1,427.82** | — | — |
