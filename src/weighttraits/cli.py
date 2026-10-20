@@ -345,6 +345,7 @@ def _bhv_table(args: argparse.Namespace) -> int:
         zero_tolerance=args.zero_tolerance,
         tree_ids=args.tree_ids.split(",") if args.tree_ids else TOPOLOGY_TREE_IDS,
         expected_active=expected,
+        branch_length_format=args.branch_length_format,
     )
     print(json.dumps(payload["summaries"], indent=2, sort_keys=True))
     return 0
@@ -1615,6 +1616,11 @@ def build_parser() -> argparse.ArgumentParser:
     bhv_table.add_argument("--epochs", type=int, default=300)
     bhv_table.add_argument("--zero-tolerance", type=float, default=1e-12)
     bhv_table.add_argument("--tree-ids", help="comma-separated; default: the 46 with a clade")
+    bhv_table.add_argument(
+        "--branch-length-format",
+        help="Newick branch-length format for the per-layer NJ trees, e.g. %%.17g; default: "
+        "Biopython's five decimals, as used for the submitted Table 2",
+    )
     bhv_table.add_argument(
         "--expected-active", action="append", default=[], help="fail unless ID has N layers"
     )

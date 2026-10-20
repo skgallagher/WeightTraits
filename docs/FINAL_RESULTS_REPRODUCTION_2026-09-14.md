@@ -1,5 +1,18 @@
 # Final-result reproduction and Wright runbook
 
+> **Status, 20 Oct 2026.** This runbook is the September execution record.
+> [PAPER_RESULTS.md](PAPER_RESULTS.md) maps every number in the submitted paper to its code.
+> Corrections since 14 Sep:
+>
+> * The Table 2 PhyloLM column and the Figure 2 odds ratios were recomputed after PhyloLM was
+>   rerun on these checkpoints (24 Sep). The values in §1 are the earlier, superseded ones.
+> * The §10 blockers are closed:
+>   * the September work is committed (merge 8c83e82);
+>   * the Table 2 contract is `examples/paper/corrected_direct_weight_table2.yaml`;
+>   * the Figure 2 bootstrap is `R/figure2.R`.
+> * The tag `training-code-frozen-20260810` cannot train its own run lists. The training code of
+>   record is tag `training-code-august-20260817` (see [TRAINER_DESIGN.md](TRAINER_DESIGN.md)).
+
 Status date: 2026-09-14 (America/New_York)
 
 This is the operational handoff for the **WeightTraits repository and Wright

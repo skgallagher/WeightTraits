@@ -92,6 +92,33 @@ All required values must be finite and in their valid ranges. PAER and ordering
 validity must be JSON booleans. A branch correlation equal to -1 or 1 is rejected
 because its Fisher transform is undefined.
 
+## The submitted paper's contract
+
+`examples/paper/corrected_direct_weight_table2.yaml` is the contract for the ICLR 2027 submission.
+It covers the eight Table 2 conditions, the 26 ordering-valid trees, and the 46 truth manifests.
+It was generated from the run-set receipts mirrored from Wright, so every path is absolute on
+Wright: the sealed training root and `WeightTraits-downstream-20260831-native`. Run it there, on
+any node, from a checkout of this repository:
+
+```bash
+PYTHONPATH=src python scripts/build_merged_weight_paper_stats.py \
+  --config examples/paper/corrected_direct_weight_table2.yaml \
+  --out <dir>/table2.json --csv-out <dir>/table2.csv
+```
+
+On 20 Oct 2026 every check passed:
+
+* truth hashes;
+* strict completion receipts;
+* the 50-tree/641-run cohort contracts;
+* rollup pins.
+
+The run reproduced the submitted rank-biserial and branch-length r columns for all eight rows
+(`table2.json` sha256 `55a9c2cbb444951573c48c2c2e2840f9d2ef15bbee6a715860290ae55deba2d2`). The
+clade, full-estimation, RF, and FN columns in the output are neighbor joining on the mean matrix.
+The submitted table instead reports the BHV estimate for those columns (`wt bhv-table`; see
+[PAPER_RESULTS.md](PAPER_RESULTS.md)).
+
 ## Command and outputs
 
 Run from the WeightTraits repository root with `PYTHONPATH=src`:
