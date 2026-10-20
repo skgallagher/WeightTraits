@@ -98,8 +98,24 @@ def reconstruct_tree_from_cube(
     return ReconstructionResult(newick=newick, audit=audit)
 
 
-def neighbor_joining_newick(labels: Sequence[str], distances: np.ndarray) -> str:
-    """Return a Newick tree from a labeled distance matrix using Biopython NJ."""
+# Branch-length format of every published artifact: Biopython's default through 1.87. Biopython
+# 1.88 changed its default to "%1.8g", so the format is pinned rather than left to the library.
+NEWICK_BRANCH_LENGTH_FORMAT = "%1.5f"
+
+
+def neighbor_joining_newick(
+    labels: Sequence[str],
+    distances: np.ndarray,
+    *,
+    branch_length_format: str | None = None,
+) -> str:
+    """Return a Newick tree from a labeled distance matrix using Biopython NJ.
+
+    Branch lengths are written with five decimals (``NEWICK_BRANCH_LENGTH_FORMAT``), which turns
+    edges shorter than 5e-6 into zero. That is harmless for topology-only scoring but drops short
+    internal edges once the tree is read into BHV space. Pass ``branch_length_format="%.17g"`` to
+    keep full precision. The default reproduces existing artifacts byte for byte.
+    """
 
     labels = list(labels)
     matrix = _validated_distance_matrix(distances, labels)
@@ -110,7 +126,10 @@ def neighbor_joining_newick(labels: Sequence[str], distances: np.ndarray) -> str
     ]
     tree = constructor().nj(distance_matrix(labels, lower_triangle))
     out = StringIO()
-    phylo.write(tree, out, "newick")
+    phylo.write(
+        tree, out, "newick",
+        format_branch_length=branch_length_format or NEWICK_BRANCH_LENGTH_FORMAT,
+    )
     return out.getvalue().strip()
 
 

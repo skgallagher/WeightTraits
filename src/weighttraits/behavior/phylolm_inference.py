@@ -1,4 +1,4 @@
-"""GPU collection for PhyloLM, including cumulative LoRA leaf reconstruction."""
+"""GPU population collection for the locked corrected PhyloLM protocol."""
 
 from __future__ import annotations
 
@@ -6,44 +6,53 @@ import gc
 import json
 from pathlib import Path
 import time
-from typing import Any, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 import numpy as np
 
 from weighttraits.behavior.phylolm import (
-    DEFAULT_ALLELE_CHARACTERS,
-    DEFAULT_NEW_TOKENS,
-    DEFAULT_SAMPLES_PER_GENE,
+    LOCKED_PHYLOLM_PROTOCOL,
+    PHYLOLM_GENERATION_SCHEMA,
+    build_population_receipt,
     compute_population,
-    save_population,
+    load_genome_receipt,
+    write_population_receipt,
 )
-from weighttraits.distances.manifest import DistanceInputSpec
+from weighttraits.behavior.probe_inference import (
+    ResolvedLeafCheckpoint,
+    sha256_path,
+)
+from weighttraits.paper.analysis_contracts import (
+    canonical_tree_id,
+    sha256,
+    validate_strict_training_completion,
+)
 
 
-def load_sampled_genome(path: str | Path) -> tuple[list[str], dict[str, Any]]:
-    row = json.loads(Path(path).read_text())
-    genes = row.get("genes")
-    if not isinstance(genes, list) or not genes or not all(isinstance(gene, str) for gene in genes):
-        raise ValueError("sampled PhyloLM genome must contain a non-empty genes list")
-    return genes, row
+PipelineFactory = Callable[..., Any]
+SeedSetter = Callable[[int], None]
 
 
-def extract_pipeline_alleles(
-    prompts: Sequence[str], outputs: Sequence[Any], *, allele_characters: int
+def extract_raw_continuation_alleles(
+    prompts: Sequence[str], outputs: Sequence[Any]
 ) -> list[str]:
-    if allele_characters <= 0:
-        raise ValueError("allele_characters must be positive")
+    """Extract exactly the first four characters after each raw prompt."""
+
     if len(prompts) != len(outputs):
-        raise ValueError("PhyloLM pipeline output count does not match prompt count")
+        raise ValueError("PhyloLM output count differs from prompt count")
     alleles: list[str] = []
-    for prompt, output in zip(prompts, outputs):
+    for index, (prompt, output) in enumerate(zip(prompts, outputs, strict=True)):
         record = output[0] if isinstance(output, list) else output
-        if not isinstance(record, dict) or "generated_text" not in record:
-            raise ValueError("unexpected text-generation pipeline output")
-        generated = str(record["generated_text"])
+        if not isinstance(record, Mapping) or not isinstance(
+            record.get("generated_text"), str
+        ):
+            raise ValueError(f"PhyloLM output {index} has no generated_text")
+        generated = record["generated_text"]
         if not generated.startswith(prompt):
-            raise ValueError("text-generation output does not preserve the raw PhyloLM prompt")
-        alleles.append(generated[len(prompt) :][:allele_characters])
+            raise ValueError(f"PhyloLM output {index} does not preserve the raw prompt")
+        alleles.append(
+            generated[len(prompt) :][: LOCKED_PHYLOLM_PROTOCOL.allele_characters]
+        )
     return alleles
 
 
@@ -52,141 +61,116 @@ def generate_phylolm_alleles(
     tokenizer: Any,
     genes: Sequence[str],
     *,
-    samples_per_gene: int = DEFAULT_SAMPLES_PER_GENE,
-    new_tokens: int = DEFAULT_NEW_TOKENS,
-    allele_characters: int = DEFAULT_ALLELE_CHARACTERS,
-    temperature: float = 1.0,
     batch_size: int = 64,
-    seed: int = 0,
+    pipeline_factory: PipelineFactory | None = None,
+    set_seed: SeedSetter | None = None,
 ) -> np.ndarray:
-    """Run PhyloLM's raw-prompt fixed-token sampling contract."""
+    """Generate the exact G=128 by N=32 raw-continuation allele grid."""
 
-    if samples_per_gene <= 0 or new_tokens <= 0 or batch_size <= 0:
-        raise ValueError("samples_per_gene, new_tokens, and batch_size must be positive")
-    if temperature <= 0:
-        raise ValueError("PhyloLM sampling temperature must be positive")
-    try:
-        from transformers import pipeline, set_seed
-    except ImportError as exc:
-        raise ImportError("PhyloLM collection requires transformers") from exc
-
-    set_seed(seed)
+    protocol = LOCKED_PHYLOLM_PROTOCOL
+    if (
+        len(genes) != protocol.n_genes
+        or not all(isinstance(gene, str) and gene for gene in genes)
+    ):
+        raise ValueError("PhyloLM inference requires exactly 128 nonempty genes")
+    if batch_size != protocol.batch_size or isinstance(batch_size, bool):
+        raise ValueError(
+            f"corrected PhyloLM requires locked batch_size={protocol.batch_size}"
+        )
+    if pipeline_factory is None or set_seed is None:
+        try:
+            from transformers import pipeline as transformers_pipeline
+            from transformers import set_seed as transformers_set_seed
+        except ImportError as exc:  # pragma: no cover - production dependency
+            raise RuntimeError("PhyloLM inference requires transformers") from exc
+        pipeline_factory = pipeline_factory or transformers_pipeline
+        set_seed = set_seed or transformers_set_seed
     if tokenizer.pad_token_id is None:
+        if tokenizer.eos_token_id is None:
+            raise ValueError("PhyloLM tokenizer has neither pad nor EOS token")
         tokenizer.pad_token = tokenizer.eos_token
+        # Some tokenizer implementations expose ``pad_token_id`` as a
+        # derived property, while lightweight/test implementations do not.
+        # Pin the actual generation argument explicitly in either case.
+        tokenizer.pad_token_id = tokenizer.eos_token_id
     tokenizer.padding_side = "left"
-    generator = pipeline("text-generation", model=model, tokenizer=tokenizer)
-    prompts = [gene for gene in genes for _ in range(samples_per_gene)]
+    generator = pipeline_factory("text-generation", model=model, tokenizer=tokenizer)
+    set_seed(protocol.sampling_seed)
+    prompts = [gene for gene in genes for _ in range(protocol.samples_per_gene)]
     outputs = generator(
         prompts,
         do_sample=True,
-        min_new_tokens=new_tokens,
-        max_new_tokens=new_tokens,
-        temperature=temperature,
+        min_new_tokens=protocol.new_tokens,
+        max_new_tokens=protocol.new_tokens,
+        temperature=protocol.temperature,
         return_full_text=True,
         pad_token_id=tokenizer.pad_token_id,
         batch_size=batch_size,
     )
-    alleles = extract_pipeline_alleles(
-        prompts, outputs, allele_characters=allele_characters
+    alleles = extract_raw_continuation_alleles(prompts, outputs)
+    return np.asarray(alleles, dtype=object).reshape(
+        protocol.n_genes, protocol.samples_per_gene
     )
-    return np.asarray(alleles, dtype=object).reshape(len(genes), samples_per_gene)
 
 
-def load_causal_leaf_model(
-    spec: DistanceInputSpec,
+def collect_phylolm_leaf_population(
+    checkpoint: ResolvedLeafCheckpoint,
     *,
-    base_model: str | None,
-    base_revision: str | None,
-    local_files_only: bool = True,
-    torch_dtype: str = "auto",
-) -> tuple[Any, Any, dict[str, Any]]:
-    """Load a full checkpoint or rematerialize a cumulative LoRA leaf from base + chain."""
-
-    try:
-        from transformers import AutoModelForCausalLM, AutoTokenizer
-    except ImportError as exc:
-        raise ImportError("PhyloLM collection requires transformers") from exc
-
-    common = {
-        "torch_dtype": torch_dtype,
-        "device_map": "auto",
-        "local_files_only": local_files_only,
-    }
-    if spec.checkpoint is not None:
-        model = AutoModelForCausalLM.from_pretrained(str(spec.checkpoint), **common)
-        tokenizer = AutoTokenizer.from_pretrained(
-            str(spec.checkpoint), local_files_only=local_files_only
-        )
-        return model, tokenizer, {
-            "representation": "full_checkpoint",
-            "checkpoint": str(spec.checkpoint),
-            "adapter_chain": [],
-        }
-
-    if not spec.adapter_chain:
-        raise ValueError(f"model {spec.model_id} has neither checkpoint nor adapter chain")
-    if not base_model:
-        raise ValueError("cumulative LoRA PhyloLM collection requires --base-model")
-    try:
-        from peft import PeftModel
-    except ImportError as exc:
-        raise ImportError("cumulative LoRA PhyloLM collection requires peft") from exc
-
-    model = AutoModelForCausalLM.from_pretrained(
-        base_model,
-        revision=base_revision,
-        **common,
-    )
-    for adapter_path in spec.adapter_chain:
-        model = PeftModel.from_pretrained(model, str(adapter_path), local_files_only=local_files_only)
-        model = model.merge_and_unload()
-    tokenizer = AutoTokenizer.from_pretrained(
-        base_model,
-        revision=base_revision,
-        local_files_only=local_files_only,
-    )
-    return model, tokenizer, {
-        "representation": "cumulative_lora_rematerialized",
-        "base_model": base_model,
-        "base_revision": base_revision,
-        "adapter_chain": [str(path) for path in spec.adapter_chain],
-    }
-
-
-def collect_phylolm_population(
-    spec: DistanceInputSpec,
-    *,
-    genome_path: str | Path,
-    out_path: str | Path,
-    base_model: str | None = None,
-    base_revision: str | None = None,
-    samples_per_gene: int = DEFAULT_SAMPLES_PER_GENE,
-    new_tokens: int = DEFAULT_NEW_TOKENS,
-    allele_characters: int = DEFAULT_ALLELE_CHARACTERS,
-    temperature: float = 1.0,
+    genome_receipt_path: str | Path,
+    completion_receipt_path: str | Path,
+    stage_manifest_path: str | Path,
+    output_path: str | Path,
     batch_size: int = 64,
-    seed: int = 0,
-    local_files_only: bool = True,
+    torch_dtype: str = "auto",
+    model_loader: Callable[[ResolvedLeafCheckpoint, str], tuple[Any, Any, Mapping[str, Any]]]
+    | None = None,
 ) -> dict[str, Any]:
-    genes, genome_metadata = load_sampled_genome(genome_path)
-    started = time.monotonic()
-    model, tokenizer, model_metadata = load_causal_leaf_model(
-        spec,
-        base_model=base_model,
-        base_revision=base_revision,
-        local_files_only=local_files_only,
+    """Load one merged/model checkpoint once and atomically publish its population."""
+
+    if checkpoint.model_task != "causal_lm":
+        raise ValueError("corrected PhyloLM supports causal_lm checkpoints only")
+    if checkpoint.artifact_name not in {"model", "merged"}:
+        raise ValueError("corrected PhyloLM requires model or merged full weights")
+    protocol = LOCKED_PHYLOLM_PROTOCOL
+    if batch_size != protocol.batch_size or isinstance(batch_size, bool):
+        raise ValueError(
+            f"corrected PhyloLM requires locked batch_size={protocol.batch_size}"
+        )
+    if torch_dtype != protocol.torch_dtype:
+        raise ValueError(
+            f"corrected PhyloLM requires locked torch_dtype={protocol.torch_dtype!r}"
+        )
+    canonical_tree_id(checkpoint.tree_id)
+    genome_path = Path(genome_receipt_path).resolve()
+    genome = load_genome_receipt(genome_path)
+    genes = genome.get("genes")
+    if not isinstance(genes, list):
+        raise ValueError("PhyloLM genome receipt lacks genes")
+    completion = Path(completion_receipt_path).resolve()
+    stage_manifest = Path(stage_manifest_path).resolve()
+    if not completion.is_file():
+        raise FileNotFoundError(f"PhyloLM completion receipt is missing: {completion}")
+    if not stage_manifest.is_file():
+        raise FileNotFoundError(f"PhyloLM stage manifest is missing: {stage_manifest}")
+    validate_strict_training_completion(
+        json.loads(completion.read_text()), cohort_id=checkpoint.cohort_id
     )
+    source_pins = _validated_checkpoint_source_pins(checkpoint)
+    completion_digest = sha256(completion)
+    stage_digest = sha256(stage_manifest)
+    checkpoint_digest_before = sha256_path(checkpoint.checkpoint)
+    output = Path(output_path).resolve()
+    if output.exists():
+        raise FileExistsError(f"refusing to overwrite PhyloLM population: {output}")
+    started = time.monotonic()
+    loader = model_loader or _load_huggingface_checkpoint
+    model, tokenizer, loader_receipt = loader(checkpoint, torch_dtype)
     try:
         alleles = generate_phylolm_alleles(
             model,
             tokenizer,
             genes,
-            samples_per_gene=samples_per_gene,
-            new_tokens=new_tokens,
-            allele_characters=allele_characters,
-            temperature=temperature,
             batch_size=batch_size,
-            seed=seed,
         )
         population = compute_population(alleles.tolist())
     finally:
@@ -198,24 +182,108 @@ def collect_phylolm_population(
 
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-        except ImportError:
+        except ImportError:  # pragma: no cover - production dependency
             pass
-
-    mean_distinct = float(np.mean([len(gene) for gene in population]))
-    mean_empty = float(np.mean([gene.get("", 0.0) for gene in population]))
-    metadata = {
-        **model_metadata,
-        "genome_path": str(genome_path),
-        "genome_source_sha256": genome_metadata.get("source_sha256"),
-        "n_genes": len(genes),
-        "samples_per_gene": samples_per_gene,
-        "new_tokens": new_tokens,
-        "allele_characters": allele_characters,
-        "temperature": temperature,
-        "seed": seed,
-        "mean_distinct_alleles_per_gene": mean_distinct,
-        "mean_empty_allele_frequency": mean_empty,
+    checkpoint_digest = sha256_path(checkpoint.checkpoint)
+    if checkpoint_digest != checkpoint_digest_before:
+        raise ValueError("PhyloLM checkpoint changed during model loading/generation")
+    for field, pin in source_pins.items():
+        if sha256(pin[0]) != pin[1]:
+            raise ValueError(f"PhyloLM {field} changed during generation")
+    if sha256(completion) != completion_digest or sha256(stage_manifest) != stage_digest:
+        raise ValueError("PhyloLM completion/stage provenance changed during generation")
+    generation_receipt = {
+        "schema": PHYLOLM_GENERATION_SCHEMA,
+        "valid": True,
+        "suite_id": checkpoint.cohort_id,
+        "tree_id": canonical_tree_id(checkpoint.tree_id),
+        "model_id": checkpoint.leaf_id,
+        "protocol": LOCKED_PHYLOLM_PROTOCOL.to_dict(),
+        "checkpoint": str(checkpoint.checkpoint.resolve()),
+        "checkpoint_sha256": checkpoint_digest,
+        "training_summary": str(checkpoint.training_summary.resolve()),
+        "training_summary_sha256": checkpoint.training_summary_sha256,
+        "run_list": str(checkpoint.run_list.resolve()),
+        "run_list_sha256": checkpoint.run_list_sha256,
+        "ledger": str(checkpoint.ledger.resolve()),
+        "ledger_sha256": checkpoint.ledger_sha256,
+        "truth_manifest": str(checkpoint.truth_manifest.resolve()),
+        "truth_manifest_sha256": checkpoint.truth_manifest_sha256,
+        "completion_receipt": str(completion),
+        "completion_receipt_sha256": completion_digest,
+        "stage_manifest": str(stage_manifest),
+        "stage_manifest_sha256": stage_digest,
+        "loader": dict(loader_receipt),
+        "batch_size": batch_size,
+        "torch_dtype": torch_dtype,
         "elapsed_seconds": time.monotonic() - started,
     }
-    save_population(out_path, model_id=spec.model_id, population=population, metadata=metadata)
-    return metadata
+    receipt = build_population_receipt(
+        suite_id=checkpoint.cohort_id,
+        tree_id=checkpoint.tree_id,
+        model_id=checkpoint.leaf_id,
+        population=population,
+        genome_receipt_path=genome_path,
+        checkpoint_path=checkpoint.checkpoint,
+        checkpoint_sha256=checkpoint_digest,
+        generation_receipt=generation_receipt,
+    )
+    write_population_receipt(receipt, output)
+    return receipt
+
+
+def _load_huggingface_checkpoint(
+    checkpoint: ResolvedLeafCheckpoint, torch_dtype: str
+) -> tuple[Any, Any, Mapping[str, Any]]:
+    try:
+        import torch
+        import transformers
+    except ImportError as exc:  # pragma: no cover - production dependency
+        raise RuntimeError("PhyloLM inference requires torch and transformers") from exc
+    if torch_dtype != LOCKED_PHYLOLM_PROTOCOL.torch_dtype:
+        raise ValueError("corrected PhyloLM requires torch_dtype='auto'")
+    dtype: Any = torch_dtype
+    model = transformers.AutoModelForCausalLM.from_pretrained(
+        str(checkpoint.checkpoint),
+        local_files_only=True,
+        torch_dtype=dtype,
+        device_map="auto",
+    )
+    model.eval()
+    tokenizer = transformers.AutoTokenizer.from_pretrained(
+        checkpoint.base_model_id,
+        revision=checkpoint.base_model_revision,
+        local_files_only=True,
+    )
+    return model, tokenizer, {
+        "backend": "huggingface_text_generation_pipeline",
+        "checkpoint": str(checkpoint.checkpoint),
+        "checkpoint_artifact": checkpoint.artifact_name,
+        "tokenizer_model_id": checkpoint.base_model_id,
+        "tokenizer_revision": checkpoint.base_model_revision,
+        "local_files_only": True,
+        "torch_dtype": torch_dtype,
+        "torch_version": getattr(torch, "__version__", None),
+        "transformers_version": getattr(transformers, "__version__", None),
+    }
+
+
+def _validated_checkpoint_source_pins(
+    checkpoint: ResolvedLeafCheckpoint,
+) -> dict[str, tuple[Path, str]]:
+    pins = {
+        "training_summary": (
+            checkpoint.training_summary.resolve(),
+            checkpoint.training_summary_sha256,
+        ),
+        "run_list": (checkpoint.run_list.resolve(), checkpoint.run_list_sha256),
+        "ledger": (checkpoint.ledger.resolve(), checkpoint.ledger_sha256),
+        "truth_manifest": (
+            checkpoint.truth_manifest.resolve(),
+            checkpoint.truth_manifest_sha256,
+        ),
+    }
+    for field, (path, expected) in pins.items():
+        if not path.is_file() or sha256(path) != expected:
+            raise ValueError(f"PhyloLM checkpoint {field} pin does not verify")
+    return pins

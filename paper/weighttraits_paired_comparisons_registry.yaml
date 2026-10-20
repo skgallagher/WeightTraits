@@ -10,24 +10,24 @@ seed: 20260713
 
 conditions:
   - id: lora_qv
-    summary: outputs/analysis_v20260713/lora_finetune_summary.json
-    artifact: adapter_chain
-    representation: lora_cumulative_delta
+    summary: outputs/analysis_flan_merged_weights_20260804/aggregate/lora_finetune_rollup.json
+    artifact: merged
+    representation: full_weight
     expected_trees: 50
   - id: lora_k_only
-    summary: outputs/analysis_v20260713/lora_k_only_summary.json
-    artifact: adapter_chain
-    representation: lora_cumulative_delta
+    summary: outputs/analysis_flan_merged_weights_20260804/aggregate/lora_k_only_rollup.json
+    artifact: merged
+    representation: full_weight
     expected_trees: 50
   - id: lora_qkv
-    summary: outputs/analysis_v20260713/lora_qkv_summary.json
-    artifact: adapter_chain
-    representation: lora_cumulative_delta
+    summary: outputs/analysis_flan_merged_weights_20260804/aggregate/lora_qkv_rollup.json
+    artifact: merged
+    representation: full_weight
     expected_trees: 50
   - id: lora_full_attn
-    summary: outputs/analysis_v20260713/lora_full_attn_summary.json
-    artifact: adapter_chain
-    representation: lora_cumulative_delta
+    summary: outputs/analysis_flan_merged_weights_20260804/aggregate/lora_full_attn_rollup.json
+    artifact: merged
+    representation: full_weight
     expected_trees: 50
   - id: full_finetune
     summary: outputs/analysis_v20260713/full_finetune_summary.json

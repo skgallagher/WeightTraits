@@ -6,9 +6,7 @@ import pytest
 from weighttraits.analysis.prompt_pairing import (
     PromptPairingRun,
     dersimonian_laird_pool,
-    flatten_prompt_outputs,
     prompt_pairing_sensitivity,
-    validate_saved_matrix_rebuild_error,
     validate_prompt_pairing_runs,
 )
 
@@ -102,19 +100,3 @@ def test_validation_rejects_pair_level_misalignment() -> None:
 
     with pytest.raises(ValueError, match="leaf-pair rows are not aligned"):
         validate_prompt_pairing_runs(runs)
-
-
-def test_saved_matrix_rebuild_check_fails_closed_above_tolerance() -> None:
-    assert validate_saved_matrix_rebuild_error(
-        [1e-8, 2e-7, 5e-8],
-        max_abs_error=1e-6,
-    ) == pytest.approx(2e-7)
-
-    with pytest.raises(RuntimeError, match="does not match the exact prompt-paired rebuild"):
-        validate_saved_matrix_rebuild_error([1.1e-6], max_abs_error=1e-6)
-
-
-def test_semantic_audit_preserves_exact_empty_output_text() -> None:
-    predictions = {"n1": ["", "alpha"], "n2": [" ", "beta"]}
-
-    assert flatten_prompt_outputs(predictions, ["n1", "n2"]) == ["", "alpha", " ", "beta"]

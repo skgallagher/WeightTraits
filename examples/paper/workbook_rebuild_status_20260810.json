@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "as_of": "2026-08-10",
+  "as_of": "2026-08-14",
   "paper_comparison": {
     "repository": "ELLMTrees-paper",
     "branch": "main",
@@ -30,6 +30,80 @@
     "smoke_job": "167744",
     "smoke_result": "completed exactly two steps with strict cache/runtime provenance",
     "wright_stage": "/home/export/sgallagh/WeightTraits-legacy-causal-20260810-clean"
+  },
+  "training_completion": {
+    "verified_at": "2026-08-14T16:52:38-04:00",
+    "status": "training_complete_analysis_pending",
+    "completion_rule": "combined retained baseline tasks plus row-aware recovery jobs; strict frozen-stage audit with artifact and parent-order checks enabled",
+    "cohorts": [
+      {
+        "cohort_id": "llama_full_finetune",
+        "label": "Ordinary corrected Llama full FT",
+        "baseline_job": "167745",
+        "baseline_note": "partial/superseded array; final receipt combines retained tasks with scoped recovery jobs",
+        "retained_baseline_tasks": ["167745_15", "167745_18", "167745_19", "167745_20"],
+        "recovery_jobs": ["167933", "167934", "167935", "167936", "167937", "167938", "167939"],
+        "recovery_window_et": "2026-08-12T08:55:40 to 2026-08-13T12:33:16",
+        "completed_at_et": "2026-08-13T12:33:16",
+        "summary": "examples/training/confirm_paper_numbers/llama32_1b_full_finetune_legacy_causal_2000_training_run_list_summary.json",
+        "artifact_inventory": "50 tree directories; 5,128 files; 641 training logs; 641 provenance files",
+        "valid": true,
+        "n_trees": 50,
+        "n_ready": 50,
+        "n_total_runs": 641,
+        "n_terminal_nodes": 641,
+        "n_ok_nodes": 641,
+        "n_expected_artifacts": 1282,
+        "n_existing_artifacts": 1282,
+        "status_counts": {"completed": 641},
+        "n_failed": 0,
+        "n_in_progress": 0,
+        "n_not_started": 0,
+        "n_failed_nodes": 0,
+        "n_missing_nodes": 0,
+        "n_errors": 0,
+        "n_warnings": 0
+      },
+      {
+        "cohort_id": "llama_full_finetune_no_translation",
+        "label": "Matched no-translation corrected Llama full FT",
+        "baseline_job": "167746",
+        "baseline_note": "partial/superseded array; final receipt combines retained tasks with scoped recovery jobs",
+        "retained_baseline_tasks": ["167746_32", "167746_33", "167746_38", "167746_39", "167746_41", "167746_42", "167746_43", "167746_47"],
+        "recovery_jobs": ["167940", "167941", "167942", "167943", "167944", "167945", "167946", "167947", "167948", "167949", "167950", "167951", "167952", "167953", "167954", "167955", "167956"],
+        "recovery_window_et": "2026-08-12T10:13:30 to 2026-08-13T15:43:57",
+        "completed_at_et": "2026-08-13T15:43:57",
+        "summary": "examples/training/translation_holdout_20260803/matched_legacy_causal_2000_training_run_list_summary.json",
+        "artifact_inventory": "50 tree directories; 5,128 files; 641 training logs; 641 provenance files",
+        "valid": true,
+        "n_trees": 50,
+        "n_ready": 50,
+        "n_total_runs": 641,
+        "n_terminal_nodes": 641,
+        "n_ok_nodes": 641,
+        "n_expected_artifacts": 1282,
+        "n_existing_artifacts": 1282,
+        "status_counts": {"completed": 641},
+        "n_failed": 0,
+        "n_in_progress": 0,
+        "n_not_started": 0,
+        "n_failed_nodes": 0,
+        "n_missing_nodes": 0,
+        "n_errors": 0,
+        "n_warnings": 0
+      }
+    ],
+    "downstream_analysis": {
+      "status": "not_started",
+      "corrected_table3_available": false,
+      "artifact_audit": "No corrected avg_distance_cosine.npy, distance_metadata.json, predictions.json, behavioral_metadata.json, or dist_semantic_paired.npy artifacts exist yet in either completed output root.",
+      "required_steps": [
+        "weight-distance analysis",
+        "locked one-greedy-output-per-prompt behavioral probes",
+        "prompt-paired MiniLM semantic distances",
+        "independent ordinary and matched no-translation DerSimonian-Laird meta-analyses"
+      ]
+    }
   },
   "paired_semantic_audit": {
     "status": "historical_reference_rebuilt",
@@ -273,14 +347,14 @@
       "model": "Llama-3.2-1B",
       "method": "full",
       "scope": "ordinary fresh shared trees",
-      "status": "running_corrected_2000",
+      "status": "training_audit_complete",
       "job_id": "167745",
       "protocol": "legacy_causal_llama32_1b_full_ft_2000_seed42_v1",
       "trees": 50,
       "nodes": 641,
       "steps": 2000,
       "output_root": "outputs/confirm_paper_numbers/llama32_1b_full_finetune_legacy_causal_2000",
-      "next_action": "wait for training, then rerun all probes and weight analyses"
+      "next_action": "run corrected weight-distance analysis, locked probes, paired semantic embeddings, and independent meta-analysis"
     },
     {
       "cohort_id": "llama_lora_qkv_r8",
@@ -315,14 +389,14 @@
       "model": "Llama-3.2-1B",
       "method": "full",
       "scope": "matched no-translation fresh shared trees",
-      "status": "running_corrected_2000",
+      "status": "training_audit_complete",
       "job_id": "167746",
       "protocol": "legacy_causal_llama32_1b_full_ft_2000_seed42_v1",
       "trees": 50,
       "nodes": 641,
       "steps": 2000,
       "output_root": "outputs/translation_holdout_20260803/llama32_1b_full_finetune_legacy_causal_2000",
-      "next_action": "wait for training, then rerun the same probes and weight analyses"
+      "next_action": "run the same corrected weight-distance analysis, locked probes, paired semantic embeddings, and independent meta-analysis"
     }
   ],
   "live_table2_rows": [
@@ -343,9 +417,11 @@
     ["Bridge DL Calc", "mixed_snapshot", "correct paired semantic method but some source cohorts are invalidated", "no", "formula-driven paired-semantic inputs"],
     ["T4 Layers", "invalidated_snapshot", "fresh Flan full-FT weights require rerun", "no", "46-tree corrected Flan rescore"],
     ["T6 Regression", "historical_reference", "historical ELLMTrees regression family", "no", "explicit legacy reference section"],
+    ["T6 Coefficient Raw", "historical_reference", "raw input for the historical regression family", "no", "explicit legacy reference section"],
     ["T7 Heterogeneity", "invalidated_snapshot", "depends on invalidated Bridge Summary", "no", "recomputed Table 3 heterogeneity"],
     ["T8 Examples", "historical_reference", "qualitative ELLMTrees no-translation outputs", "no", "retain with historical label"],
     ["T9 Within Task", "historical_reference", "ELLMTrees within-task experiments", "no", "retain with historical label"],
+    ["T9 Raw", "historical_reference", "raw input for the historical within-task experiments", "no", "retain with historical label"],
     ["T10 PhyloLM", "historical_archive", "deleted five-condition historical cohort", "no", "fresh three-condition common-46 comparison"],
     ["T10 Shared PhyloLM", "historical_archive", "deleted five-condition historical cohort", "no", "fresh three-condition common-46 comparison"],
     ["Empty Sensitivity", "invalidated_snapshot", "depends on early-stopped fresh outcomes", "no", "corrected probe sensitivity"],
@@ -358,7 +434,7 @@
     ["WB003", "Claim Index", "Routes live Table 2 to historical T2 Recovery", "Live controlled table belongs on T2 Shared Samples", "repair_now", "Rebuild routing", "none"],
     ["WB004", "T2 Shared Samples", "Uses generated n=50 as topology n", "Eligible set is 46; excluded IDs 015,020,037,047; ordering n=26", "repair_now", "Separate generated/topology/ordering counts; blank invalid metrics", "none"],
     ["WB005", "Bridge Summary / Bridge DL Calc", "Prompt pairing was confused with paired cohort analysis", "Paper Table 3 correctly uses dist_semantic_paired.npy; ordinary and no-translation cohorts remain independent", "historical_reference_rebuilt", "Preserve prompt-paired endpoint and create corrected-result placeholders", "corrected probes"],
-    ["WB006", "fresh WeightTraits sheets", "Outputs came from changed prompts and early-stopped training", "All eleven affected cohorts require corrected 2000-step reruns", "pending_runs", "Invalidate stale values and link cohort status", "corrected training"],
+    ["WB006", "fresh WeightTraits sheets", "Outputs came from changed prompts and early-stopped training", "Two corrected Llama full-FT cohorts now pass strict 50-tree/641-node audits; nine other affected cohorts remain pending", "partially_complete", "Keep stale values invalidated and link every cohort to its current status", "remaining corrected training"],
     ["WB007", "T4 Layers", "Fresh 46-tree values exist but derive from an affected Flan cohort", "Do not treat them as final after training bug discovery", "pending_runs", "Archive prior rescore; rerun after corrected Flan full FT", "Flan full-FT rerun"],
     ["WB008", "T10 sheets", "Historical five-condition cohort remained live", "Paper removed that cohort; future comparison is r8/r64/full FT on common 46", "repair_now", "Archive both historical tabs and add fresh placeholder", "corrected runs and probes"],
     ["WB009", "Source Manifest", "Hashes old v2 and orphan snapshots", "Active manifest must hash configs/runlists/receipts/rollups", "repair_now", "Replace active source manifest", "none"],
@@ -366,7 +442,8 @@
     ["WB011", "manuscript", "Old handoff allowed workbook-triggered text edits", "User explicitly froze main text", "resolved", "Log mismatches only; never edit manuscript", "none"],
     ["WB012", "no-translation cohort", "Fully resampled scaffold could be mistaken for the matched cohort", "Authoritative matched assets live under translation_holdout_20260803", "resolved_in_structure", "Record exact runlist/config paths and job 167746", "none"],
     ["WB013", "paper training configuration", "Comparison text says batch 1 x accumulation 32 and max length 640", "Archived ELLMTrees Llama manifests actually use batch 8 x accumulation 4 and max_seq_length 1024", "document_only", "Follow executable legacy manifests; do not edit frozen manuscript", "user review"],
-    ["WB014", "paper semantic-generation prose", "Comparison prose describes three stochastic repetitions per prompt", "Saved artifacts contain exactly 200 greedy strings per node: one output for each of 200 prompts", "document_only", "Reproduce saved greedy one-output-per-prompt endpoint; do not edit frozen manuscript", "user review"]
+    ["WB014", "paper semantic-generation prose", "Comparison prose describes three stochastic repetitions per prompt", "Saved artifacts contain exactly 200 greedy strings per node: one output for each of 200 prompts", "document_only", "Reproduce saved greedy one-output-per-prompt endpoint; do not edit frozen manuscript", "user review"],
+    ["WB015", "corrected Llama training", "Ordinary and matched no-translation cohorts were previously shown as running", "Both now pass strict frozen-stage audits: valid=true, 50/50 trees ready, 641/641 nodes terminal and OK, zero failures, missing nodes, errors, or warnings", "training_complete_analysis_pending", "Record completion receipts while leaving corrected Table 3 cells blank", "weight analysis and behavioral probes"]
   ],
   "source_files": [
     ["Corrected protocol config", "WeightTraits/examples/training/confirm_paper_numbers/llama32_1b_full_finetune_legacy_causal_2000.yaml", "ordinary corrected Llama full FT"],

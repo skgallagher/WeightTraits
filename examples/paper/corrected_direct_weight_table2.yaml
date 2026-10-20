@@ -1,0 +1,293 @@
+# Table 2 ordering and NJ columns from the sealed fixed-2,000-step direct-weight run sets.
+# Generated from the run-set receipts mirrored from Wright; every path is absolute on Wright, so
+# run it there (see docs/PAPER_RESULTS.md). The BHV topology columns come from `wt bhv-table`.
+version: 1
+metric: cosine
+required_cohort_ids:
+  - flan_t5_lora_k_r8_legacy_seq2seq_2000
+  - flan_t5_lora_qkv_r8_legacy_seq2seq_2000
+  - flan_t5_lora_qkvo_r8_legacy_seq2seq_2000
+  - flan_t5_lora_all_projections_corrected_r8_legacy_seq2seq_2000
+  - flan_t5_full_finetune_legacy_seq2seq_2000
+  - llama32_1b_lora_qkv_r8_legacy_causal_2000
+  - llama32_1b_lora_qkv_r64_legacy_causal_2000
+  - llama32_1b_full_finetune_legacy_causal_2000
+ordering_tree_ids:
+  - confirm_paper_tree_003
+  - confirm_paper_tree_004
+  - confirm_paper_tree_006
+  - confirm_paper_tree_007
+  - confirm_paper_tree_009
+  - confirm_paper_tree_010
+  - confirm_paper_tree_011
+  - confirm_paper_tree_013
+  - confirm_paper_tree_016
+  - confirm_paper_tree_017
+  - confirm_paper_tree_019
+  - confirm_paper_tree_021
+  - confirm_paper_tree_023
+  - confirm_paper_tree_024
+  - confirm_paper_tree_025
+  - confirm_paper_tree_026
+  - confirm_paper_tree_027
+  - confirm_paper_tree_034
+  - confirm_paper_tree_035
+  - confirm_paper_tree_038
+  - confirm_paper_tree_039
+  - confirm_paper_tree_041
+  - confirm_paper_tree_042
+  - confirm_paper_tree_044
+  - confirm_paper_tree_046
+  - confirm_paper_tree_050
+truth_manifests:
+  confirm_paper_tree_001:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_001.manifest.jsonl
+    sha256: 49a8e44fc0756a613b5b3107c8f929ab5188e5934b968a1c8407d86448e319c7
+  confirm_paper_tree_002:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_002.manifest.jsonl
+    sha256: 90450a7465543c77173bef4d8885f474b45236ca3346582f04a7b3ab6c5842e7
+  confirm_paper_tree_003:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_003.manifest.jsonl
+    sha256: 2cff95f9f2cd3c2d60713906a35e1c1d6d4116eb64a33aaa044dc19cf1f132e4
+  confirm_paper_tree_004:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_004.manifest.jsonl
+    sha256: 569ad08b3cf49eb05bf7d76e1ea82bcb23c711af95f2d5ae2add60bddc291d3d
+  confirm_paper_tree_005:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_005.manifest.jsonl
+    sha256: f89019767d9a6d9de91dbf0f674e1154c3e0f386ac95db9727413decf288a888
+  confirm_paper_tree_006:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_006.manifest.jsonl
+    sha256: 9e13d68d5bd0ea348173617780aa5a07a53e212751cf2045ad01aba7dcd110b5
+  confirm_paper_tree_007:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_007.manifest.jsonl
+    sha256: c3906fb4e7c05ed715416cc0e53e0f777e0b0123cd2a728c42df83bf801a65dd
+  confirm_paper_tree_008:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_008.manifest.jsonl
+    sha256: 4c7407cfd46dc9c1fc3e040732fc37b3ba0cf19dbeb79aac362dd8636ae9590b
+  confirm_paper_tree_009:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_009.manifest.jsonl
+    sha256: 5286d36f7d31760620f0c6710dd6a8cb4c009300e62f295cf5afa3514f50b59d
+  confirm_paper_tree_010:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_010.manifest.jsonl
+    sha256: 39255518012463a1a56d2383cf80b0d0c0b9e8f942656fb86e180a9bb5574dad
+  confirm_paper_tree_011:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_011.manifest.jsonl
+    sha256: b9c40d7d3be040f4e3e40e4df859ac812dcc5116efe60ba9dcba9c1b13629143
+  confirm_paper_tree_012:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_012.manifest.jsonl
+    sha256: 8064e5cc3c0ccbd97a72dcad7e339cf265688b8a36472f5a0fdd60322cdef050
+  confirm_paper_tree_013:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_013.manifest.jsonl
+    sha256: 99222927e67447bc433b37db3ea902b1889c0ff385bd785d35fe52f565dbc5d2
+  confirm_paper_tree_014:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_014.manifest.jsonl
+    sha256: c0230600a4179a31820f54b98b3c36d4ce2bffa4135b36e6da71f60e1cc8a067
+  confirm_paper_tree_016:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_016.manifest.jsonl
+    sha256: 07d6075a9777c60cb161c469938517c1aeddec64f2fc390733af1ca9fabe2fdc
+  confirm_paper_tree_017:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_017.manifest.jsonl
+    sha256: ea4284c508fb88e04c722c565a7bd0cd76219dc24b270e69ac2c1b1119591185
+  confirm_paper_tree_018:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_018.manifest.jsonl
+    sha256: 7c3b33492ebd77dd52696d8d7c0e535a64c7134775c430b837174e689b492c8f
+  confirm_paper_tree_019:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_019.manifest.jsonl
+    sha256: 2e567e02f9452215561862106f7ca3add4f34ebfb77ec35b6137936595234904
+  confirm_paper_tree_021:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_021.manifest.jsonl
+    sha256: 6fcb745520d5538e5d7ec3e1f88d16cb2e0870674629766987985aa1356cd236
+  confirm_paper_tree_022:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_022.manifest.jsonl
+    sha256: 244fd087efb37ce09adbdf460d32d64d733bdf12903fbf25e2cc9985697fa47d
+  confirm_paper_tree_023:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_023.manifest.jsonl
+    sha256: 68ba343f9a429dcba2e6c3efa379d7a8b2ca629bf7e2c82217760c3ab03c93f6
+  confirm_paper_tree_024:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_024.manifest.jsonl
+    sha256: 14014d39d1c4c47e279686daa8fa7b6419549aaca16d091ee20cd580ab11373d
+  confirm_paper_tree_025:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_025.manifest.jsonl
+    sha256: 9ddfe080eb540e74ad2208995dbeb325f9bbb6d701627d91d908c84421903042
+  confirm_paper_tree_026:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_026.manifest.jsonl
+    sha256: 2cb9d95194efc0ac838d3eb94957cbc8f81000fe4e64ef4b9c0186f340955608
+  confirm_paper_tree_027:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_027.manifest.jsonl
+    sha256: 9b70bcbc5ba08a9fec6f1977dab929cb0c9f0d5d6ecd15a04dc6c2fcf0feb47a
+  confirm_paper_tree_028:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_028.manifest.jsonl
+    sha256: ebe36cb109239fa3ecb76ba5f997dceaced325b075443e349b4a49933d53d594
+  confirm_paper_tree_029:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_029.manifest.jsonl
+    sha256: 1aa6fddaf5724d79a8739222697ce54b97609fd6511ddc568e7620a3de044dfe
+  confirm_paper_tree_030:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_030.manifest.jsonl
+    sha256: 1e26815072f3f4aa0dc152f816ca8f9a684614f760db75ad6219e4aae0712ffd
+  confirm_paper_tree_031:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_031.manifest.jsonl
+    sha256: 86fc45c54443a2f1da9e06f1d9a83a2054e3c296e1707fa8294a19a32d8b2edd
+  confirm_paper_tree_032:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_032.manifest.jsonl
+    sha256: 375165e4b33f0078b5a6efd21db4ab72dfe37660c9b49b5d9be74d1fc555b316
+  confirm_paper_tree_033:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_033.manifest.jsonl
+    sha256: 6235fec37c5c4a06f3deb8eafa14fc946c1d6e6086e1075c6610caebdf6c3d36
+  confirm_paper_tree_034:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_034.manifest.jsonl
+    sha256: 1ba577a240427d16a01f1a4b8aca549bc00dd70b1985c83b3cc644d2a7d5c7d0
+  confirm_paper_tree_035:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_035.manifest.jsonl
+    sha256: 079c9ec2b71e90450c4ee16d41e0c8f6bae64f8a80c8f1a4563381620cf004d5
+  confirm_paper_tree_036:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_036.manifest.jsonl
+    sha256: 080b0fb9ffb628d91a3b3dc13292dba9e0f053243f9b966c8115cf1bfb49c56e
+  confirm_paper_tree_038:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_038.manifest.jsonl
+    sha256: fc33a07bdaba56229d3c480bb44f3fb9c116e23dd6039e4dd897e73f3a6a8d2f
+  confirm_paper_tree_039:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_039.manifest.jsonl
+    sha256: bed2063395edea8fbdf15b7d5d474c7ba066d0d24d74f872cc7fddca0e923d25
+  confirm_paper_tree_040:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_040.manifest.jsonl
+    sha256: 23ff13b5c985222db58a9fd32d757b5e925296918087d517139cd5f7c134540b
+  confirm_paper_tree_041:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_041.manifest.jsonl
+    sha256: a757a2bf4c85c0693229805c9262406e3cf3fdbfd4219350b1213d5d72f782fb
+  confirm_paper_tree_042:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_042.manifest.jsonl
+    sha256: fd8a288e9df20de5f3b9cf226f77e41ad5e143d860593186f5db0d1e7571f56a
+  confirm_paper_tree_043:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_043.manifest.jsonl
+    sha256: 6d329447af81d3528e53623707825ae44d53e50886d28e5607f8a72541962c1b
+  confirm_paper_tree_044:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_044.manifest.jsonl
+    sha256: 9301e6f9d45e665358d7bc87c83fd74786f51e95ff68274a90e4930052b61c3e
+  confirm_paper_tree_045:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_045.manifest.jsonl
+    sha256: 1d69bea36fa109885694dc6f7fe57cd05f0a5178dd6147c938bc765c77630cea
+  confirm_paper_tree_046:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_046.manifest.jsonl
+    sha256: 6f78373f80ec0add4d0271a02d91294d23f69f70bf7c388f59f783343331ef0a
+  confirm_paper_tree_048:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_048.manifest.jsonl
+    sha256: b18b6aa4c848f804ed1de3a264429eaa9984defbb02d54d887f738d6b26c82af
+  confirm_paper_tree_049:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_049.manifest.jsonl
+    sha256: a0dde33cb551bd6783ce7f27f8478c183a932bdbab9554dbc85c5b397cdff349
+  confirm_paper_tree_050:
+    path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/assigned_manifests/confirm_paper_tree_050.manifest.jsonl
+    sha256: b81458e9cc29edb5d980ccd943b8af1ad8238d915d867197ba478ec88637bcb8
+conditions:
+  - cohort_id: flan_t5_lora_k_r8_legacy_seq2seq_2000
+    architecture: Flan-T5-base
+    training: "LoRA key only"
+    artifact: merged
+    representation: full_weight
+    cohort_contract:
+      path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/flan_t5_lora_k_r8_legacy_seq2seq_2000_training_run_list_summary.json
+      sha256: 64e6db829e722acb4c8e327040844944305d75712a2ccbb5fce789d92f21b531
+    completion_receipt:
+      path: /home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/final_paper_20260908/completion/flan_t5_lora_k_r8_legacy_seq2seq_2000.binding.json
+      sha256: d8dc353278f86833a3cc7dba1ad23c210452bd81d90a0fabc5e3cdcd5654d399
+    rollup:
+      path: /home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/final_paper_20260908/direct/flan_k/direct_run_set_summary.json
+      sha256: 2e475aa057ce18068c4668ba393b8c5851f48f00b6704ec7da7c45fbaa2a897b
+  - cohort_id: flan_t5_lora_qkv_r8_legacy_seq2seq_2000
+    architecture: Flan-T5-base
+    training: "LoRA q/k/v"
+    artifact: merged
+    representation: full_weight
+    cohort_contract:
+      path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/flan_t5_lora_qkv_r8_legacy_seq2seq_2000_training_run_list_summary.json
+      sha256: 315124d67c675f541f252c40c53eb6e3f18faea6db5e163e650bb2a2395dc7a6
+    completion_receipt:
+      path: /home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/final_paper_20260908/completion/flan_t5_lora_qkv_r8_legacy_seq2seq_2000.binding.json
+      sha256: 90beab82653c3d2309687099783ec818c50b077738099945188fe5424c23c863
+    rollup:
+      path: /home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/final_paper_20260908/direct/flan_qkv/direct_run_set_summary.json
+      sha256: 10056f7f2993eb0c4b3c7d95dfc2afc8c9984d4c6571eb1552a81d904d82c015
+  - cohort_id: flan_t5_lora_qkvo_r8_legacy_seq2seq_2000
+    architecture: Flan-T5-base
+    training: "LoRA q/k/v/o"
+    artifact: merged
+    representation: full_weight
+    cohort_contract:
+      path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/flan_t5_lora_qkvo_r8_legacy_seq2seq_2000_training_run_list_summary.json
+      sha256: 3f9c84e468d7b2b96ff004aafa76b7d6444710c914592200e598896514c1a4e6
+    completion_receipt:
+      path: /home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/final_paper_20260908/completion/flan_t5_lora_qkvo_r8_legacy_seq2seq_2000.binding.json
+      sha256: e9747b9e6f5ec2ad8ae8a5193da8c41e7908c800158bd39deda481fcb9b627f2
+    rollup:
+      path: /home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/final_paper_20260908/direct/flan_qkvo/direct_run_set_summary.json
+      sha256: 1dd36a0df541520bd09f05185619aba982f5c3069767554b38f375ab2e7d1511
+  - cohort_id: flan_t5_lora_all_projections_corrected_r8_legacy_seq2seq_2000
+    architecture: Flan-T5-base
+    training: "LoRA all projections (cumulative adapter space)"
+    artifact: adapter_chain
+    representation: lora_cumulative_delta
+    cohort_contract:
+      path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/flan_t5_lora_all_projections_corrected_r8_legacy_seq2seq_2000_training_run_list_summary.json
+      sha256: 86b6fe1996d3d2ea00aeadccefbb1ce4aa5a90bb1ec4a12f40087de7b01ee10b
+    completion_receipt:
+      path: /home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/final_paper_20260908/completion/flan_t5_lora_all_projections_corrected_r8_legacy_seq2seq_2000.binding.json
+      sha256: edf38d8b805513c190937fb5073db923dbdddc6bfe3bceb1a8b1a188815c3165
+    rollup:
+      path: /home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/final_paper_20260908/direct/flan_correctedall/direct_run_set_summary.json
+      sha256: a4d433275eacee15dde43f452dbba3704c314c276976fa27040d555d7d73f261
+  - cohort_id: flan_t5_full_finetune_legacy_seq2seq_2000
+    architecture: Flan-T5-base
+    training: "Full fine-tuning"
+    artifact: model
+    representation: full_weight
+    cohort_contract:
+      path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/flan_t5_full_finetune_legacy_seq2seq_2000_training_run_list_summary.json
+      sha256: 2301eaac23551aa9b9489105d0f0f0b3f95611119d8573ecf1ad6da536244f47
+    completion_receipt:
+      path: /home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/FLAN_FULL_COMPLETION_BINDING.json
+      sha256: 648e86ed54a147ce61d4eb67e364f9d992ad8b67fb3d763e62a3e88288933fbf
+    rollup:
+      path: /home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/direct/flan_full/direct_run_set_summary.json
+      sha256: f37544a9ea6457ce5a0dfa7569534ed995970a51ad04e3e316a55fd2898e8dd5
+  - cohort_id: llama32_1b_lora_qkv_r8_legacy_causal_2000
+    architecture: Llama-3.2-1B
+    training: "LoRA q/k/v, r=8"
+    artifact: merged
+    representation: full_weight
+    cohort_contract:
+      path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/llama32_1b_lora_qkv_r8_legacy_causal_2000_training_run_list_summary.json
+      sha256: a5057868e7da98f7a682a839255f1d0ecade03cdf589a1437b8e97f4bd304825
+    completion_receipt:
+      path: /home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/LLAMA_R8_COMPLETION_BINDING.json
+      sha256: bb71eac1fff67f960e24e5d6885cf4208d66fbc6a38c0ba51d6bcf0eeed3ec0d
+    rollup:
+      path: /home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/direct/llama_r8/direct_run_set_summary.json
+      sha256: 4ec16c2c2e26eecd74d232bd1e38e67cb921830ee97bec494b03cee9885d4448
+  - cohort_id: llama32_1b_lora_qkv_r64_legacy_causal_2000
+    architecture: Llama-3.2-1B
+    training: "LoRA q/k/v, r=64"
+    artifact: merged
+    representation: full_weight
+    cohort_contract:
+      path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/llama32_1b_lora_qkv_r64_legacy_causal_2000_training_run_list_summary.json
+      sha256: 5c85ff4d84b06cc67fe0bb2e68d7f9fa9d1d0822b6ecaae2711a53b4870168d4
+    completion_receipt:
+      path: /home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/LLAMA_R64_COMPLETION_BINDING.json
+      sha256: a815458f5d5850340409e708b3c2a949867a9d22db6c5602c9cc912c1ff7c4c9
+    rollup:
+      path: /home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/direct/llama_r64/direct_run_set_summary.json
+      sha256: f72d40c54ca0500318966bc25d03ed3123cb15a444674d79500f5eef37ddfc1d
+  - cohort_id: llama32_1b_full_finetune_legacy_causal_2000
+    architecture: Llama-3.2-1B
+    training: "Full fine-tuning"
+    artifact: model
+    representation: full_weight
+    cohort_contract:
+      path: /home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/llama32_1b_full_finetune_legacy_causal_2000_training_run_list_summary.json
+      sha256: b8b9e9d06abcc1f69e9083b91248eb45eaa2481daadea957e61fa406d507acb0
+    completion_receipt:
+      path: /home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/LLAMA_FULL_COMPLETION_BINDING.json
+      sha256: 31628eca9fcc693f0aade432fc5774b0b3e7bb3ab7fb249b80c0e8eef998d5ba
+    rollup:
+      path: /home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/final_paper_20260911/layers/llama_full_direct/direct_run_set_summary.json
+      sha256: 5c01ae7760347f7bb8b24a8ce6a054987040c259d01660cca514b2fa3100a0f8

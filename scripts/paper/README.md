@@ -12,9 +12,9 @@ The checked-in launcher pins the environment that produced the verified rebuild:
 
 | Component | Required version |
 | --- | --- |
-| Codex primary runtime bundle | `26.805.11740` |
-| Node | `v24.14.0` |
-| `@oai/artifact-tool` | `2.8.39` |
+| Codex primary runtime bundle | `26.905.11957` |
+| Node | `v24.19.0` |
+| `@oai/artifact-tool` | `2.8.59` |
 
 Artifact-tool is private and bundles private `@oai` dependencies. It is supplied
 by `load_workspace_dependencies`; it is not vendored here and cannot be represented
@@ -51,23 +51,3 @@ already rendered from it, not a live scheduler dashboard. Newer protocol-readine
 state is recorded in the rebuild documents under
 `examples/training/confirm_paper_numbers/`. If that status JSON changes, rebuild
 and reverify the workbook rather than presenting an old render as current.
-
-## Prompt-paired semantic audit
-
-`audit_prompt_pairing_sensitivity.py` audits the historical Table 3 endpoint
-without inference. It passes saved outputs exactly as written to
-`sentence-transformers/all-MiniLM-L6-v2` at commit
-`1110a243fdf4706b3f48f1d95db1a4f5529b4d41` with sentence-transformers `5.4.1`,
-including empty strings, then
-rebuilds the same-prompt cosine-distance matrix used by the old
-`ELLMTrees/scripts/build_paired_semantic.py`. The command fails if any saved
-`dist_semantic_paired.npy` entry differs from the rebuild by more than `1e-6`;
-the model revision, package version, tolerance, artifact hashes, and per-run
-maximum errors are written to the audit receipt.
-
-```bash
-PYTHONPATH=src python scripts/paper/audit_prompt_pairing_sensitivity.py \
-  --group ../ELLMTrees/results/runs_branching_v3 \
-  --probe-subdir behavioral_translation \
-  --out ../outputs/paired_semantic_audit.json
-```

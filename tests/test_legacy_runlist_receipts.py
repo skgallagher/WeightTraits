@@ -1,6 +1,11 @@
 import hashlib
+import io
 import json
+import subprocess
+import tarfile
 from pathlib import Path
+
+import pytest
 
 from weighttraits.training.executor import _weighttraits_source_receipt
 
@@ -38,8 +43,33 @@ def _summary_paths() -> list[Path]:
     return ordinary + [HOLDOUT / "matched_legacy_causal_2000_training_run_list_summary.json"]
 
 
-def test_frozen_source_receipt_matches_the_checked_out_weighttraits_package():
-    actual = _weighttraits_source_receipt()
+FROZEN_TRAINING_TAG = "training-code-frozen-20260810"
+
+
+def _tagged_package_receipt(tmp_path: Path) -> dict | None:
+    """Receipt of the package at the frozen tag, or None when git or the tag is unavailable."""
+
+    try:
+        archive = subprocess.run(
+            ["git", "archive", FROZEN_TRAINING_TAG, "src/weighttraits"],
+            cwd=ROOT,
+            capture_output=True,
+            check=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
+        tar.extractall(tmp_path, filter="data")
+    return _weighttraits_source_receipt(tmp_path / "src" / "weighttraits")
+
+
+def test_frozen_source_receipt_matches_the_tagged_training_package(tmp_path):
+    # The run lists pin the training code as it stood when they were built. The package has
+    # grown since (analysis and paper modules), so the pin is checked against the tag that
+    # exact retraining must check out, not against the current working tree.
+    actual = _tagged_package_receipt(tmp_path)
+    if actual is None:
+        pytest.skip(f"git tag {FROZEN_TRAINING_TAG} is not available in this checkout")
 
     assert {key: actual[key] for key in EXPECTED_SOURCE_CODE} == EXPECTED_SOURCE_CODE
 

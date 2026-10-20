@@ -26,6 +26,7 @@ from weighttraits.phylo.splits import splits_from_manifest_path
 DIRECT_VECTOR_METRICS = {"cosine", "l1", "l2", "correlation", "threshold"}
 DIRECT_MATRIX_METRICS = {"cka", "linear_cka"}
 DIRECT_TERMINAL_STATUSES = {"completed", "skipped", "stopped_early"}
+DIRECT_ANALYSIS_SUMMARY_SCHEMA = "weighttraits.direct_analysis_summary.v2"
 
 
 def analyze_training_ledger_direct(
@@ -159,6 +160,7 @@ def analyze_training_ledger_direct(
     aggregate_path.write_text(json.dumps(aggregate_recovery, indent=2, sort_keys=True) + "\n")
 
     summary = {
+        "schema": DIRECT_ANALYSIS_SUMMARY_SCHEMA,
         "analysis_engine": "direct",
         "distance_engine": "direct_streaming_sufficient_stats",
         "tree_builder": "biopython_neighbor_joining",
@@ -174,6 +176,14 @@ def analyze_training_ledger_direct(
         "n_layers": len(layer_names),
         "model_ids": model_ids,
         "metrics": sorted(distances),
+        "parameters": {
+            "artifact": artifact,
+            "metrics": metric_names,
+            "chunk_size": chunk_size,
+            "eps": eps,
+            "layer": layer,
+            "aggregate": aggregate,
+        },
         "results": result_rows,
         "aggregate_recovery": aggregate_recovery,
         "aggregate_recovery_path": str(aggregate_path),
@@ -506,8 +516,10 @@ def _neighbor_joining_newick(labels: Sequence[str], distances: np.ndarray) -> st
     tree = constructor().nj(distance_matrix(list(labels), lower_triangle))
     from io import StringIO
 
+    from weighttraits.phylo.reconstruct import NEWICK_BRANCH_LENGTH_FORMAT
+
     out = StringIO()
-    phylo.write(tree, out, "newick")
+    phylo.write(tree, out, "newick", format_branch_length=NEWICK_BRANCH_LENGTH_FORMAT)
     return out.getvalue().strip()
 
 

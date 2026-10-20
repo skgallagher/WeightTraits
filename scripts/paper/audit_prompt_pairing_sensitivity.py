@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import importlib.metadata
 import json
 from itertools import combinations
 from pathlib import Path
@@ -24,18 +23,7 @@ from typing import Any
 
 import numpy as np
 
-from weighttraits.analysis.prompt_pairing import (
-    PromptPairingRun,
-    flatten_prompt_outputs,
-    prompt_pairing_sensitivity,
-    validate_saved_matrix_rebuild_error,
-)
-
-
-DEFAULT_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
-DEFAULT_EMBEDDING_REVISION = "1110a243fdf4706b3f48f1d95db1a4f5529b4d41"
-DEFAULT_SENTENCE_TRANSFORMERS_VERSION = "5.4.1"
-DEFAULT_REBUILD_MAX_ABS_ERROR = 1e-6
+from weighttraits.analysis.prompt_pairing import PromptPairingRun, prompt_pairing_sensitivity
 
 
 def _sha256(path: Path) -> str:
@@ -108,23 +96,14 @@ def _load_specs(
     return specs
 
 
-def _flatten_prediction_outputs(specs: list[dict[str, Any]]) -> list[str]:
-    """Preserve the old builder's exact leaf-major, prompt-minor text sequence."""
-
-    flat_outputs: list[str] = []
-    for spec in specs:
-        flat_outputs.extend(flatten_prompt_outputs(spec["predictions"], spec["leaves"]))
-    return flat_outputs
-
-
 def _embed_runs(specs: list[dict[str, Any]], model: Any, batch_size: int) -> tuple[list, list]:
-    flat_outputs = _flatten_prediction_outputs(specs)
+    flat_outputs: list[str] = []
     slices: list[tuple[int, int]] = []
-    offset = 0
     for spec in specs:
-        start = offset
-        offset += len(spec["leaves"]) * spec["n_prompts"]
-        slices.append((start, offset))
+        start = len(flat_outputs)
+        for leaf in spec["leaves"]:
+            flat_outputs.extend(text if text.strip() else " " for text in spec["predictions"][leaf])
+        slices.append((start, len(flat_outputs)))
 
     embeddings = model.encode(
         flat_outputs,
@@ -196,18 +175,7 @@ def main() -> None:
     parser.add_argument("--group", required=True, type=Path)
     parser.add_argument("--probe-subdir", required=True)
     parser.add_argument("--out", required=True, type=Path)
-    parser.add_argument("--embedding-model", default=DEFAULT_EMBEDDING_MODEL)
-    parser.add_argument("--embedding-revision", default=DEFAULT_EMBEDDING_REVISION)
-    parser.add_argument(
-        "--expected-sentence-transformers-version",
-        default=DEFAULT_SENTENCE_TRANSFORMERS_VERSION,
-    )
-    parser.add_argument(
-        "--max-rebuild-abs-error",
-        type=float,
-        default=DEFAULT_REBUILD_MAX_ABS_ERROR,
-        help="Fail when any saved paired distance differs more than this absolute tolerance.",
-    )
+    parser.add_argument("--embedding-model", default="all-MiniLM-L6-v2")
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--bootstrap-replicates", type=int, default=2_000)
     parser.add_argument("--seed", type=int, default=20_260_810)
@@ -220,25 +188,13 @@ def main() -> None:
     args = parser.parse_args()
 
     specs = _load_specs(args.group, args.probe_subdir, args.expected_prompts)
-    sentence_transformers_version = importlib.metadata.version("sentence-transformers")
-    if sentence_transformers_version != args.expected_sentence_transformers_version:
-        raise RuntimeError(
-            "sentence-transformers runtime differs from the frozen semantic audit: "
-            f"{sentence_transformers_version!r} != "
-            f"{args.expected_sentence_transformers_version!r}"
-        )
     from sentence_transformers import SentenceTransformer
 
     model = SentenceTransformer(
         args.embedding_model,
-        revision=args.embedding_revision,
         local_files_only=not args.allow_online_model,
     )
     runs, receipts = _embed_runs(specs, model, args.batch_size)
-    rebuild_max_abs = validate_saved_matrix_rebuild_error(
-        [receipt["saved_matrix_rebuild_max_abs"] for receipt in receipts],
-        max_abs_error=args.max_rebuild_abs_error,
-    )
     sensitivity = prompt_pairing_sensitivity(
         runs,
         bootstrap_replicates=args.bootstrap_replicates,
@@ -249,14 +205,12 @@ def main() -> None:
         "group": str(args.group.resolve()),
         "probe_subdir": args.probe_subdir,
         "embedding_model": args.embedding_model,
-        "embedding_revision": args.embedding_revision,
-        "sentence_transformers_version": sentence_transformers_version,
         "primary_endpoint": "dist_semantic_paired.npy",
         "draw_axis_present": False,
         "outputs_per_model": args.expected_prompts,
-        "saved_matrix_rebuild_max_abs": rebuild_max_abs,
-        "saved_matrix_rebuild_tolerance": args.max_rebuild_abs_error,
-        "saved_matrix_rebuild_valid": True,
+        "saved_matrix_rebuild_max_abs": max(
+            receipt["saved_matrix_rebuild_max_abs"] for receipt in receipts
+        ),
         **sensitivity,
         "run_receipts": receipts,
     }

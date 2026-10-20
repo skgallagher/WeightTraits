@@ -402,6 +402,9 @@ def _iter_safetensor_flat_chunks(path: Path, key: str, chunk_size: int):
 
     with safe_open(str(path), framework="numpy", device="cpu") as handle:
         tensor_slice = handle.get_slice(key)
+        if str(tensor_slice.get_dtype()).upper() in {"BF16", "BFLOAT16"}:
+            yield from _iter_safetensor_bfloat16_flat_chunks(path, key, chunk_size)
+            return
         shape = tuple(tensor_slice.get_shape())
         if not shape:
             yield np.asarray([handle.get_tensor(key)], dtype=np.float64).reshape(-1)
@@ -417,6 +420,35 @@ def _iter_safetensor_flat_chunks(path: Path, key: str, chunk_size: int):
         rows_per_slab = max(1, (chunk_size + max(row_width, 1) - 1) // max(row_width, 1))
         blocks = (
             tensor_slice[start : min(start + rows_per_slab, shape[0])]
+            for start in range(0, shape[0], rows_per_slab)
+        )
+        yield from _yield_flat_chunks_from_blocks(blocks, chunk_size)
+
+
+def _iter_safetensor_bfloat16_flat_chunks(path: Path, key: str, chunk_size: int):
+    """Stream BF16 safetensors through torch because NumPy has no BF16 dtype."""
+    from safetensors import safe_open
+
+    with safe_open(str(path), framework="pt", device="cpu") as handle:
+        tensor_slice = handle.get_slice(key)
+        shape = tuple(tensor_slice.get_shape())
+        if not shape:
+            yield handle.get_tensor(key).float().numpy().astype(np.float64, copy=False).reshape(-1)
+            return
+        if len(shape) == 1:
+            for start in range(0, shape[0], chunk_size):
+                yield (
+                    tensor_slice[start : min(start + chunk_size, shape[0])]
+                    .float()
+                    .numpy()
+                    .astype(np.float64, copy=False)
+                )
+            return
+
+        row_width = int(np.prod(shape[1:], dtype=np.int64))
+        rows_per_slab = max(1, (chunk_size + max(row_width, 1) - 1) // max(row_width, 1))
+        blocks = (
+            tensor_slice[start : min(start + rows_per_slab, shape[0])].float().numpy()
             for start in range(0, shape[0], rows_per_slab)
         )
         yield from _yield_flat_chunks_from_blocks(blocks, chunk_size)

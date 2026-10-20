@@ -1,0 +1,45 @@
+{
+  "schema": "weighttraits.downstream_job.behavior_smoke.v1",
+  "kind": "behavior_smoke",
+  "stage_root": "/home/export/sgallagh/WeightTraits-downstream-20260831-native",
+  "output_dir": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/behavior_smoke/flan_full",
+  "cohort_id": "flan_t5_full_finetune_legacy_seq2seq_2000",
+  "tree_id": "confirm_paper_tree_001",
+  "model_task": "seq2seq",
+  "path_base": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean",
+  "registry": {
+    "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/examples/behavior/corrected_behavior_protocols_v1.json",
+    "sha256": "c13b025802b7fae7b5c1770626865e2bab7d45e5783137b85fd041e2b4689bab"
+  },
+  "training_summary": {
+    "path": "/home/export/sgallagh/WeightTraits-all-results-20260817-clean/examples/training/confirm_paper_numbers/flan_t5_full_finetune_legacy_seq2seq_2000_training_run_list_summary.json",
+    "sha256": "2301eaac23551aa9b9489105d0f0f0b3f95611119d8573ecf1ad6da536244f47"
+  },
+  "completion_receipt": {
+    "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/runtime_receipts/FLAN_FULL_COMPLETION_BINDING.json",
+    "sha256": "648e86ed54a147ce61d4eb67e364f9d992ad8b67fb3d763e62a3e88288933fbf"
+  },
+  "prompt_artifacts": {
+    "legacy_translation_200x1_greedy": {
+      "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/prompts/seq2seq/legacy_translation_200x1_greedy.seq2seq.prompts.jsonl",
+      "sha256": "8e611e4e1ede859d47b7a61baf6fc563576b7de5bf1e231efc37c66d164957fe"
+    },
+    "modern_mc_100x3_sampled": {
+      "path": "/home/export/sgallagh/WeightTraits-downstream-20260831-native/outputs/prompts/seq2seq/modern_mc_100x3_sampled.seq2seq.prompts.jsonl",
+      "sha256": "493a7353f8beb700257e32910e277b2d12ce8931f69db008ec7c7a97197ec05f"
+    }
+  },
+  "expected_leaf_ids": [
+    "n3",
+    "n7",
+    "n8",
+    "n9",
+    "n10",
+    "n11",
+    "n12",
+    "n13"
+  ],
+  "leaf_id": "n3",
+  "device": "cuda",
+  "torch_dtype": "auto"
+}

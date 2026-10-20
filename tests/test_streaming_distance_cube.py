@@ -285,6 +285,20 @@ def test_safetensors_reader_roundtrip_if_available(tmp_path):
     assert cube.distances["l2"][0, 0, 1] == 0.0
 
 
+def test_safetensors_reader_streams_bfloat16_through_torch(tmp_path):
+    torch = pytest.importorskip("torch")
+    safetensors_torch = pytest.importorskip("safetensors.torch")
+    path = tmp_path / "model.safetensors"
+    expected = torch.arange(12, dtype=torch.float32).reshape(3, 4)
+    safetensors_torch.save_file({"weight": expected.to(torch.bfloat16)}, str(path))
+
+    reader = SafetensorsTensorReader(path, model_id="bf16")
+    chunks = list(reader.iter_flat_chunks("weight", chunk_size=5))
+
+    assert [chunk.size for chunk in chunks] == [5, 5, 2]
+    np.testing.assert_allclose(np.concatenate(chunks), expected.numpy().reshape(-1))
+
+
 def test_sharded_safetensors_reader_roundtrip_if_available(tmp_path):
     safetensors_np = pytest.importorskip("safetensors.numpy")
     shard0 = tmp_path / "model-00001-of-00002.safetensors"
