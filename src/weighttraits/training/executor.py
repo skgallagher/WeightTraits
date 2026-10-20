@@ -950,6 +950,10 @@ def _training_arguments(
         "model_dtype",
         "pad_to_multiple_of",
         "cleanup_checkpoints_on_success",
+        # Protocol pins checked before training (``_enforce_expected_*``), not Trainer settings.
+        "expected_runtime",
+        "expected_source_code",
+        "expected_cache_source_receipt",
     }
     kwargs = {key: value for key, value in trainer.items() if key not in ignored}
     kwargs["output_dir"] = run.output_dir

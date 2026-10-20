@@ -1008,6 +1008,33 @@ def test_training_arguments_use_seq2seq_class_for_seq2seq_jobs(tmp_path):
     assert causal_args.kwargs["eval_strategy"] == "no"
 
 
+@pytest.mark.parametrize(
+    "run_list",
+    sorted(Path("examples/training/confirm_paper_numbers").glob("*_2000_training_runlists/run_lists/"
+                                                               "confirm_paper_tree_001.runs.jsonl")),
+    ids=lambda path: path.parts[-3],
+)
+def test_paper_run_lists_build_valid_hugging_face_training_arguments(run_list):
+    # The paper's run lists carry protocol pins in ``trainer``; Hugging Face must never see them.
+    transformers = pytest.importorskip("transformers")
+    import dataclasses
+
+    from weighttraits.training.runlist import load_training_run_specs
+
+    def record(**kwargs):
+        return kwargs
+
+    deps = {"TrainingArguments": record, "Seq2SeqTrainingArguments": record}
+    for run in load_training_run_specs(run_list):
+        task = run.job["trainer"].get("model_task", "causal_lm")
+        kwargs = _training_arguments(deps, run, has_eval=True, model_task=task)
+        args_cls = (
+            transformers.Seq2SeqTrainingArguments if task == "seq2seq"
+            else transformers.TrainingArguments
+        )
+        assert set(kwargs) <= {field.name for field in dataclasses.fields(args_cls)}, run.node_id
+
+
 def test_training_seed_is_applied_before_backend_construction():
     seen = []
 
