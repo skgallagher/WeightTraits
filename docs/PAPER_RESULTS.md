@@ -102,8 +102,14 @@ the same stages, but they have not been shown to reproduce these numbers.
 
 The cohorts were trained by the code at tag `training-code-august-20260817`. See
 [TRAINER_DESIGN.md](TRAINER_DESIGN.md#training-code-of-record) and the tag's
-`TRAINING_CODE_AUGUST_2026.md`. A retrained Flan-T5 node should match the paper's checkpoint bit
-for bit. The training ledgers (706 MB) stay in the sealed root.
+`TRAINING_CODE_AUGUST_2026.md`. The training ledgers (706 MB) stay in the sealed root.
+
+Retraining checks on 20 Oct 2026:
+
+* **Flan-T5, tree 001 `n0`**: all 282 tensors are bit-identical to the paper's checkpoint.
+* **Llama, tree 025 `n0`**: GPU training is nondeterministic. The retrained weights differ by up to
+  1.04e-4 in cosine distance per tensor, about a quarter of the smallest leaf-to-leaf distance in
+  that tree.
 
 ## Known differences from the submitted text
 
