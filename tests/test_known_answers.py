@@ -83,5 +83,6 @@ def test_full_precision_newick_keeps_edges_below_five_decimals():
     full = bhv.from_newick(
         neighbor_joining_newick(labels, distances, branch_length_format="%.17g")
     )
-    assert default.internal == {}  # the 2e-6 internal edge is written as 0.00000 and dropped
+    # The 3e-6 internal edge is written as 0.00000 and dropped, whatever Biopython's own default.
+    assert default.internal == {}
     assert list(full.internal.values()) == pytest.approx([3e-6])

@@ -231,8 +231,10 @@ def from_biopython(bp_tree, taxon_namespace=None) -> BHVTree:
     import io
     from Bio import Phylo
 
+    from weighttraits.phylo.reconstruct import NEWICK_BRANCH_LENGTH_FORMAT
+
     buf = io.StringIO()
-    Phylo.write(bp_tree, buf, "newick")
+    Phylo.write(bp_tree, buf, "newick", format_branch_length=NEWICK_BRANCH_LENGTH_FORMAT)
     return from_newick(buf.getvalue().strip(), taxon_namespace=taxon_namespace)
 
 

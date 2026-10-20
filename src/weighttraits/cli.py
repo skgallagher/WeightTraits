@@ -1619,7 +1619,7 @@ def build_parser() -> argparse.ArgumentParser:
     bhv_table.add_argument(
         "--branch-length-format",
         help="Newick branch-length format for the per-layer NJ trees, e.g. %%.17g; default: "
-        "Biopython's five decimals, as used for the submitted Table 2",
+        "%%1.5f, as used for the submitted Table 2",
     )
     bhv_table.add_argument(
         "--expected-active", action="append", default=[], help="fail unless ID has N layers"

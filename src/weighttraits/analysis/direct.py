@@ -516,8 +516,10 @@ def _neighbor_joining_newick(labels: Sequence[str], distances: np.ndarray) -> st
     tree = constructor().nj(distance_matrix(list(labels), lower_triangle))
     from io import StringIO
 
+    from weighttraits.phylo.reconstruct import NEWICK_BRANCH_LENGTH_FORMAT
+
     out = StringIO()
-    phylo.write(tree, out, "newick")
+    phylo.write(tree, out, "newick", format_branch_length=NEWICK_BRANCH_LENGTH_FORMAT)
     return out.getvalue().strip()
 
 
