@@ -1,0 +1,26 @@
+# Faithful PhyloLM (Yax et al., arXiv:2404.04671) baseline on the 10-checkpoint Llama-2-7B
+# HF-zoo family from App. D (c_llama2_7b_chat_small_nodilip). Identical contract to
+# mistral_zoo_phylolm.yaml; only the models differ. Wrapped by codex/submit_llama2_phylolm.sh.
+
+name: llama2_zoo_phylolm
+
+# PhyloLM paper defaults (the `math` dendrogram setting behind Figs 3-4).
+G: 128            # genes sampled from the released math pool
+N: 32             # probes (completions) per gene
+T: 4              # new tokens per probe (min == max)
+allele_chars: 4   # allele = first 4 chars of the completion
+temperature: 1.0  # PhyloLM samples (do_sample=True); NOT greedy
+gene_seed: 0      # fixed -> every model probed on the identical gene set
+# gene_pool: codex/phylolm/genes_math.json   # (default; uncomment to override)
+
+model_ids:
+  - Atulit23__meta-llama-indian-constitution-chat
+  - BLACKBUN__llama-2-7b-pubmed-qa-211k
+  - NousResearch__Nous-Hermes-llama-2-7b
+  - QIAIUNCC__EYE-Llama_gqa
+  - QIAIUNCC__EYE-Llama_qa
+  - bineric__NorskGPT-Llama-7B-v0.1
+  - lmsys__vicuna-7b-v1.5
+  - meta-llama__Llama-2-7b-chat-hf
+  - meta-llama__Llama-2-7b-hf
+  - whatdhack__Llama-2-7b-chat-hf-oasst1-ft-sg
