@@ -1,0 +1,81 @@
+# Local Llama-2-7B HF-zoo registry (App. D family: c_llama2_7b_chat_small_nodilip) for the
+# behavior-only PhyloLM comparison. IDs match the leaf names of
+# outputs/hf_zoo/c_llama2_7b_chat_small_nodilip_resolved/tree.newick exactly.
+# model_path assumes the hf_zoo download layout /scratch/sgallagh/hf_zoo_checkpoints/hf_zoo_<tier>/<id>;
+# verify on the GPU node before submitting.
+
+models:
+  - id: Atulit23__meta-llama-indian-constitution-chat
+    hf_model_id: Atulit23/meta-llama-indian-constitution-chat
+    family: Llama-2-7B
+    architecture: decoder
+    provider: local
+    model_path: /scratch/sgallagh/hf_zoo_checkpoints/hf_zoo_c_llama2_7b/Atulit23__meta-llama-indian-constitution-chat
+    torch_dtype: float16   # stored fp32 (27 GB) does not fit the 24 GB GPU
+
+  - id: BLACKBUN__llama-2-7b-pubmed-qa-211k
+    hf_model_id: BLACKBUN/llama-2-7b-pubmed-qa-211k
+    family: Llama-2-7B
+    architecture: decoder
+    provider: local
+    model_path: /scratch/sgallagh/hf_zoo_checkpoints/hf_zoo_c_llama2_7b/BLACKBUN__llama-2-7b-pubmed-qa-211k
+    torch_dtype: float16   # stored fp32 (27 GB) does not fit the 24 GB GPU
+
+  - id: NousResearch__Nous-Hermes-llama-2-7b
+    hf_model_id: NousResearch/Nous-Hermes-llama-2-7b
+    family: Llama-2-7B
+    architecture: decoder
+    provider: local
+    model_path: /scratch/sgallagh/hf_zoo_checkpoints/hf_zoo_c_llama2_7b/NousResearch__Nous-Hermes-llama-2-7b
+
+  - id: QIAIUNCC__EYE-Llama_gqa
+    hf_model_id: QIAIUNCC/EYE-Llama_gqa
+    family: Llama-2-7B
+    architecture: decoder
+    provider: local
+    model_path: /scratch/sgallagh/hf_zoo_checkpoints/hf_zoo_c_llama2_7b/QIAIUNCC__EYE-Llama_gqa
+    torch_dtype: float16   # stored fp32 (27 GB) does not fit the 24 GB GPU
+
+  - id: QIAIUNCC__EYE-Llama_qa
+    hf_model_id: QIAIUNCC/EYE-Llama_qa
+    family: Llama-2-7B
+    architecture: decoder
+    provider: local
+    model_path: /scratch/sgallagh/hf_zoo_checkpoints/hf_zoo_c_llama2_7b/QIAIUNCC__EYE-Llama_qa
+    torch_dtype: float16   # stored fp32 (27 GB) does not fit the 24 GB GPU
+
+  - id: bineric__NorskGPT-Llama-7B-v0.1
+    hf_model_id: bineric/NorskGPT-Llama-7B-v0.1
+    family: Llama-2-7B
+    architecture: decoder
+    provider: local
+    model_path: /scratch/sgallagh/hf_zoo_checkpoints/hf_zoo_c_llama2_7b/bineric__NorskGPT-Llama-7B-v0.1
+
+  - id: lmsys__vicuna-7b-v1.5
+    hf_model_id: lmsys/vicuna-7b-v1.5
+    family: Llama-2-7B
+    architecture: decoder
+    provider: local
+    # .bin-only checkpoint; loaded from an exact safetensors copy (convert_bin_to_safetensors.py)
+    model_path: /scratch/sgallagh/hf_zoo_checkpoints/safetensors_copies/hf_zoo_c_llama2_7b/lmsys__vicuna-7b-v1.5
+
+  - id: meta-llama__Llama-2-7b-chat-hf
+    hf_model_id: meta-llama/Llama-2-7b-chat-hf
+    family: Llama-2-7B
+    architecture: decoder
+    provider: local
+    model_path: /scratch/sgallagh/hf_zoo_checkpoints/hf_zoo_c_llama2_7b/meta-llama__Llama-2-7b-chat-hf
+
+  - id: meta-llama__Llama-2-7b-hf
+    hf_model_id: meta-llama/Llama-2-7b-hf
+    family: Llama-2-7B
+    architecture: decoder
+    provider: local
+    model_path: /scratch/sgallagh/hf_zoo_checkpoints/hf_zoo_c_llama2_7b/meta-llama__Llama-2-7b-hf
+
+  - id: whatdhack__Llama-2-7b-chat-hf-oasst1-ft-sg
+    hf_model_id: whatdhack/Llama-2-7b-chat-hf-oasst1-ft-sg
+    family: Llama-2-7B
+    architecture: decoder
+    provider: local
+    model_path: /scratch/sgallagh/hf_zoo_checkpoints/hf_zoo_c_llama2_7b/whatdhack__Llama-2-7b-chat-hf-oasst1-ft-sg

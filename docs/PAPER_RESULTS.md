@@ -22,7 +22,7 @@ root has more than one child.
 | --- | --- | --- | --- |
 | Table 2 weight clade, full estimation, FN; App. A RF table (BHV) | `weighttraits.paper.bhv_table`, `weighttraits.phylo.bhv` | `wt bhv-table --suite ID=ROOT ... --truth-root examples/training/confirm_paper_numbers/assigned_manifests --out-dir DIR` (raw scale, seed 0, 300 epochs) | per-layer cosine cubes, `direct/<condition>/analysis` in the downstream root |
 | Table 2 rank-biserial, branch-length r | `weighttraits.paper.direct_weight_table` | `scripts/build_merged_weight_paper_stats.py --config examples/paper/corrected_direct_weight_table2.yaml` (on Wright) | direct-weight run sets, completion receipts, cohort contracts; see [DIRECT_WEIGHT_TABLE2.md](DIRECT_WEIGHT_TABLE2.md) |
-| Table 2 PhyloLM column (Llama) | ELLMTrees `codex/phylolm/score_phylolm_table.py`; same distances as `weighttraits.behavior.phylolm` | see [PhyloLM](#phylolm) | populations generated on the fixed-2,000-step checkpoints |
+| Table 2 PhyloLM column (Llama) | `scripts/phylolm/` on `weighttraits.behavior.phylolm` | see [PhyloLM](#phylolm) | populations generated on the fixed-2,000-step checkpoints |
 | Table 2 chance level (caption) | `weighttraits.phylo.chance` | `wt chance-baseline --manifest-dir examples/training/confirm_paper_numbers/assigned_manifests` | truth manifests |
 | Figure 2 points | `scripts/build_merged_weight_figure2.py` | `--weighttraits-root MIRROR --phylolm-metrics per_run_metrics.csv --phylolm-cohort fixed2000 --out ... --csv-out ... --records-out ...` | run-set rollups, per-layer cubes, PhyloLM per-run metrics |
 | Figure 2 fits, odds ratios, panels | `R/figure2.R`; Python port `weighttraits.stats.fractional_logit` | `Rscript R/figure2.R SUMMARY_CSV RECORDS_CSV BOOTSTRAP_OUT FIGURE_STEM` (2,000 paired-tree replicates, seed 20260805) | Figure 2 summary and records CSVs |
@@ -82,8 +82,9 @@ Table 2 ordering output: `table2.json` `55a9c2cb…`.
 The Table 2 column comes from a 24 Sep rerun on the fixed-2,000-step Llama checkpoints. Before that
 rerun, the column used an earlier early-stopped training of the same trees.
 
-* Code: ELLMTrees `codex/phylolm/run_weighttraits_fixed2000_tree.py` generates; its
-  `score_phylolm_table.py` scores.
+* Code: [`scripts/phylolm/`](../scripts/phylolm/README.md). `run_weighttraits_fixed2000_tree.py`
+  generates and `score_phylolm_table.py` scores (originally in ELLMTrees `codex/phylolm`).
+  Rescoring the 150 saved runs reproduces the column byte for byte (20 Oct 2026).
 * Output: `results/aggregate/weighttraits_fixed2000_phylolm/`, mirrored with a receipt under
   `sources/wright/phylolm_fixed2000`.
 * Agreement: WeightTraits' `weighttraits.behavior.phylolm.nei_distance_matrix` with
