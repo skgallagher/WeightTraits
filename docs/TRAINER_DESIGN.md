@@ -328,10 +328,28 @@ saves merged child weights so descendants initialize from the updated parent. Lo
 are written to the training ledger as `running` events; final statuses are `completed`,
 `stopped_early`, or `failed`.
 
-## Next Execution Layer
+## Protocol Pins
 
-The next trainer increment should add:
+A run list can pin its protocol in `trainer`:
 
-- a tiny real-model smoke in a prepared environment;
-- model-family-specific tokenization/prompt target refinements;
-- cluster submission wrappers around the generated run-list scripts.
+* `expected_runtime`: exact package versions;
+* `expected_source_code`: the `sha256-relative-path-and-content-v1` receipt of `src/weighttraits`;
+* `expected_cache_source_receipt`: the data-cache source receipt.
+
+`run-training-row` checks each pin before loading a model and refuses to train on a mismatch. The
+pins are never passed to Hugging Face: `_training_arguments` drops them, and a test checks every
+paper run list against the real `TrainingArguments` fields.
+
+## Training Code Of Record
+
+The paper's controlled cohorts were trained in August 2026 by the package archived at tag
+`training-code-august-20260817` (50 files, receipt `64494e92…3df01`). That tag also holds the
+August run lists, which carry no pins. Check it out and run `run-training-row` on those run lists
+to retrain a node exactly. Flan-T5 training is bit-deterministic and Llama training on GPU is not.
+See `TRAINING_CODE_AUGUST_2026.md` at that tag.
+
+The earlier tag `training-code-frozen-20260810` regenerated the run lists with the three pins and
+pinned its own 60-file package (receipt `1445e45d…`). Its argument builder forwarded the pins to
+Hugging Face, so neither it nor the August package can train those pinned run lists. The training
+code paths are the same in both packages; only provenance code differs. To train the pinned run
+lists with current code, build new run lists that pin current code.
