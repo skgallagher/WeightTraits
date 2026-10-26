@@ -59,4 +59,23 @@ Full redo on Wright (20 Oct 2026), from fresh downloads at the pinned revisions:
 
 The Llama-2 chat clade appears in 275 of 289 per-layer trees (95.2%), as in the paper. The new
 Mistral cube orders its layers differently from the original; scored in either order, it gives the
-same tree and scores. PhyloLM for both families runs separately (`phylolm_stream.py`).
+same tree and scores.
+
+PhyloLM redo (Slurm job 237508, one L40, 21 Oct 2026). `phylolm_stream.py` was run with the
+`*_zoo_phylolm_wright.yaml` configs (sampling seed 20260803), streaming each model from a fresh
+pinned download. Every allele is nonempty.
+
+| Family | PhyloLM clades | PhyloLM A, redo | PhyloLM A, paper | Weight A |
+| --- | --- | --- | --- | --- |
+| Llama-2-7B | 1/1 | 0.651 | 0.643 (0.64) | 0.817 |
+| Mistral-7B | 3/3 | 0.806 | 0.681 (0.68) | 0.858 |
+
+* **Clades.** PhyloLM again estimates every documented clade in both families, as the paper says.
+* **Scorer check.** The same scorer gives 0.643 and 0.681 on the original PhyloLM matrices
+  (`ELLMTrees/results/hf_zoo/{c_llama2_7b_chat_small_nodilip,d_mistral_7b}/phylolm`). So the
+  difference is in the sampled populations, not in the scoring.
+* **Mistral.** The original run set no sampling seed. Its redo Nei similarities correlate 0.97 with
+  the original's. The largest pair difference is 0.06, and the redo averages 0.016 higher. Yet A
+  rises from 0.68 to 0.81. Weights stay more tree-like than PhyloLM in both families, but the
+  Mistral gap is 0.05 in the redo, not the paper's 0.18. A single draw does not show how much A
+  varies with the sampling seed.
