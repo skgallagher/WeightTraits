@@ -18,6 +18,7 @@ Their documented trees and model maps are in `examples/hf_families/<family>/`.
 | 3. Build the per-tensor distance cube over the shared tensors | `build_family_cube.py --manifest ROOT/download_manifest.json --family F --out DIR` | CPU |
 | 4. Build BHV and NJ trees and score them against the documented tree | `family_trees.py --cube-dir DIR --truth examples/hf_families/F/tree.newick [--phylolm DIR]` | CPU |
 | 5. Run PhyloLM, streaming one model at a time through one GPU | `phylolm_stream.py --family F --config ../phylolm/configs/F_zoo_phylolm_wright.yaml ...` | GPU |
+| 6. Repeat PhyloLM over sampling seeds from the local checkpoints, and score each seed | `phylolm_seeds.py --family F --models-dir ROOT/models --seeds 1,2,... ...` | GPU |
 
 Revisions are pinned in `download_families.FAMILIES`, as commit prefixes; the first 40 hex
 characters are recorded in `download_manifest.json`. The two `meta-llama` repos are gated and
@@ -76,6 +77,24 @@ pinned download. Every allele is nonempty.
   difference is in the sampled populations, not in the scoring.
 * **Mistral.** The original run set no sampling seed. Its redo Nei similarities correlate 0.97 with
   the original's. The largest pair difference is 0.06, and the redo averages 0.016 higher. Yet A
-  rises from 0.68 to 0.81. Weights stay more tree-like than PhyloLM in both families, but the
-  Mistral gap is 0.05 in the redo, not the paper's 0.18. A single draw does not show how much A
-  varies with the sampling seed.
+  rises from 0.68 to 0.81.
+
+Seed repeats (`phylolm_seeds.py`, Slurm jobs 250434–250435 on n03, 26 Oct 2026, commit
+`6929dbe`). These are 11 seeds per family: 20260803 and 1–10, all from the downloaded checkpoints.
+Seed 20260803 reproduced job 237508's allele populations exactly for all 20 models.
+
+| Family | Seeds with every clade | PhyloLM A, mean (sd) | Range | Paper | Weight A |
+| --- | --- | --- | --- | --- | --- |
+| Llama-2-7B | 11/11 | 0.655 (0.015) | 0.625–0.683 | 0.643 | 0.817 |
+| Mistral-7B | 11/11 | 0.827 (0.018) | 0.806–0.855 | 0.681 | 0.858 |
+
+* **Llama-2.** The paper's value lies inside the seed range. Weights are more tree-like than
+  PhyloLM by about 0.16.
+* **Mistral.** The paper's 0.68 lies about eight standard deviations below the seed mean, so it
+  does not reproduce. Its population files predate the dtype field. They come from the first
+  version of the collection script (2 July). Its sampling code is the same as now apart from the
+  optional seed, so the cause is probably the July environment or checkpoint snapshot, which were
+  not recorded. Under the documented protocol, weights are more tree-like than PhyloLM in all 11
+  seeds, but only by 0.00–0.05, not the paper's 0.18.
+* **Clades.** Every seed estimates every documented clade in both families. The paper's clade
+  claims stand.
