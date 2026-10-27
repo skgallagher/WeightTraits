@@ -266,13 +266,27 @@ def _direct_distance_layers(
     chunk_size: int,
     eps: float,
     artifact: str,
+    keys: Sequence[str] | None = None,
 ) -> tuple[dict[str, np.ndarray], list[str], list[str], dict[str, Any]]:
+    """Per-tensor distances over all readers.
+
+    By default every reader must hold exactly the same tensor names. Pass ``keys`` to use an
+    explicit subset instead (for example the shared tensors of independently released models);
+    each key must then exist in every reader.
+    """
     if not readers:
         raise ValueError("at least one reader is required")
     if chunk_size <= 0:
         raise ValueError("chunk_size must be positive")
-    keys = readers[0].keys()
-    _validate_reader_keys(readers, keys)
+    if keys is None:
+        keys = readers[0].keys()
+        _validate_reader_keys(readers, keys)
+    else:
+        keys = list(keys)
+        for reader in readers:
+            missing = sorted(set(keys) - set(reader.keys()))[:5]
+            if missing:
+                raise ValueError(f"reader {reader.model_id} lacks requested keys: {missing}")
     model_ids = [reader.model_id for reader in readers]
 
     layers_by_metric: dict[str, list[np.ndarray]] = {metric: [] for metric in metrics}

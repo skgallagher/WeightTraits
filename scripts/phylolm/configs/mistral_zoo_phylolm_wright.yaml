@@ -1,0 +1,51 @@
+# App. D PhyloLM, Wright redo (Oct 2026): identical to mistral_zoo_phylolm.yaml except for the name and
+# a fixed sampling seed (the controlled runs' seed), so the populations are reproducible.
+# Faithful PhyloLM (Yax et al., arXiv:2404.04671) baseline on the 10-model
+# Mistral-7B HF zoo tier -- the behavior-only competitor for Corollary 2.
+#
+# PhyloLM is NOT a task benchmark: it probes each model on a fixed bank of short
+# `math` genes (released gene pool vendored at codex/phylolm/genes_math.json,
+# extracted from the pinned repo commit 8c70edf), samples N raw completions of T
+# tokens per gene, takes the 4-char allele, and builds an NJ tree from the Nei
+# similarity of the allele populations. Prompts are RAW (no chat template) for all
+# 10 models -- that is PhyloLM's design and is applied identically across the base/
+# instruct/openchat/zephyr/starling formats.
+#
+# Pipeline (registry reused unchanged -> blackbox/configs/models_mistral_zoo.yaml):
+#   # per model index 0..9 (Slurm array), on the GPU node holding the checkpoints:
+#   python codex/phylolm/collect_phylolm.py \
+#       --config blackbox/configs/mistral_zoo_phylolm.yaml \
+#       --registry blackbox/configs/models_mistral_zoo.yaml \
+#       --model-index $SLURM_ARRAY_TASK_ID
+#   # then, once all 10 populations exist:
+#   python codex/phylolm/phylolm_distance.py \
+#       --populations blackbox/data/mistral_zoo_phylolm/populations \
+#       --out results/hf_zoo/d_mistral_7b/phylolm
+#   python codex/score_hf_zoo_recovery.py clades \
+#       --reference outputs/hf_zoo/d_mistral_7b_resolved/tree.newick \
+#       --recon results/hf_zoo/d_mistral_7b/phylolm/phylolm_nj.newick
+# codex/submit_mistral_phylolm.sh wraps this as an sbatch array + post job.
+
+name: mistral_zoo_phylolm_wright
+
+# PhyloLM paper defaults (the `math` dendrogram setting behind Figs 3-4).
+G: 128            # genes sampled from the released math pool
+N: 32             # probes (completions) per gene
+T: 4              # new tokens per probe (min == max)
+allele_chars: 4   # allele = first 4 chars of the completion
+temperature: 1.0  # PhyloLM samples (do_sample=True); NOT greedy
+gene_seed: 0      # fixed -> every model probed on the identical gene set
+sampling_seed: 20260803  # added for the Oct 2026 Wright redo; the original App. D run was unseeded
+# gene_pool: codex/phylolm/genes_math.json   # (default; uncomment to override)
+
+model_ids:
+  - HuggingFaceH4__zephyr-7b-beta
+  - Nexusflow__Starling-LM-7B-beta
+  - alignment-handbook__zephyr-7b-sft-full
+  - berkeley-nest__Starling-LM-7B-alpha
+  - mistralai__Mistral-7B-Instruct-v0.1
+  - mistralai__Mistral-7B-v0.1
+  - openchat__openchat-3.5-0106
+  - openchat__openchat_3.5
+  - teknium__OpenHermes-2-Mistral-7B
+  - teknium__OpenHermes-2.5-Mistral-7B

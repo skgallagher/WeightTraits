@@ -97,6 +97,11 @@ def main() -> None:
             model_path=model_path, genome=genome, N=N, T=T,
             allele_chars=allele_chars, temperature=temperature,
             batch_size=args.batch_size,
+            # Optional per-model override (registry `torch_dtype`); default "auto" keeps
+            # the checkpoint's own dtype, exactly as in the Mistral run.
+            torch_dtype=reg[mid].get("torch_dtype", "auto"),
+            # Optional (config `sampling_seed`); the original App. D runs set none.
+            sampling_seed=cfg.get("sampling_seed"),
         )
         P = pl.compute_P(alleles)
         # Quick health signal: mean #distinct alleles per gene, empty-allele rate.
@@ -106,6 +111,8 @@ def main() -> None:
             "G": G, "N": N, "T": T, "allele_chars": allele_chars,
             "temperature": temperature, "gene_seed": seed,
             "model_path": model_path,
+            "torch_dtype": reg[mid].get("torch_dtype", "auto"),
+            "sampling_seed": cfg.get("sampling_seed"),
             "mean_distinct_alleles_per_gene": round(n_distinct, 3),
             "mean_empty_allele_freq": round(float(empty_rate), 4),
             "seconds": round(time.monotonic() - t0, 1),

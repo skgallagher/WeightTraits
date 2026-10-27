@@ -1,0 +1,11 @@
+node_id	repo_id	tier	depth	downloads	approx_gb_fp16
+HuggingFaceH4__zephyr-7b-beta	HuggingFaceH4/zephyr-7b-beta	d_mistral_7b	2	0	14.5
+Nexusflow__Starling-LM-7B-beta	Nexusflow/Starling-LM-7B-beta	d_mistral_7b	2	0	14.5
+alignment-handbook__zephyr-7b-sft-full	alignment-handbook/zephyr-7b-sft-full	d_mistral_7b	1	0	14.5
+berkeley-nest__Starling-LM-7B-alpha	berkeley-nest/Starling-LM-7B-alpha	d_mistral_7b	2	0	14.5
+mistralai__Mistral-7B-Instruct-v0.1	mistralai/Mistral-7B-Instruct-v0.1	d_mistral_7b	1	0	14.5
+mistralai__Mistral-7B-v0.1	mistralai/Mistral-7B-v0.1	d_mistral_7b	0	0	14.5
+openchat__openchat-3.5-0106	openchat/openchat-3.5-0106	d_mistral_7b	1	0	14.5
+openchat__openchat_3.5	openchat/openchat_3.5	d_mistral_7b	1	0	14.5
+teknium__OpenHermes-2-Mistral-7B	teknium/OpenHermes-2-Mistral-7B	d_mistral_7b	1	0	14.5
+teknium__OpenHermes-2.5-Mistral-7B	teknium/OpenHermes-2.5-Mistral-7B	d_mistral_7b	1	0	14.5

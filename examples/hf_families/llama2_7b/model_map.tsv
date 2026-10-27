@@ -1,0 +1,11 @@
+node_id	repo_id	tier	depth	downloads	approx_gb_fp16
+Atulit23__meta-llama-indian-constitution-chat	Atulit23/meta-llama-indian-constitution-chat	c_llama2_7b	2	11	
+BLACKBUN__llama-2-7b-pubmed-qa-211k	BLACKBUN/llama-2-7b-pubmed-qa-211k	c_llama2_7b	2	9	
+NousResearch__Nous-Hermes-llama-2-7b	NousResearch/Nous-Hermes-llama-2-7b	c_llama2_7b	1	6445	13.5
+QIAIUNCC__EYE-Llama_gqa	QIAIUNCC/EYE-Llama_gqa	c_llama2_7b	2	145	13.5
+QIAIUNCC__EYE-Llama_qa	QIAIUNCC/EYE-Llama_qa	c_llama2_7b	2	18	13.5
+bineric__NorskGPT-Llama-7B-v0.1	bineric/NorskGPT-Llama-7B-v0.1	c_llama2_7b	2	335	13.5
+lmsys__vicuna-7b-v1.5	lmsys/vicuna-7b-v1.5	c_llama2_7b	1	92088	
+meta-llama__Llama-2-7b-chat-hf	meta-llama/Llama-2-7b-chat-hf	c_llama2_7b	1	268605	13.5
+meta-llama__Llama-2-7b-hf	meta-llama/Llama-2-7b-hf	c_llama2_7b	0	764617	13.5
+whatdhack__Llama-2-7b-chat-hf-oasst1-ft-sg	whatdhack/Llama-2-7b-chat-hf-oasst1-ft-sg	c_llama2_7b	2	15	13.5
